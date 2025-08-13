@@ -1,0 +1,31 @@
+# Make sure PRs follow the Conventional Commits specification
+
+name: conventional-pull-request
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, synchronize]
+
+permissions:
+  pull-requests: read
+  contents: read
+
+jobs:
+  lint-pr:
+      # Skip this job for Dependabot PRs as they often exceed the usual length
+    if: ${{ github.actor != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # Most recent release of https://github.com/CondeNast/conventional-pull-request-action/releases
+      - uses: CondeNast/conventional-pull-request-action@v0.2.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Don't use config.js for now as the project uses config.ts
+          # commitlintRulesPath: "./commitlint.config.js" # default: undefined
+          # If the PR contains a single commit, fail if the commit message and the PR title do not match
+          commitTitleMatch: "false" # default: 'true'
+          # If you squash merge PRs and enabled "Default to PR title for squash merge commits", you can disable all linting of commits
+          ignoreCommits: "true" # default: 'false'
