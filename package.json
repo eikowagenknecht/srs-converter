@@ -11,7 +11,8 @@
     "onlyBuiltDependencies": [
       "lefthook",
       "protobufjs",
-      "unrs-resolver"
+      "unrs-resolver",
+      "esbuild"
     ]
   },
   "description": "A library for converting between different spaced repetition system formats",
@@ -52,7 +53,10 @@
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest watch",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "clean:npm": "pnpm dlx rimraf -rf node_modules",
+    "sync:npm": "pnpm i --frozen-lockfile",
+    "upgrade:npm": "pnpm dlx rimraf pnpm-lock.yaml && pnpm up --latest && pnpm i"
   },
   "dependencies": {
     "archiver": "7.0.1",
