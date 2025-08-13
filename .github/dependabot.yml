@@ -1,0 +1,36 @@
+version: 2
+updates:
+  # Check for updates to the used NPM packages every week
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    target-branch: "main"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    # Limit the number of open pull requests to 100 instead of 5
+    open-pull-requests-limit: 100
+    assignees:
+      - eikowagenknecht
+    groups:
+      # Everything that is not a major update
+      npm-updates:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Check for updates to GitHub Actions every week
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    target-branch: "main"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    assignees:
+      - eikowagenknecht
