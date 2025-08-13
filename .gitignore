@@ -1,0 +1,33 @@
+# Virtual environment (Node)
+node_modules
+
+# Temp directories
+/temp/
+
+# Output
+dist/
+out/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Editor directories and files
+.idea
+.vscode/*
+# ... but include these files
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
+
+# Vitest code coverage reports
+coverage/
+
+# Local configuration files
+*.local.*

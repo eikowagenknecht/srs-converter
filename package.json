@@ -1,0 +1,89 @@
+{
+  "name": "srs-converter",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.14.0",
+  "engines": {
+    "pnpm": ">=10.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "lefthook",
+      "protobufjs",
+      "unrs-resolver"
+    ]
+  },
+  "description": "A library for converting between different spaced repetition system formats",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "license": "AGPL-3.0-or-later",
+  "author": "",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "keywords": [
+    "srs",
+    "spaced-repetition",
+    "flashcards",
+    "converter"
+  ],
+  "files": [
+    "dist/",
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc",
+    "format": "prettier --write ./src && biome format --write ./src",
+    "lint": "pnpm type-check && pnpm lint:eslint && pnpm lint:prettier && pnpm lint:biome",
+    "lint:biome": "biome check --write ./src",
+    "lint:eslint": "eslint --fix ./src",
+    "lint:prettier": "prettier --write ./src",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "archiver": "7.0.1",
+    "kysely": "0.28.5",
+    "kysely-wasm": "1.2.1",
+    "protobufjs": "7.5.3",
+    "sql.js": "1.13.0",
+    "unzipper": "0.12.3",
+    "uuid": "11.1.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.1.4",
+    "@commitlint/cli": "19.8.1",
+    "@commitlint/config-conventional": "19.8.1",
+    "@commitlint/types": "19.8.1",
+    "@eslint/js": "9.33.0",
+    "@types/archiver": "6.0.3",
+    "@types/node": "24.2.1",
+    "@types/sql.js": "1.4.9",
+    "@types/unzipper": "0.10.11",
+    "@types/uuid": "10.0.0",
+    "@vitest/coverage-v8": "3.2.4",
+    "eslint": "9.33.0",
+    "eslint-import-resolver-typescript": "4.4.4",
+    "eslint-plugin-import-x": "4.16.1",
+    "eslint-plugin-jsdoc": "52.0.4",
+    "globals": "16.3.0",
+    "lefthook": "1.12.2",
+    "prettier": "3.6.2",
+    "typescript": "5.9.2",
+    "typescript-eslint": "8.39.0",
+    "vitest": "3.2.4"
+  }
+}
