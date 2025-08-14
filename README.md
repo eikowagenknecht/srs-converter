@@ -250,7 +250,8 @@ const result = await AnkiPackage.fromAnkiExport('./partly-corrupt.apkg', {
 | Feature | Anki | Mnemosyne | SuperMemo | Mochi | Custom Formats |
 |---------|------|-----------|-----------|-------|----------------|
 | **Read Support** | ✅ Good | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned |
-| **Write Support** | ⚠️ Basic | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned |
+| **Write Support** | ✅ Good | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned |
+| **Round-trip** | ✅ Working | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned |
 | **File Types** | `.apkg`, `.colpkg` | - | - | - | - |
 | **Database Schema** | Legacy v2 | - | - | - | - |
 
@@ -268,7 +269,14 @@ For detailed technical information about the Anki package format, see: [Understa
 | **Media Files** | ✅ Full | References and mappings |
 | **Formats** | ⚠️ Partial | Only Legacy v2 is supported for now |
 | **Plugin Data** | ❌ No | Plugin-specific data may be ignored |
-| **Conversion Quality** | ⚠️ Basic | Converting to other formats may result in loss of some data (e.g. formatting, media attachments) |
+| **Conversion Quality** | ⚠️ Limited | Anki ↔ Universal SRS format conversion preserves basic data with round-trip capability |
+| **Advanced Features** | ⚠️ Limited | Complex note types (Cloze, Image Occlusion) and plugin data not fully supported |
+
+## Development Roadmap
+
+The library development follows a structured phase-based approach. For detailed development progress, upcoming features, and implementation status, see the [**Development Stories**](docs/stories/README.md).
+
+**Current Focus**: Expanding test coverage for existing Anki functionality and adding support for complex note types (Cloze, Image Occlusion) before implementing additional SRS formats (Mnemosyne, Mochi, SuperMemo).
 
 ## Tech Stack
 
@@ -284,6 +292,7 @@ For detailed development information:
 
 - [Architecture Overview](docs/README.architecture.md) - System design and technical decisions
 - [Decision Records](docs/decisions/README.md) - Architectural decisions and their rationale
+- [Development Stories](docs/stories/README.md) - Development roadmap and progress tracking
 - [Development Commands](docs/README.commands.md) - Package management and build commands
 - [Testing Guidelines](docs/README.testing.md) - Testing setup and best practices  
 - [Setup Guide](docs/README.setup.md) - Environment setup and prerequisites

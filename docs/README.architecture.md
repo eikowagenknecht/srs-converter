@@ -221,17 +221,15 @@ This project is built with **TypeScript** and follows modern Node.js development
 
 ### Runtime Dependencies
 
-The library uses 7 carefully selected runtime dependencies:
+The library uses carefully selected runtime dependencies:
 
-| Dependency | Version | Purpose |
-|------------|---------|---------|
-| **`sql.js`** | 1.13.0 | SQLite database engine compiled to JavaScript for reading Anki databases |
-| **`kysely`** | 0.28.5 | Type-safe SQL query builder for database operations |
-| **`kysely-wasm`** | 1.2.1 | WASM support for Kysely to work with sql.js |
-| **`unzipper`** | 0.12.3 | Extract contents from Anki .apkg/.colpkg archive files |
-| **`archiver`** | 7.0.1 | Create zip archives (used for testing and potential export features) |
-| **`protobufjs`** | 7.5.3 | Parse Protocol Buffer data used in some Anki formats |
-| **`uuid`** | 11.1.0 | Generate unique identifiers for SRS components |
+- **`sql.js`**: SQLite database engine compiled to JavaScript for reading Anki databases
+- **`kysely`**: Type-safe SQL query builder for database operations
+- **`kysely-wasm`**: WASM support for Kysely to work with sql.js
+- **`unzipper`**: Extract contents from Anki .apkg/.colpkg archive files
+- **`archiver`**: Create zip archives (used for testing and potential export features)
+- **`protobufjs`**: Parse Protocol Buffer data used in some Anki formats
+- **`uuid`**: Generate unique identifiers for SRS components
 
 All dependencies are well-maintained, widely-used libraries in the JavaScript ecosystem.
 
@@ -245,6 +243,29 @@ Key development tools for maintaining code quality:
 - **`eslint`**: Additional linting rules and plugin support
 - **`prettier`**: Code formatting standardization
 - **`lefthook`**: Git hooks management for automated quality checks
+
+## Development Roadmap
+
+The library development follows a structured approach documented in [Development Stories](stories/README.md). The roadmap is organized into phases:
+
+### Phase 1: Complete Anki Format Support
+
+- Complete Anki reading with all features and 100% test coverage
+- Implement comprehensive Anki writing capabilities
+- Handle all Anki note types (Basic, Cloze, Image Occlusion)
+
+### Phase 2-4: Additional Format Support
+
+- Mnemosyne format I/O implementation
+- Mochi format I/O implementation
+- SuperMemo format I/O implementation
+- Each format gets at least reading support and writing support if feasible
+
+### Phase 5-6: Universal Format and Conversion
+
+- Finalize universal SRS format based on multi-format analysis
+- Implement conversion layer between all supported formats
+- Cross-format conversion testing and quality metrics
 
 ## Future Architecture Considerations
 
