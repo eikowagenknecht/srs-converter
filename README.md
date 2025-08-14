@@ -283,6 +283,7 @@ This project is maintained by Eiko Wagenknecht.
 For detailed development information:
 
 - [Architecture Overview](docs/README.architecture.md) - System design and technical decisions
+- [Decision Records](docs/decisions/README.md) - Architectural decisions and their rationale
 - [Development Commands](docs/README.commands.md) - Package management and build commands
 - [Testing Guidelines](docs/README.testing.md) - Testing setup and best practices  
 - [Setup Guide](docs/README.setup.md) - Environment setup and prerequisites
