@@ -109,17 +109,13 @@ For detailed technical information about the Anki package format, see: [Understa
 | **Conversion Quality** | ⚠️ Partial | Anki ↔ Universal SRS format conversion preserves basic data with round-trip capability |
 | **Advanced Features** | ⚠️ Partial | Complex note types (Cloze, Image Occlusion) are untested |
 
-## Tech Stack
-
-Built with TypeScript and modern tooling. For detailed information about the technology stack, dependencies, and architectural decisions, see the [Architecture Documentation](docs/README.architecture.md).
-
 ## Maintainer
 
 This project is maintained by [Eiko Wagenknecht](https://eikowagenknecht.de).
 
 ## Contributing
 
-🚀 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Development Documentation
 
