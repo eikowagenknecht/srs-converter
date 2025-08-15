@@ -1,6 +1,5 @@
 {
   "name": "srs-converter",
-  "private": true,
   "version": "0.1.0",
   "type": "module",
   "packageManager": "pnpm@10.14.0",
@@ -25,20 +24,27 @@
     }
   },
   "license": "AGPL-3.0-or-later",
-  "author": "",
+  "author": "Eiko Wagenknecht <git@eiko-wagenknecht.de> (https://eikowagenknecht.de)",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "git+https://github.com/eikowagenknecht/srs-converter.git"
   },
+  "bugs": {
+    "url": "https://github.com/eikowagenknecht/srs-converter/issues"
+  },
+  "homepage": "https://github.com/eikowagenknecht/srs-converter#readme",
   "keywords": [
     "srs",
     "spaced-repetition",
     "flashcards",
-    "converter"
+    "converter",
+    "anki",
+    "apkg",
+    "typescript"
   ],
   "files": [
     "dist/",
-    "src/",
+    "!dist/**/*.test.*",
     "README.md",
     "LICENSE"
   ],
