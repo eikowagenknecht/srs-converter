@@ -1,17 +1,16 @@
 # srs-converter Individual Contributor License Agreement
 
 Thank you for your interest in srs-converter (the "Project") maintained by Eiko Wagenknecht (the "Project Owner").
-To clarify the intellectual property license granted with Contributions from any person or entity, the Project Owner must have on file a signed Contributor License Agreement ("CLA") from each Contributor, indicating agreement with the license terms below.
+To clarify the intellectual property license granted with Contributions from any person or entity, the Project Owner must have on file agreement to this Contributor License Agreement ("CLA") from each Contributor, indicating agreement with the license terms below.
 This agreement is for your protection as a Contributor as well as the protection of the Project Owner and its users.
 It does not change your rights to use your own Contributions for any other purpose.
 
-Please complete and sign this Agreement, and then email a PDF copy to <cla@eiko-wagenknecht.de> only (do not copy any other persons or lists).
-Read this document carefully before signing and keep a copy for your records.
+By checking the CLA agreement checkbox in your pull request, you are indicating your acceptance of these terms.
 
 You accept and agree to the following terms and conditions for Your Contributions (present and future) that you submit to the Project Owner.
 Except for the license granted herein to the Project Owner and recipients of software distributed by the Project Owner, You reserve all right, title, and interest in and to Your Contributions.
 
-For questions about this CLA or to submit Corporate CLAs, please contact:
+For questions about this CLA, please contact:
 
 **Eiko Wagenknecht**  
 Email: <cla@eiko-wagenknecht.de>  
@@ -60,35 +59,3 @@ Should You wish to submit work that is not Your original creation, You may submi
 ## 8. Notification of Changes
 
 You agree to notify the Project Owner of any facts or circumstances of which you become aware that would make these representations inaccurate in any respect.
-
----
-
-**Full name:**
-
-\_____________________________________________________
-
-**Postal Address:**
-
-\_____________________________________________________
-
-\_____________________________________________________
-
-**Country:**
-
-\_____________________________________________________
-
-**E-Mail:**
-
-\_____________________________________________________
-
-**GitHub Username:**
-
-\_____________________________________________________
-
-**Date:**
-
-\_____________________________________________________
-
-**Signature:**
-
-\_____________________________________________________

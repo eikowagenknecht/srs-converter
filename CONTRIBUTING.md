@@ -9,20 +9,17 @@ This document provides guidelines for contributing to this project.
 ## Contributor License Agreement (CLA)
 
 > [!important]
-> **All contributors must sign a Contributor License Agreement (CLA) before their contributions can be accepted.**
+> **All contributors must agree to the Contributor License Agreement (CLA) before their contributions can be accepted.**
 
 The CLA ensures clear legal licensing for all contributions, protects both contributors and the project, and enables effective project maintenance and distribution.
 
-### How to Sign the CLA
+### How to Accept the CLA
 
 1. **Read the full CLA**: [CLA.md](CLA.md)
-2. **Download/Print the CLA**: Print the CLA document
-3. **Complete all required fields**: Fill in your information in the form fields
-4. **Sign and date**: Add your signature and the current date
-5. **Email signed PDF**: Send the completed, signed CLA as PDF to <cla@eiko-wagenknecht.de>
-6. **Wait for confirmation** before submitting code contributions
+2. **Check the CLA box** in your pull request to indicate your agreement
+3. **Submit your pull request**
 
-The CLA must be physically or digitally signed to be legally valid.
+By checking the CLA agreement box in your pull request, you are indicating your acceptance of the CLA terms.
 
 ## Getting Started
 
