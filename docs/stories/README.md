@@ -1,5 +1,11 @@
 # srs-converter - Development Stories
 
+> [!important]
+> This document is a work in progress and may be incomplete or inaccurate.
+> AI was involved in the initial drafting of this document, so there may be errors or inconsistencies.
+>
+> We will thoroughly review and update this document before implementing stories.
+
 ## Overview
 
 This document outlines the current development roadmap for the srs-converter library, from completing format-specific I/O implementations through universal format design and cross-format conversion capabilities.
@@ -20,6 +26,10 @@ This document outlines the current development roadmap for the srs-converter lib
 - **Phase 1.1**: Complete Anki writing with full feature support and compatibility
   - Progress: 0/4 stories completed (0%) ⏳
   - Status: Basic writing exists but needs comprehensive implementation
+
+- **Phase 1.1.5**: Add user-facing media file APIs for reading and writing actual files
+  - Progress: 0/3 stories completed (0%) ⏳
+  - Status: Currently only metadata is handled - need APIs for actual file operations
 
 - **Phase 1.2**: Achieve 100% test coverage and handle all Anki edge cases
   - Progress: 1/4 stories completed (25%) 🔄
@@ -85,28 +95,28 @@ This document outlines the current development roadmap for the srs-converter lib
 
 ---
 
-#### Story 1.0.2: Add Anki Media File Reading and Organization
+#### Story 1.0.2: Add Anki Media File Metadata Reading
 
 **Status:** ✅ Completed
 
-**Story:** As a developer, I want to read and organize media files from Anki packages so the library can handle images, audio, and other attachments.
+**Story:** As a developer, I want to read media file metadata from Anki packages so the library can track media references and mappings.
 
 **Acceptance Criteria:**
 
-- ✅ Extract media files from packages  
-- ✅ Maintain media file references and mappings
-- ✅ Handle various media file types (images, audio, video)
-- ✅ Preserve media organization structure
+- ✅ Extract media file references and mappings from packages
+- ✅ Maintain media file metadata (filenames, checksums)
+- ✅ Handle various media file types in metadata (images, audio, video)
+- ✅ Preserve media organization structure references
 
 **Implementation Notes:**
 
-- Media handling implemented in `src/anki/anki-package.ts`
-- Uses archiver/unzipper for media extraction
+- Media metadata handling implemented in `src/anki/anki-package.ts`
 - Media references tracked in database
+- Internal preservation of mappings only - no user-facing API for actual files
 
 **Testing:**
 
-- ✅ Manual: Media extraction works
+- ✅ Manual: Media metadata extraction works
 - ✅ Manual: Media references preserved
 
 ---
@@ -194,30 +204,31 @@ This document outlines the current development roadmap for the srs-converter lib
 
 ---
 
-#### Story 1.1.2: Add Anki Media File Writing and Packaging
+#### Story 1.1.2: Add Anki Media File Metadata Writing
 
 **Status:** ⏳ Pending
 
-**Story:** As a developer, I want to write media files to Anki packages so exported packages include all referenced media.
+**Story:** As a developer, I want to write media file metadata to Anki packages so exported packages preserve media references.
 
 **Acceptance Criteria:**
 
-- [ ] Include all referenced media files in package
-- [ ] Create proper media directory structure
-- [ ] Generate media mapping files
-- [ ] Handle various media file types
-- [ ] Optimize media file organization
+- [ ] Write media file references to package metadata
+- [ ] Create proper media mapping files (media.db)
+- [ ] Generate media directory structure references
+- [ ] Handle various media file type metadata
+- [ ] Preserve media file organization in metadata
 
 **Implementation Notes:**
 
-- Need to implement media packaging
+- Need to implement media metadata packaging
 - Must create media.db and maintain file mappings
-- Handle media file deduplication
+- Handle media file reference deduplication
+- No actual file content handling - metadata only
 
 **Testing:**
 
-- [ ] Manual: Media files accessible in Anki after import
-- [ ] Manual: Various media types (images, audio, video)
+- [ ] Manual: Media metadata preserved in exported packages
+- [ ] Manual: Various media type references handled
 
 ---
 
@@ -273,6 +284,98 @@ This document outlines the current development roadmap for the srs-converter lib
 
 - [ ] Manual: Complex cards work correctly in Anki
 - [ ] Manual: Advanced features preserved
+
+---
+
+### Phase 1.1.5: Anki Media File API Support
+
+#### Story 1.1.5.1: Add User-Facing API for Retrieving Media Files
+
+**Status:** ⏳ Pending
+
+**Story:** As a developer, I want to retrieve actual media files from Anki packages so applications can access images, audio, and other media content.
+
+**Acceptance Criteria:**
+
+- [ ] Implement API to extract actual media files from packages
+- [ ] Support streaming large media files without loading entire file into memory
+- [ ] Provide file metadata (size, type, checksum) along with file content
+- [ ] Handle various media file types (images, audio, video, documents)
+- [ ] Return media files as readable streams or buffers
+- [ ] Implement efficient media file caching for repeated access
+
+**Implementation Notes:**
+
+- Build on existing media metadata reading (Story 1.0.2)
+- Use streaming APIs for large files
+- Consider memory-efficient access patterns
+- Integrate with existing media reference tracking
+
+**Testing:**
+
+- [ ] Manual: Extract various media file types
+- [ ] Performance: Large media file handling
+- [ ] Unit: Media file API validation
+
+---
+
+#### Story 1.1.5.2: Add User-Facing API for Adding Media Files
+
+**Status:** ⏳ Pending
+
+**Story:** As a developer, I want to add media files to Anki packages so applications can create packages with custom media content.
+
+**Acceptance Criteria:**
+
+- [ ] Implement API to add media files to packages during creation
+- [ ] Support adding files from file paths, buffers, or streams
+- [ ] Automatically generate media file mappings and checksums
+- [ ] Handle media file deduplication based on content checksums
+- [ ] Validate media file types and sizes
+- [ ] Update media database entries when files are added
+
+**Implementation Notes:**
+
+- Build on existing media metadata writing (Story 1.1.2)
+- Implement content-based deduplication
+- Handle various input sources (files, buffers, streams)
+- Integrate with package writing pipeline
+
+**Testing:**
+
+- [ ] Manual: Add various media file types
+- [ ] Manual: Test deduplication logic
+- [ ] Unit: Media addition API validation
+
+---
+
+#### Story 1.1.5.3: Implement Media File Management and Utilities
+
+**Status:** ⏳ Pending
+
+**Story:** As a developer, I want media file management utilities so applications can efficiently work with media in SRS packages.
+
+**Acceptance Criteria:**
+
+- [ ] Implement media file validation (format, size, integrity)
+- [ ] Provide media file conversion utilities for common formats
+- [ ] Add media file optimization (compression, resizing for images)
+- [ ] Implement media file replacement and updates
+- [ ] Support media file batch operations
+- [ ] Provide media file usage analysis (which notes reference which files)
+
+**Implementation Notes:**
+
+- Consider using image processing libraries for optimization
+- Implement format validation for security
+- Support batch operations for efficiency
+- Provide detailed usage tracking
+
+**Testing:**
+
+- [ ] Manual: Media file validation and conversion
+- [ ] Manual: Batch operations with large media sets
+- [ ] Unit: Media utility functions
 
 ---
 

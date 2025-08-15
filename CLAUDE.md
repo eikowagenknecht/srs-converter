@@ -35,13 +35,14 @@ Think hard.
 ## Common Pitfalls and Reminders
 
 - When using template strings, numbers **must** be formatted with .toFixed() (NOT String(number))
-- Always use the TodoWrite tool to track progress for complex tasks
-- This is a TypeScript library package - ensure all exports are properly typed and documented
-- Follow the tri-state error handling pattern established in the codebase
+- For Stories:
+  - Always use the TodoWrite tool to track story progress.
+  - Follow the exact verification format from `docs/README.workflow.md`
+- After you're done, think if the documentation needs to be updated. If you think so, write the changed you think should be made to `docs/working/pending.md` with a short description of the change and why it is needed.
 
 ## Self-Improvement
 
 For any bugs you notice (even if the bug is unrelated to the current piece of work), it's important to either:
 
 1. Resolve them directly or
-2. Document them for later resolution
+2. Document them in `docs/working/issues.md` to be resolved later (using a subagent).
