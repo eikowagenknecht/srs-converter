@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation
+    url: https://github.com/eikowagenknecht/srs-converter/blob/main/README.md#development-documentation
+    about: Read the project documentation
+  - name: 🔒 Security Issues
+    url: mailto:security@eiko-wagenknecht.de
+    about: Report security vulnerabilities privately via email
