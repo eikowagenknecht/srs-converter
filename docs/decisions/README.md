@@ -1,6 +1,7 @@
 # Decisions
 
-For new Architectural Decision Records (ADRs), please use the following template as a starting point: [adr-template.md](adr-template.md). It has a lot of sections, but most are optional and should only be used if they add value for this specific MADR!
+For new Architectural Decision Records (ADRs), please use the following template as a starting point: [adr-template.md](adr-template.md).
+It has a lot of sections, but most are optional and should only be used if they add value for this specific MADR!
 
 If you are not sure which to use, go with the default:
 
