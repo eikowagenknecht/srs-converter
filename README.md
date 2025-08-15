@@ -42,7 +42,17 @@ As a strong opponent of vendor lock-in, the library will strive to create a form
 
 ## Installation
 
-For development or testing, you can install this package locally:
+Install from npm:
+
+```bash
+npm install srs-converter
+pnpm install srs-converter
+yarn add srs-converter
+```
+
+### Development Installation
+
+For development or testing, you can also install this package locally:
 
 ```bash
 # Clone the repository
@@ -55,14 +65,6 @@ pnpm install
 # Build the package
 pnpm build
 ```
-
-> [!note]
-> This package is not yet published to npm yet.
-> Once published, it will be available as:
->
-> ```bash
-> pnpm install srs-converter
-> ```
 
 ## Platform Compatibility
 
