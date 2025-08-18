@@ -15,7 +15,7 @@ import { AnkiPackage } from 'srs-converter';
 // Load an Anki .apkg/.colpkg file
 const result = await AnkiPackage.fromAnkiExport('./path/to/deck.apkg');
 
-if (result.success) {
+if (result.status === "success") {
   const ankiPackage = result.data;
   
   // Access raw Anki data directly
@@ -57,7 +57,7 @@ Building on the basic example, convert the loaded `AnkiPackage` to a universal S
 // Convert to universal SRS format
 const srsResult = ankiPackage.toSrsPackage();
 
-if (srsResult.success) {
+if (srsResult.status === "success") {
   const srsPackage = srsResult.data;
   
   // Access the normalized data
