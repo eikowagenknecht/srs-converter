@@ -127,6 +127,10 @@ export interface CardsTable {
    * 0 is the first card template, 1 the second, and so on.
    * For cloze deletions, this is the index of the cloze deletion in the note,
    * starting at 0 (despite cloze deletions starting from c1 in the UI).
+   *
+   * Hint: For image occlusions (which are a special case of cloze deletions),
+   * text on the image is stored as {{c0::...}}. These are not real clozes and
+   * don't get any card.
    */
   ord: number;
   /** When the card was last modified (in unix time, seconds). */
