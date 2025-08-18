@@ -15,6 +15,7 @@ import {
   createNote,
   createNoteType,
   createReview,
+  type SrsCard,
   SrsPackage,
   SrsReviewScore,
 } from "@/srs-package";
@@ -41,6 +42,27 @@ import {
   joinAnkiFields,
   splitAnkiFields,
 } from "./util";
+
+/**
+ * Analyzes a note's field content to find cloze deletions and returns the required card ordinals.
+ * For cloze note types, cards are generated based on the cloze deletion numbers found in the field content.
+ * @param fieldContent - The combined field content of a note (joined with \x1f separator)
+ * @returns Array of ordinals (0-indexed) that should have cards generated
+ */
+function analyzeClozeOrdinals(fieldContent: string): number[] {
+  // Find valid cloze deletion patterns: {{c1::text}}, {{c2::text::hint}}, etc.
+  // NOTE: {{c0::...}} is NOT a valid cloze deletion - clozes start from c1
+  const clozeRegex = /\{\{c([1-9]\d*)::[^}]*\}\}/g;
+
+  const clozeNumbers = [...fieldContent.matchAll(clozeRegex)]
+    .map((match) => match[1])
+    .filter((group): group is string => group !== undefined)
+    .map((group) => Number.parseInt(group) - 1) // Convert to 0-based ordinals
+    .filter((ordinal, index, arr) => arr.indexOf(ordinal) === index) // Remove duplicates
+    .sort((a, b) => a - b);
+
+  return clozeNumbers;
+}
 
 const EXPORT_VERSION = ExportVersion.Legacy_V2;
 const DB_VERSION = 11;
@@ -299,10 +321,19 @@ export class AnkiPackage {
 
       noteTypeIDs.set(noteType.id, noteTypeId);
 
+      // Detect if this is a cloze note type by checking template content
+      // TODO: This is very Anki-style, we might want to find a cleaner way to
+      // do this.
+      const isClozeNoteType = noteType.templates.some(
+        (template) =>
+          template.questionTemplate.includes("{{cloze:") ||
+          template.answerTemplate.includes("{{cloze:"),
+      );
+
       const ankiNoteType: NoteType = {
         id: noteTypeId,
         name: noteType.name,
-        type: NoteTypeKind.STANDARD,
+        type: isClozeNoteType ? NoteTypeKind.CLOZE : NoteTypeKind.STANDARD,
         mod: 0,
         usn: 0,
         sortf: 0, // Sort by the first field by default
@@ -385,47 +416,56 @@ export class AnkiPackage {
 
     // Convert cards
     const cardIDs = new Map<string, number>();
-    for (const card of srsPackage.getCards()) {
-      let cardId = extractTimestampFromUuid(card.id);
 
-      // Keep incrementing until we find an unused ID
-      while (Array.from(cardIDs.values()).includes(cardId)) {
-        cardId++;
-      }
+    // Group cards by note to not generate duplicate cards
+    // TODO: Clean this up
+    const cards = srsPackage.getCards();
+    const cardsByNote = new Map<string, SrsCard[]>();
+    for (const card of cards) {
+      const noteCards = cardsByNote.get(card.noteId) ?? [];
+      noteCards.push(card);
+      cardsByNote.set(card.noteId, noteCards);
+    }
 
-      cardIDs.set(card.id, cardId);
-
-      // Find the note for this card to get its deck
-      const note = srsPackage.getNotes().find((n) => n.id === card.noteId);
+    for (const [noteId, cards] of cardsByNote) {
+      // Find the note for these cards
+      const note = srsPackage.getNotes().find((n) => n.id === noteId);
       if (!note) {
-        collector.addError(
-          "Cannot convert card because its note was not found. The note may not have been converted properly. This card will be skipped.",
-          { itemType: "card", originalData: card },
-        );
+        for (const card of cards) {
+          collector.addError(
+            "Cannot convert card because its note was not found. The note may not have been converted properly. This card will be skipped.",
+            { itemType: "card", originalData: card },
+          );
+        }
         continue;
       }
 
-      const noteId = noteIDs.get(note.id);
-      if (!noteId) {
-        collector.addError(
-          `Cannot convert card because note ID ${note.id} was not found. The note may have been skipped earlier. This card will be skipped.`,
-          {
-            itemType: "card",
-            originalData: card,
-          },
-        );
+      const ankiNoteId = noteIDs.get(note.id);
+      if (!ankiNoteId) {
+        for (const card of cards) {
+          collector.addError(
+            `Cannot convert card because note ID ${note.id} was not found. The note may have been skipped earlier. This card will be skipped.`,
+            {
+              itemType: "card",
+              originalData: card,
+            },
+          );
+        }
         continue;
       }
 
+      // TODO: Should probably be ankiDeckId, see below
       const deckId = deckIDs.get(note.deckId);
       if (!deckId) {
-        collector.addError(
-          `Cannot convert card because deck ID ${note.deckId} was not found. The deck may have been skipped earlier. This card will be skipped.`,
-          {
-            itemType: "card",
-            originalData: card,
-          },
-        );
+        for (const card of cards) {
+          collector.addError(
+            `Cannot convert card because deck ID ${note.deckId} was not found. The deck may have been skipped earlier. This card will be skipped.`,
+            {
+              itemType: "card",
+              originalData: card,
+            },
+          );
+        }
         continue;
       }
 
@@ -438,27 +478,83 @@ export class AnkiPackage {
           Number(srsDeck.applicationSpecificData["originalAnkiId"])
         : deckId; // fallback to timestamp-based ID
 
-      const ankiCards: CardsTable = {
-        id: cardId,
-        nid: noteId,
-        did: ankiDeckId,
-        ord: card.templateId,
-        mod: 0,
-        usn: 0,
-        type: 0,
-        queue: 0,
-        due: 0,
-        ivl: 0,
-        factor: 0,
-        reps: 0,
-        lapses: 0,
-        left: 0,
-        odue: 0,
-        odid: 0,
-        flags: 0,
-        data: "{}",
-      };
-      ankiPackage.addCard(ankiCards);
+      // Find the note type for this note
+      const noteType = srsPackage
+        .getNoteTypes()
+        .find((nt) => nt.id === note.noteTypeId);
+
+      // Check if this is a cloze note type by looking at the template content
+      // TODO: This is used in multiple places, extract to utility function
+      const isClozeNoteType =
+        noteType?.templates.some(
+          (template) =>
+            template.questionTemplate.includes("{{cloze:") ||
+            template.answerTemplate.includes("{{cloze:"),
+        ) ?? false;
+
+      let cardsToCreate: { ord: number; srsCard: SrsCard }[];
+
+      if (isClozeNoteType) {
+        // For cloze notes, analyze the content to determine required ordinals
+        const fieldContent = joinAnkiFields(
+          note.fieldValues.map(([, value]) => value),
+        );
+        const requiredOrdinals = analyzeClozeOrdinals(fieldContent);
+
+        // Map SRS cards to ordinals, ensuring we have all required ordinals
+        cardsToCreate = requiredOrdinals.map((ord) => {
+          // Try to find an existing SRS card with this ordinal
+          const existingCard = cards.find((c) => c.templateId === ord);
+          const fallbackCard = cards[0];
+          if (!fallbackCard) {
+            throw new Error(`No cards available for note ${note.id}`);
+          }
+          return {
+            ord,
+            srsCard: existingCard ?? fallbackCard, // Use first card as fallback with correct ordinal
+          };
+        });
+      } else {
+        // For regular note types, create cards as normal
+        cardsToCreate = cards.map((card) => ({
+          ord: card.templateId,
+          srsCard: card,
+        }));
+      }
+
+      // Create the Anki cards
+      for (const { ord, srsCard } of cardsToCreate) {
+        let cardId = extractTimestampFromUuid(srsCard.id);
+
+        // Keep incrementing until we find an unused ID
+        while (Array.from(cardIDs.values()).includes(cardId)) {
+          cardId++;
+        }
+
+        cardIDs.set(srsCard.id, cardId);
+
+        const ankiCard: CardsTable = {
+          id: cardId,
+          nid: ankiNoteId,
+          did: ankiDeckId,
+          ord: ord, // Use the calculated ordinal
+          mod: 0,
+          usn: 0,
+          type: 0,
+          queue: 0,
+          due: 0,
+          ivl: 0,
+          factor: 0,
+          reps: 0,
+          lapses: 0,
+          left: 0,
+          odue: 0,
+          odid: 0,
+          flags: 0,
+          data: "{}",
+        };
+        ankiPackage.addCard(ankiCard);
+      }
     }
 
     for (const review of srsPackage.getReviews()) {

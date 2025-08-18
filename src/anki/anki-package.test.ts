@@ -15,7 +15,7 @@ import {
 } from "@/srs-package";
 import { AnkiPackage } from "./anki-package";
 import { defaultConfig, defaultDeck } from "./constants";
-import type { Ease } from "./types";
+import { type Ease, NoteTypeKind } from "./types";
 import { extractTimestampFromUuid } from "./util";
 
 // Helper function to unwrap ConversionResult for tests that expect success
@@ -2386,6 +2386,173 @@ describe("Utilities and Helper Functions", () => {
       const deck = completeDeck.getDecks()[0];
       expect(deck?.name).toBe("Test Deck");
       expect(deck?.description).toBe("Test Deck Description");
+    });
+  });
+
+  describe("Mixed Note Type Support", () => {
+    it("should detect multiple note types including cloze types", async () => {
+      const result = await AnkiPackage.fromAnkiExport(
+        "./templates/mixedLegacy2.apkg",
+      );
+      const ankiPackage = expectSuccess(result);
+
+      try {
+        const noteTypes = ankiPackage.getNoteTypes();
+        expect(noteTypes).toHaveLength(6); // Mixed package has 6 note types
+
+        // Find cloze note types
+        // - "Cloze"
+        // - "Image Occlusion"
+        const clozeNoteTypes = noteTypes.filter(
+          (nt) => nt.type === NoteTypeKind.CLOZE,
+        );
+        expect(clozeNoteTypes).toHaveLength(2);
+        const clozeTypeNames = clozeNoteTypes.map((nt) => nt.name).sort();
+        expect(clozeTypeNames).toEqual(["Cloze", "Image Occlusion"]);
+
+        // Find standard note types:
+        // - "Basic"
+        // - "Basic (and reversed card)"
+        // - "Basic (optional reversed card)"
+        // - "Basic (type in the answer)"
+        const standardNoteTypes = noteTypes.filter(
+          (nt) => nt.type === NoteTypeKind.STANDARD,
+        );
+        expect(standardNoteTypes).toHaveLength(4); // 4 Basic variants
+        const standardNoteNames = standardNoteTypes.map((nt) => nt.name).sort();
+        expect(standardNoteNames).toEqual([
+          "Basic",
+          "Basic (and reversed card)",
+          "Basic (optional reversed card)",
+          "Basic (type in the answer)",
+        ]);
+      } finally {
+        await ankiPackage.cleanup();
+      }
+    });
+
+    it("should preserve cloze content in field values during SRS conversion", async () => {
+      const result = await AnkiPackage.fromAnkiExport(
+        "./templates/mixedLegacy2.apkg",
+      );
+      const ankiPackage = expectSuccess(result);
+
+      try {
+        const srsResult = ankiPackage.toSrsPackage();
+        const srsPackage = expectSuccess(srsResult);
+        const srsNotes = srsPackage.getNotes();
+
+        // Find test cloze notes
+        const multiClozeNote = srsNotes.find((note) =>
+          note.fieldValues.some(
+            ([, value]) =>
+              value.includes("{{c1::fields}}") &&
+              value.includes("{{c2::hidden}}"),
+          ),
+        );
+        const hintNote = srsNotes.find((note) =>
+          note.fieldValues.some(([, value]) =>
+            value.includes("{{c1::hints::(something that helps)}}"),
+          ),
+        );
+        const duplicateClozeNote = srsNotes.find((note) =>
+          note.fieldValues.some(([, value]) => value.includes("{{c1::cloze}}")),
+        );
+
+        expect(multiClozeNote).toBeDefined();
+        expect(hintNote).toBeDefined();
+        expect(duplicateClozeNote).toBeDefined();
+      } finally {
+        await ankiPackage.cleanup();
+      }
+    });
+
+    it("should round-trip cloze cards successfully", async () => {
+      // Load original cloze package
+      const loadResult = await AnkiPackage.fromAnkiExport(
+        "./templates/mixedLegacy2.apkg",
+      );
+      const originalAnki = expectSuccess(loadResult);
+
+      try {
+        // Convert to SRS
+        const srsResult = originalAnki.toSrsPackage();
+        const srsPackage = expectSuccess(srsResult);
+
+        // Convert back to Anki
+        const ankiResult = await AnkiPackage.fromSrsPackage(srsPackage);
+        const convertedAnki = expectSuccess(ankiResult);
+
+        try {
+          // Check that we preserved the structure for mixed content
+          const noteTypes = convertedAnki.getNoteTypes();
+          expect(noteTypes).toHaveLength(6); // Should maintain all 6 note types
+
+          // Check that both cloze and regular note types are preserved
+          const clozeTypes = noteTypes.filter(
+            (nt) => nt.type === NoteTypeKind.CLOZE,
+          );
+          const standardTypes = noteTypes.filter(
+            (nt) => nt.type === NoteTypeKind.STANDARD,
+          );
+          expect(clozeTypes).toHaveLength(2); // "Cloze" and "Image Occlusion"
+          expect(standardTypes).toHaveLength(4); // 4 Basic variants
+
+          // Check that all 8 notes are preserved
+          const notes = convertedAnki.getNotes();
+          expect(notes).toHaveLength(8);
+
+          // Check that all 13 cards are still there
+          const cards = convertedAnki.getCards();
+          expect(cards.length).toBe(13);
+        } finally {
+          await convertedAnki.cleanup();
+        }
+      } finally {
+        await originalAnki.cleanup();
+      }
+    });
+
+    it("should generate correct number of cloze cards", async () => {
+      const result = await AnkiPackage.fromAnkiExport(
+        "./templates/mixedLegacy2.apkg",
+      );
+      const ankiPackage = expectSuccess(result);
+
+      try {
+        const notes = ankiPackage.getNotes();
+        const cards = ankiPackage.getCards();
+        expect(cards).toHaveLength(13); // Mixed package: 7 cloze cards + 6 regular cards
+
+        // Test cloze card generation specifically
+        // Find the note with multiple cloze deletions (c1 and c2)
+        const multiClozeNote = notes.find(
+          (note) =>
+            note.flds.includes("{{c1::fields}}") &&
+            note.flds.includes("{{c2::hidden}}"),
+        );
+
+        expect(multiClozeNote).toBeDefined();
+
+        if (multiClozeNote) {
+          const noteCards = cards.filter(
+            (card) => card.nid === multiClozeNote.id,
+          );
+          expect(noteCards).toHaveLength(2); // Should generate 2 cards for 2 cloze deletions
+
+          const ordinals = noteCards.map((card) => card.ord).sort();
+          expect(ordinals).toEqual([0, 1]); // Should have ordinals 0 and 1 (for c1 and c2)
+        }
+
+        // Test that regular cards are also generated correctly
+        const noteTypes = ankiPackage.getNoteTypes();
+        const regularNoteTypes = noteTypes.filter(
+          (nt) => nt.type === NoteTypeKind.STANDARD,
+        );
+        expect(regularNoteTypes).toHaveLength(4);
+      } finally {
+        await ankiPackage.cleanup();
+      }
     });
   });
 });
