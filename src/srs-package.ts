@@ -97,8 +97,25 @@ export class SrsPackage {
 
     const note = this.notes.find((n) => n.id === card.noteId);
     const noteType = this.noteTypes.find((nt) => nt.id === note?.noteTypeId);
-    if (!noteType || card.templateId >= noteType.templates.length) {
-      throw new Error(`Invalid template ID ${card.templateId.toFixed()}.`);
+    if (!noteType) {
+      throw new Error(
+        `Note type not found for template ID ${card.templateId.toFixed()}.`,
+      );
+    }
+
+    // Check if this is a cloze note type by looking at template content
+    const isClozeNoteType = noteType.templates.some(
+      (template) =>
+        template.questionTemplate.includes("{{cloze:") ||
+        template.answerTemplate.includes("{{cloze:"),
+    );
+
+    // For cloze note types, templateId can be higher than templates.length (one per cloze deletion)
+    // For regular note types, templateId must be within templates bounds
+    if (!isClozeNoteType && card.templateId >= noteType.templates.length) {
+      throw new Error(
+        `Invalid template ID ${card.templateId.toFixed()} for note type "${noteType.name}". Expected 0-${(noteType.templates.length - 1).toFixed()}.`,
+      );
     }
 
     this.cards.push(card);
@@ -168,7 +185,7 @@ interface SrsNote<T extends SrsNoteType = SrsNoteType> {
   applicationSpecificData?: Record<string, string>;
 }
 
-interface SrsCard<T extends SrsNoteType = SrsNoteType> {
+export interface SrsCard<T extends SrsNoteType = SrsNoteType> {
   /** UUIDv7 identifier */
   id: string;
   /** The note of the card (UUIDv7) */
