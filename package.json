@@ -62,7 +62,10 @@
     "test:coverage": "vitest run --coverage",
     "clean:npm": "pnpm dlx rimraf -rf node_modules",
     "sync:npm": "pnpm i --frozen-lockfile",
-    "upgrade:npm": "pnpm dlx rimraf pnpm-lock.yaml && pnpm up --latest && pnpm i"
+    "upgrade:npm": "pnpm dlx rimraf pnpm-lock.yaml && pnpm up --latest && pnpm i",
+    "release:patch": "npm version patch && pnpm publish && git push --follow-tags",
+    "release:minor": "npm version minor && pnpm publish && git push --follow-tags",
+    "release:major": "npm version major && pnpm publish && git push --follow-tags"
   },
   "dependencies": {
     "archiver": "7.0.1",
