@@ -71,19 +71,19 @@
     "archiver": "7.0.1",
     "kysely": "0.28.5",
     "kysely-wasm": "1.2.1",
-    "protobufjs": "7.5.3",
+    "protobufjs": "7.5.4",
     "sql.js": "1.13.0",
     "unzipper": "0.12.3",
     "uuid": "11.1.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.1.4",
+    "@biomejs/biome": "2.2.0",
     "@commitlint/cli": "19.8.1",
     "@commitlint/config-conventional": "19.8.1",
     "@commitlint/types": "19.8.1",
     "@eslint/js": "9.33.0",
     "@types/archiver": "6.0.3",
-    "@types/node": "24.2.1",
+    "@types/node": "24.3.0",
     "@types/sql.js": "1.4.9",
     "@types/unzipper": "0.10.11",
     "@types/uuid": "10.0.0",
@@ -91,12 +91,12 @@
     "eslint": "9.33.0",
     "eslint-import-resolver-typescript": "4.4.4",
     "eslint-plugin-import-x": "4.16.1",
-    "eslint-plugin-jsdoc": "54.0.0",
+    "eslint-plugin-jsdoc": "54.1.0",
     "globals": "16.3.0",
     "lefthook": "1.12.3",
     "prettier": "3.6.2",
     "typescript": "5.9.2",
-    "typescript-eslint": "8.39.1",
+    "typescript-eslint": "8.40.0",
     "vitest": "3.2.4"
   }
 }
