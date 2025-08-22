@@ -3,6 +3,8 @@ import path from "node:path";
 import archiver, { type ZipEntryData } from "archiver";
 import { v7 as uuidv7 } from "uuid";
 
+const NUMERIC_STRING_PATTERN = /^\d+$/;
+
 /**
  * Converts a number to a base91 string representation.
  * @param num - The number to convert
@@ -258,64 +260,48 @@ export function parseWithBigInts(
   jsonString: string,
   bigintFieldPaths: string[],
 ): unknown {
-  // Phase 1: Validation - Make sure target fields contain only numeric values
-  validateTargetFieldsAreNumeric(jsonString, bigintFieldPaths);
+  // Phase 1: Validation - Parse JSON and validate target fields are numeric
+  const parsedForValidation = JSON.parse(jsonString) as unknown;
+  validateTargetFieldsAreNumeric(parsedForValidation, bigintFieldPaths);
 
-  // Phase 2: Preprocessing - Quote all numeric values to prevent precision
-  // loss
+  // Phase 2: Preprocessing - Quote numeric values based on field names to prevent precision loss
   let preprocessedJson = jsonString;
-
-  // For each target path, find and quote the numbers to preserve precision
-  // Uses field name matching (not precise path matching) for efficiency
   for (const path of bigintFieldPaths) {
-    preprocessedJson = quoteNumbersAtPath(preprocessedJson, path);
+    preprocessedJson = quoteNumbersForFieldName(preprocessedJson, path);
   }
 
-  // Parse the preprocessed JSON (target numbers are now strings)
+  // Phase 3: Processing - Parse and convert only target paths to BigInt using precise matching
   const parsed = JSON.parse(preprocessedJson) as unknown;
-
-  // Phase 3: Processing - Recursively traverse and selectively convert to BigInt
-  // Converts quoted numeric strings back to regular numbers for non-target paths
-  return processValue(parsed, "", bigintFieldPaths);
+  return processValueWithPrecisePaths(parsed, "", bigintFieldPaths);
 }
 
 /**
- * Validates that target fields contain only unquoted numeric values.
+ * Validates that target fields contain only numeric values.
  *
- * This function ensures data integrity by rejecting JSON where target fields
+ * This function ensures data integrity by rejecting values where target fields
  * contain any non-numeric values (strings, booleans, null, etc.), which might indicate:
  * - Upstream processing errors
  * - Data corruption
  * - Incorrect serialization
  * - Wrong data types
- * @param jsonString - The JSON string to validate
- * @param bigintFieldPaths - Array of field paths that should contain numeric values
+ * @param parsedValue - The parsed JSON object to validate
+ * @param targetPaths - Array of field paths that should contain numeric values (may include [] notation)
  * @throws {Error} When target fields contain any non-numeric values
  */
 function validateTargetFieldsAreNumeric(
-  jsonString: string,
-  bigintFieldPaths: string[],
+  parsedValue: unknown,
+  targetPaths: string[],
 ): void {
-  for (const path of bigintFieldPaths) {
-    const normalizedPath = path.replace(/\[\]/g, "");
-    const pathParts = normalizedPath.split(".");
-    const lastField = pathParts[pathParts.length - 1];
-
-    if (!lastField) continue;
-
-    // Check for ANY non-numeric values in target fields
-    // Pattern matches: "fieldName": <any-non-numeric-value>
-    const fieldPattern = new RegExp(`"${lastField}"\\s*:\\s*([^,}\\]]+)`, "g");
-    const matches = [...jsonString.matchAll(fieldPattern)];
-
-    for (const match of matches) {
-      const value = match[1]?.trim();
-      if (!value) continue;
-
-      // Check if it's a valid unquoted number
-      if (!/^\d+$/.test(value)) {
+  for (const path of targetPaths) {
+    const values = getValuesAtPath(parsedValue, path);
+    for (const value of values) {
+      if (typeof value !== "number") {
+        const pathParts = path.replace(/\[\]/g, "").split(".");
+        const fieldName = pathParts[pathParts.length - 1] ?? "unknown";
+        const valueStr =
+          typeof value === "string" ? `"${value}"` : String(value);
         throw new Error(
-          `Field '${lastField}' (from path '${path}') contains non-numeric value ${value}. Expected unquoted numeric value.`,
+          `Field '${fieldName}' (from path '${path}') contains non-numeric value ${valueStr}. Expected unquoted numeric value.`,
         );
       }
     }
@@ -323,60 +309,72 @@ function validateTargetFieldsAreNumeric(
 }
 
 /**
- * Quotes numeric values for fields matching the last segment of a path to prevent precision loss.
- *
- * This function performs string preprocessing on JSON to quote large numbers before JSON.parse(),
- * which prevents JavaScript from losing precision on numbers larger than MAX_SAFE_INTEGER.
- *
- * **How it works:**
- * - Extracts the final field name from the path (e.g., "id" from "user.profile.id")
- * - Uses regex to find ALL occurrences of that field name with numeric values
- * - Converts unquoted numbers to quoted strings (e.g., "id":123 -> "id":"123")
- *
- * **Supported Path Formats:**
- * - Simple fields: `"id"`, `"timestamp"`
- * - Nested fields: `"user.id"`, `"profile.settings.version"`
- * - Array fields: `"users[].id"`, `"departments[].employees[].managerId"`
- * - Deep nesting: `"level1.level2.level3.fieldName"`
- *
- * **Important Limitations:**
- * 1. **Field Name Collision**: Quotes ALL fields with the same name as the target field.
- * - Path `"user.id"` will quote ALL `id` fields in the JSON, not just `user.id`
- * - This is acceptable because the later `processValue` function provides precise path targeting
- *
- * 2. **Regex-Based Approach**: Uses simple regex matching, not a full JSON parser
- * - Works well for standard JSON formatting
- * - May not handle extremely malformed or unusual JSON structures
- *
- * 3. **Array Notation**: `[]` is stripped and ignored during preprocessing
- * - `"users[].id"` becomes `"users.id"` for field name extraction
- * - Array processing happens later in the `processValue` phase
- *
- * **When This Approach Works:**
- * - Standard JSON formatting with consistent spacing
- * - Numeric values that need precision preservation
- * - Field names that don't contain special regex characters
- *
- * **When This Approach May Not Work:**
- * - JSON with irregular formatting or embedded quotes in field names
- * - Field names containing regex special characters (., *, +, ?, etc.)
- * - Non-standard JSON structures or heavily nested dynamic keys
- *
- * **Example Transformations:**
- * ```
- * Input:  {"id":9007199254740993,"user":{"id":123}}
- * Path:   "user.id"
- * Result: {"id":"9007199254740993","user":{"id":"123"}}
- * Note:   Both "id" fields are quoted (field name collision)
- * ```
- * @param jsonString - The JSON string to process
- * @param path - The field path (e.g., "user.id", "items[].price")
- * @returns The JSON string with numeric values quoted for the target field name
+ * Gets all values at a specific path in an object, handling arrays with [] notation.
+ * @param obj - The object to traverse
+ * @param path - The path to get values from (may include [] notation like "users[].id")
+ * @returns Array of values found at the path
  */
-function quoteNumbersAtPath(jsonString: string, path: string): string {
-  // Normalize path by removing array notation - we only need the final field name
-  const normalizedPath = path.replace(/\[\]/g, "");
-  const pathParts = normalizedPath.split(".");
+function getValuesAtPath(obj: unknown, path: string): unknown[] {
+  const results: unknown[] = [];
+
+  function traverse(current: unknown, pathParts: string[]) {
+    if (pathParts.length === 0) {
+      results.push(current);
+      return;
+    }
+
+    const [currentPart, ...remainingParts] = pathParts;
+    if (!currentPart) return;
+
+    // Check if this part indicates array traversal
+    if (currentPart.endsWith("[]")) {
+      const fieldName = currentPart.slice(0, -2); // Remove "[]"
+      if (current && typeof current === "object" && !Array.isArray(current)) {
+        const arrayValue = (current as Record<string, unknown>)[fieldName];
+        if (Array.isArray(arrayValue)) {
+          // Traverse each array item with remaining path
+          for (const item of arrayValue) {
+            traverse(item, remainingParts);
+          }
+        }
+      }
+    } else {
+      // Regular field access
+      if (current && typeof current === "object" && !Array.isArray(current)) {
+        const value = (current as Record<string, unknown>)[currentPart];
+        if (value !== undefined) {
+          traverse(value, remainingParts);
+        }
+      }
+    }
+  }
+
+  const pathParts = path.split(".");
+  traverse(obj, pathParts);
+  return results;
+}
+
+/**
+ * Quotes unquoted integer values for a specific field name to prevent precision loss.
+ *
+ * This uses field name matching (not precise path matching) for simplicity in phase 2.
+ * Precise targeting happens in phase 3 where non-target paths are unquoted back to numbers.
+ *
+ * **What gets quoted:**
+ * - `"id": 123` → `"id": "123"` (unquoted integers)
+ * - `"id": 999999999999999` → `"id": "999999999999999"` (large integers)
+ *
+ * **What does NOT get quoted:**
+ * - `"id": "hello"` → stays `"id": "hello"` (already quoted strings)
+ * - `"id": true` → stays `"id": true` (booleans)
+ * - `"id": null` → stays `"id": null` (null values)
+ * - `"id": 123.45` → stays `"id": 123.45` (decimal numbers)
+ * @param jsonString - The JSON string to process
+ * @param path - The field path (e.g., "user.id", "users.id")
+ * @returns The JSON string with unquoted integer values quoted for the target field name
+ */
+function quoteNumbersForFieldName(jsonString: string, path: string): string {
+  const pathParts = path.split(".");
   const lastField = pathParts[pathParts.length - 1];
 
   if (!lastField) {
@@ -392,16 +390,13 @@ function quoteNumbersAtPath(jsonString: string, path: string): string {
 }
 
 /**
- * Recursively processes parsed JSON values with path-aware BigInt conversion.
- *
- * This function traverses the object structure while maintaining the current path context,
- * enabling precise targeting of which fields should become BigInt values.
+ * Recursively processes parsed JSON values with precise path-aware BigInt conversion.
  * @param value - The current value being processed
- * @param currentPath - The current path in dot notation (e.g., "user.profile.id")
- * @param targetPaths - Array of paths that should be converted to BigInt
+ * @param currentPath - The current path in dot notation
+ * @param targetPaths - Array of target paths that should become BigInt (may include [] notation)
  * @returns The processed value with appropriate type conversions applied
  */
-function processValue(
+function processValueWithPrecisePaths(
   value: unknown,
   currentPath: string,
   targetPaths: string[],
@@ -410,11 +405,16 @@ function processValue(
     return value;
   }
 
+  // Check if current path matches any target path
+  const shouldConvert = targetPaths.some(
+    (targetPath) => currentPath === targetPath,
+  );
+
   // Check for string values that should be converted to BigInt (quoted numbers)
   if (
     typeof value === "string" &&
-    /^\d+$/.test(value) &&
-    shouldConvertToBigInt(currentPath, targetPaths)
+    NUMERIC_STRING_PATTERN.test(value) &&
+    shouldConvert
   ) {
     return BigInt(value);
   }
@@ -422,80 +422,34 @@ function processValue(
   // Convert quoted numeric strings back to regular numbers if they're NOT target paths
   if (
     typeof value === "string" &&
-    /^\d+$/.test(value) &&
-    !shouldConvertToBigInt(currentPath, targetPaths)
+    NUMERIC_STRING_PATTERN.test(value) &&
+    !shouldConvert
   ) {
     return Number(value);
   }
 
-  // Also handle regular numbers (for cases where precision wasn't lost)
-  if (
-    typeof value === "number" &&
-    shouldConvertToBigInt(currentPath, targetPaths)
-  ) {
-    return BigInt(value);
-  }
-
+  // For arrays, we need to check if any target path wants to traverse this array
   if (Array.isArray(value)) {
     return value.map((item) => {
-      // For arrays, we process each item with the current path context
-      return processValue(item, currentPath, targetPaths);
+      const arrayPath = currentPath ? `${currentPath}[]` : "[]";
+      return processValueWithPrecisePaths(item, arrayPath, targetPaths);
     });
   }
 
+  // For objects, we need to check if any target path wants to traverse this object
   if (typeof value === "object") {
     const result: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(value)) {
       const newPath = currentPath ? `${currentPath}.${key}` : key;
-      const processedValue = processValue(val, newPath, targetPaths);
+      const processedValue = processValueWithPrecisePaths(
+        val,
+        newPath,
+        targetPaths,
+      );
       result[key] = processedValue;
     }
     return result;
   }
 
   return value;
-}
-
-/**
- * Determines whether a value at the current path should be converted to BigInt.
- * @param currentPath - The current path in dot notation
- * @param targetPaths - Array of target paths that should become BigInt
- * @returns True if the current path matches any target path
- */
-function shouldConvertToBigInt(
-  currentPath: string,
-  targetPaths: string[],
-): boolean {
-  return targetPaths.some((targetPath) => pathMatches(currentPath, targetPath));
-}
-
-/**
- * Checks if the current path matches a target path, handling array notation.
- *
- * Array notation `[]` in paths is treated as a wildcard that matches any array processing.
- * Both paths are normalized by removing `[]` before comparison.
- * @param currentPath - The current path being processed
- * @param targetPath - The target path to match against
- * @returns True if paths match after normalization
- */
-function pathMatches(currentPath: string, targetPath: string): boolean {
-  // Handle array notation by normalizing both paths
-  const normalizedCurrent = normalizePathForMatching(currentPath);
-  const normalizedTarget = normalizePathForMatching(targetPath);
-
-  return normalizedCurrent === normalizedTarget;
-}
-
-/**
- * Normalizes a path for matching by removing array notation.
- *
- * Converts paths like "users[].profile.id" to "users.profile.id" since
- * array processing is handled uniformly for all items in an array.
- * @param path - The path to normalize
- * @returns The normalized path with array notation removed
- */
-function normalizePathForMatching(path: string): string {
-  // Convert array notation like "users[]" to just "users" for matching
-  // Since we process all array items uniformly
-  return path.replace(/\[\]/g, "");
 }

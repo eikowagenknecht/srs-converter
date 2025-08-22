@@ -720,4 +720,49 @@ describe("parseWithBigInts", () => {
       "Field 'userId' (from path 'userId') contains non-numeric value null",
     );
   });
+
+  it("should distinguish between object field and array traversal paths", () => {
+    const jsonObject = {
+      users: {
+        id: 100, // Direct field on users object
+      },
+      teams: [
+        { id: 200 }, // Field in array items
+        { id: 300 },
+      ],
+    };
+    const jsonString = JSON.stringify(jsonObject);
+
+    // Test 1: users.id should target the direct field, not array items
+    const result1 = parseWithBigInts(jsonString, ["users.id"]);
+    expect(result1).toEqual({
+      users: {
+        id: BigInt(100), // Should be converted
+      },
+      teams: [
+        { id: 200 }, // Should remain as number
+        { id: 300 }, // Should remain as number
+      ],
+    });
+
+    // Test 2: teams[].id should target array items, not direct field
+    const result2 = parseWithBigInts(jsonString, ["teams[].id"]);
+    expect(result2).toEqual({
+      users: {
+        id: 100, // Should remain as number
+      },
+      teams: [
+        { id: BigInt(200) }, // Should be converted
+        { id: BigInt(300) }, // Should be converted
+      ],
+    });
+
+    // Test 3: Attempting users[].id should find no values since users is not an array
+    const result3 = parseWithBigInts(jsonString, ["users[].id"]);
+    expect(result3).toEqual(jsonObject);
+
+    // Test 4: Attempting teams.id should find no values since teams is an array
+    const result4 = parseWithBigInts(jsonString, ["teams.id"]);
+    expect(result4).toEqual(jsonObject);
+  });
 });
