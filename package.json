@@ -23,7 +23,7 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "license": "AGPL-3.0-or-later",
+  "license": "MIT",
   "author": "Eiko Wagenknecht <git@eiko-wagenknecht.de> (https://eikowagenknecht.de)",
   "repository": {
     "type": "git",
