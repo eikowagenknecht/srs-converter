@@ -1,7 +1,7 @@
 # srs-converter
 
-[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](https://opensource.org/licenses/AGPL-3.0)
-[![Node.js Version](https://img.shields.io/badge/Node.js-22%2B-green)](https://nodejs.org/)
+![GitHub License](https://img.shields.io/github/license/eikowagenknecht/srs-converter)
+[![Node.js Version](https://img.shields.io/badge/Node.js-22%2B-blue)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
 
 A TypeScript library for converting between different spaced repetition system (SRS) formats.
