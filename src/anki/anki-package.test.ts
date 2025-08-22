@@ -655,48 +655,9 @@ describe("Create Deck", () => {
 
     try {
       // Add note types to the Anki package
-      const basicNoteType = {
-        ...basicModel,
-        // Convert BigInt IDs to regular numbers to avoid serialization errors.
-        // TODO: Fix this in serialization and deserialization and then remove these overwrites
-        tmpls: basicModel.tmpls.map((tmpl) => ({
-          ...tmpl,
-          id: Number(tmpl.id),
-        })),
-        // Convert BigInt IDs to regular numbers to avoid serialization errors.
-        // TODO: Fix this in serialization and deserialization and then remove these overwrites
-        flds: basicModel.flds.map((fld) => ({
-          ...fld,
-          id: Number(fld.id),
-        })),
-      };
-      ankiPackage.addNoteType(basicNoteType);
-
-      const bidirectionalNoteType = {
-        ...basicAndReversedCardModel,
-        tmpls: basicAndReversedCardModel.tmpls.map((tmpl) => ({
-          ...tmpl,
-          id: Number(tmpl.id),
-        })),
-        flds: basicAndReversedCardModel.flds.map((fld) => ({
-          ...fld,
-          id: Number(fld.id),
-        })),
-      };
-      ankiPackage.addNoteType(bidirectionalNoteType);
-
-      const clozeNoteType = {
-        ...clozeModel,
-        tmpls: clozeModel.tmpls.map((tmpl) => ({
-          ...tmpl,
-          id: Number(tmpl.id),
-        })),
-        flds: clozeModel.flds.map((fld) => ({
-          ...fld,
-          id: Number(fld.id),
-        })),
-      };
-      ankiPackage.addNoteType(clozeNoteType);
+      ankiPackage.addNoteType(basicModel);
+      ankiPackage.addNoteType(basicAndReversedCardModel);
+      ankiPackage.addNoteType(clozeModel);
 
       // Add a custom deck
       const customDeck = {
@@ -710,7 +671,7 @@ describe("Create Deck", () => {
       const basicNote1 = {
         id: getUniqueTimestamp(),
         guid: `AnkiNote1_${Date.now().toString()}`,
-        mid: basicNoteType.id,
+        mid: basicModel.id,
         mod: Math.floor(Date.now() / 1000),
         usn: -1,
         tags: "",
@@ -749,7 +710,7 @@ describe("Create Deck", () => {
       const basicNote2 = {
         id: getUniqueTimestamp(),
         guid: `AnkiNote2_${Date.now().toString()}`,
-        mid: basicNoteType.id,
+        mid: basicModel.id,
         mod: Math.floor(Date.now() / 1000),
         usn: -1,
         tags: "",
@@ -801,7 +762,7 @@ describe("Create Deck", () => {
       const bidirectionalNote = {
         id: getUniqueTimestamp(),
         guid: `AnkiNote3_${Date.now().toString()}`,
-        mid: bidirectionalNoteType.id,
+        mid: basicAndReversedCardModel.id,
         mod: Math.floor(Date.now() / 1000),
         usn: -1,
         tags: "",
@@ -901,7 +862,7 @@ describe("Create Deck", () => {
       const clozeNote = {
         id: getUniqueTimestamp(),
         guid: `AnkiNote4_${Date.now().toString()}`,
-        mid: clozeNoteType.id,
+        mid: clozeModel.id,
         mod: Math.floor(Date.now() / 1000),
         usn: -1,
         tags: "",

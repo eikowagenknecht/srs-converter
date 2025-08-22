@@ -40,6 +40,7 @@ import {
   extractTimestampFromUuid,
   guid64,
   joinAnkiFields,
+  serializeWithBigInts,
   splitAnkiFields,
 } from "./util";
 
@@ -339,7 +340,7 @@ export class AnkiPackage {
         sortf: 0, // Sort by the first field by default
         did: deckIDs.values().next().value ?? null, // Use the first deck ID. null for type checker only
         tmpls: noteType.templates.map((template) => ({
-          id: template.id, // TODO: Not sure if this needs to be unique in Anki
+          id: BigInt(template.id), // TODO: Not sure if this needs to be unique in Anki
           name: template.name,
           ord: template.id,
           qfmt: template.questionTemplate, // TODO: Handle HTML/Markdown conversion if needed
@@ -351,7 +352,7 @@ export class AnkiPackage {
           bsize: 0,
         })),
         flds: noteType.fields.map((field) => ({
-          id: field.id, // TODO: Not sure if this needs to be unique in Anki
+          id: BigInt(field.id), // TODO: Not sure if this needs to be unique in Anki
           name: field.name,
           ord: field.id,
           sticky: false,
@@ -661,7 +662,7 @@ export class AnkiPackage {
     let res = "AnkiPackage\n";
     res += `Temp directory: ${this.tempDir}\n`;
     res += `Media file mapping: ${JSON.stringify(this.mediaFiles, null, 2)}\n`;
-    res += `Database contents: ${JSON.stringify(this.databaseContents, null, 2)}\n`;
+    res += `Database contents: ${serializeWithBigInts(this.databaseContents, 2)}\n`;
     return res;
   }
 
@@ -825,7 +826,7 @@ export class AnkiPackage {
           questionTemplate: template.qfmt,
           answerTemplate: template.afmt,
           applicationSpecificData: {
-            ankiTemplateData: JSON.stringify(template),
+            ankiTemplateData: serializeWithBigInts(template),
           },
         })),
       });

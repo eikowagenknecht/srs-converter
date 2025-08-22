@@ -17,6 +17,7 @@ import type {
   NoteTypes,
   RevlogTable,
 } from "./types";
+import { parseWithBigInts, serializeWithBigInts } from "./util";
 
 export class AnkiDatabase {
   private db: Kysely<DBTables>;
@@ -84,7 +85,7 @@ export class AnkiDatabase {
         conf: JSON.stringify(dump.collection.conf),
         decks: JSON.stringify(dump.collection.decks),
         dconf: JSON.stringify(dump.collection.dconf),
-        models: JSON.stringify(dump.collection.models),
+        models: serializeWithBigInts(dump.collection.models),
         tags: JSON.stringify(dump.collection.tags),
       })
       .execute();
@@ -168,7 +169,10 @@ export class AnkiDatabase {
       conf: JSON.parse(collectionRaw.conf) as Config,
       decks: JSON.parse(collectionRaw.decks) as Decks,
       dconf: JSON.parse(collectionRaw.dconf) as DeckConfigs,
-      models: JSON.parse(collectionRaw.models) as NoteTypes,
+      models: parseWithBigInts(collectionRaw.models, [
+        "tmpls[].id",
+        "flds[].id",
+      ]) as NoteTypes,
       tags: JSON.parse(collectionRaw.tags) as Record<string, never>,
     };
 

@@ -1262,7 +1262,7 @@ interface Template {
    * handle such large integers and might convert them to the nearest safe
    * integer, losing precision and thus making the ID unusable.
    */
-  id: number | bigint | null;
+  id: bigint | null;
   /**
    * The name of the template as shown in the Anki UI.
    * @example "Card 1", "Card 2", "Cloze", ...
@@ -1343,7 +1343,7 @@ export interface Field {
    * handle such large integers and might convert them to the nearest safe
    * integer, losing precision and thus making the ID unusable.
    */
-  id: number | bigint | null;
+  id: bigint | null;
   /**
    * The name of the field as shown in the Anki UI.
    * @example "Front", "Back", "Extra", ...
