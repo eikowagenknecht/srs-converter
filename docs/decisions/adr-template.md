@@ -1,10 +1,16 @@
 ---
 # These are optional metadata elements. Use only if they add value for this specific MADR!
 status: "{proposed | rejected | accepted | deprecated | … | superseded by ADR-0123"
-date: {YYYY-MM-DD when the decision was last updated}
-decision-makers: {list everyone involved in the decision}
-consulted: {list everyone whose opinions are sought (typically subject-matter experts); and with whom there is a two-way communication}
-informed: {list everyone who is kept up-to-date on progress; and with whom there is a one-way communication}
+date: { YYYY-MM-DD when the decision was last updated }
+decision-makers: { list everyone involved in the decision }
+consulted:
+  {
+    list everyone whose opinions are sought (typically subject-matter experts); and with whom there is a two-way communication,
+  }
+informed:
+  {
+    list everyone who is kept up-to-date on progress; and with whom there is a one-way communication,
+  }
 ---
 
 # {short title, representative of solved problem and found solution}
@@ -16,16 +22,16 @@ You may want to articulate the problem in form of a question and add links to co
 
 ## Decision Drivers <!-- This is an optional element. Use only if it adds value for this specific MADR! -->
 
-* {decision driver 1, e.g., a force, facing concern, …}
-* {decision driver 2, e.g., a force, facing concern, …}
-* … <!-- numbers of drivers can vary -->
+- {decision driver 1, e.g., a force, facing concern, …}
+- {decision driver 2, e.g., a force, facing concern, …}
+- … <!-- numbers of drivers can vary -->
 
 ## Considered Options
 
-* {title of option 1}
-* {title of option 2}
-* {title of option 3}
-* … <!-- numbers of options can vary -->
+- {title of option 1}
+- {title of option 2}
+- {title of option 3}
+- … <!-- numbers of options can vary -->
 
 ## Decision Outcome
 
@@ -33,9 +39,9 @@ Chosen option: "{title of option 1}", because {justification. e.g., only option,
 
 ### Consequences <!-- This is an optional element, but most MADRs should include it. -->
 
-* Good, because {positive consequence, e.g., improvement of one or more desired qualities, …}
-* Bad, because {negative consequence, e.g., compromising one or more desired qualities, …}
-* … <!-- numbers of consequences can vary -->
+- Good, because {positive consequence, e.g., improvement of one or more desired qualities, …}
+- Bad, because {negative consequence, e.g., compromising one or more desired qualities, …}
+- … <!-- numbers of consequences can vary -->
 
 ### Confirmation <!-- This is an optional element. Use only if it adds value for this specific MADR! -->
 
@@ -50,22 +56,22 @@ Not that although we classify this element as optional, it is included in many A
 
 {example | description | pointer to more information | …} <!-- This is an optional element. Use only if it adds value for this specific MADR! -->
 
-* Good, because {argument a}.
-* Good, because {argument b}.
+- Good, because {argument a}.
+- Good, because {argument b}.
 <!-- use "neutral" if the given argument weights neither for good nor bad -->
-* Neutral, because {argument c}.
-* Bad, because {argument d}.
-* … <!-- numbers of pros and cons can vary -->
+- Neutral, because {argument c}.
+- Bad, because {argument d}.
+- … <!-- numbers of pros and cons can vary -->
 
 ### {title of other option}
 
 {example | description | pointer to more information | …}
 
-* Good, because {argument a}.
-* Good, because {argument b}.
-* Neutral, because {argument c}.
-* Bad, because {argument d}.
-* …
+- Good, because {argument a}.
+- Good, because {argument b}.
+- Neutral, because {argument c}.
+- Bad, because {argument d}.
+- …
 
 ## More Information <!-- This is an optional element. Use only if it adds value for this specific MADR! -->
 

@@ -8,9 +8,9 @@ Simple error handling approaches like console.error or throwing exceptions canno
 
 ## Considered Options
 
-* console.error() for logging errors
-* throw exceptions on any error
-* Tri-state success model with comprehensive error collection
+- console.error() for logging errors
+- throw exceptions on any error
+- Tri-state success model with comprehensive error collection
 
 ## Decision Outcome
 
@@ -18,9 +18,9 @@ Chosen option: "Tri-state success model with comprehensive error collection", be
 
 ### Consequences
 
-* Good, because users get choice between strict validation and best-effort recovery.
-* Good, because partial success allows working with converted data while addressing issues.
-* Good, because comprehensive error collection shows all issues, not just the first one.
-* Good, because structured error context includes user-friendly identifiers and recovery suggestions.
-* Bad, because increased complexity in error handling logic.
-* Bad, because performance impact from continuing processing after errors.
+- Good, because users get choice between strict validation and best-effort recovery.
+- Good, because partial success allows working with converted data while addressing issues.
+- Good, because comprehensive error collection shows all issues, not just the first one.
+- Good, because structured error context includes user-friendly identifiers and recovery suggestions.
+- Bad, because increased complexity in error handling logic.
+- Bad, because performance impact from continuing processing after errors.

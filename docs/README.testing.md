@@ -10,7 +10,7 @@
 Required tests (must be run in order):
 
 1. **Type checking:** `pnpm type-check`
-2. **Code formatting:** `pnpm format`  
+2. **Code formatting:** `pnpm format`
 3. **Linting:** `pnpm lint`
 4. **Unit tests:** `pnpm test`
 
