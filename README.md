@@ -134,4 +134,4 @@ For detailed development information:
 
 ## License
 
-AGPL-3.0-or-later
+MIT
