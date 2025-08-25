@@ -254,7 +254,7 @@ describe("Import / Export", () => {
   describe("fromAnkiExport()", () => {
     it("should load valid .apkg files", async () => {
       const result = await AnkiPackage.fromAnkiExport(
-        "./templates/emptyLegacy2.apkg",
+        "./templates/anki/empty-legacy-2.apkg",
       );
       const ankiPackage = expectSuccess(result);
 
@@ -268,7 +268,7 @@ describe("Import / Export", () => {
 
     it("should load valid .colpkg files", async () => {
       const result = await AnkiPackage.fromAnkiExport(
-        "./templates/emptyLegacy2.colpkg",
+        "./templates/anki/empty-legacy-2.colpkg",
       );
       const ankiPackage = expectSuccess(result);
 
@@ -282,7 +282,7 @@ describe("Import / Export", () => {
 
     it("should reject non-legacy exports", async () => {
       const result = await AnkiPackage.fromAnkiExport(
-        "./templates/emptyLatest.apkg",
+        "./templates/anki/empty-latest.apkg",
       );
       expectFailure(result);
       expect(result.issues[0]?.message).toMatch(
@@ -322,21 +322,21 @@ describe("Import / Export", () => {
   describe("toAnkiExport()", () => {
     it("should write back the contents of the default zip file", async () => {
       const result = await AnkiPackage.fromAnkiExport(
-        "./templates/emptyLegacy2.apkg",
+        "./templates/anki/empty-legacy-2.apkg",
       );
       const pack = expectSuccess(result);
 
       try {
-        await pack.toAnkiExport("./out/emptyLegacy2.apkg");
+        await pack.toAnkiExport("./out/empty-legacy-2.apkg");
 
         // Verify the exported file exists
         await expect(
-          access("./out/emptyLegacy2.apkg"),
+          access("./out/empty-legacy-2.apkg"),
         ).resolves.toBeUndefined();
 
         // Verify the exported file can be re-imported and contains expected data
         const reimportResult = await AnkiPackage.fromAnkiExport(
-          "./out/emptyLegacy2.apkg",
+          "./out/empty-legacy-2.apkg",
         );
         const reimportedPackage = expectSuccess(reimportResult);
 
@@ -2777,7 +2777,7 @@ describe("Utilities and Helper Functions", () => {
   describe("Mixed Note Type Support", () => {
     it("should detect multiple note types including cloze types", async () => {
       const result = await AnkiPackage.fromAnkiExport(
-        "./templates/mixedLegacy2.apkg",
+        "./templates/anki/mixed-legacy-2.apkg",
       );
       const ankiPackage = expectSuccess(result);
 
@@ -2818,7 +2818,7 @@ describe("Utilities and Helper Functions", () => {
 
     it("should preserve cloze content in field values during SRS conversion", async () => {
       const result = await AnkiPackage.fromAnkiExport(
-        "./templates/mixedLegacy2.apkg",
+        "./templates/anki/mixed-legacy-2.apkg",
       );
       const ankiPackage = expectSuccess(result);
 
@@ -2855,7 +2855,7 @@ describe("Utilities and Helper Functions", () => {
     it("should round-trip cloze cards successfully", async () => {
       // Load original cloze package
       const loadResult = await AnkiPackage.fromAnkiExport(
-        "./templates/mixedLegacy2.apkg",
+        "./templates/anki/mixed-legacy-2.apkg",
       );
       const originalAnki = expectSuccess(loadResult);
 
@@ -2900,7 +2900,7 @@ describe("Utilities and Helper Functions", () => {
 
     it("should generate correct number of cloze cards", async () => {
       const result = await AnkiPackage.fromAnkiExport(
-        "./templates/mixedLegacy2.apkg",
+        "./templates/anki/mixed-legacy-2.apkg",
       );
       const ankiPackage = expectSuccess(result);
 
