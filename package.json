@@ -45,12 +45,13 @@
   "files": [
     "dist/",
     "!dist/**/*.test.*",
+    "!dist/docs/",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
     "dev": "tsc --watch",
-    "build": "tsc",
+    "build": "pnpm dlx rimraf dist && tsc --project tsconfig.build.json",
     "format": "prettier --write ./src ./docs && biome format --write ./src ./docs",
     "lint": "pnpm type-check && pnpm lint:eslint && pnpm lint:prettier && pnpm lint:biome",
     "lint:biome": "biome check --write ./src ./docs",

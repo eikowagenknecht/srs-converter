@@ -28,9 +28,9 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-		"outDir": "./dist",
-		"rootDir": "."
+		"noEmit": true
 	},
 	"include": ["src/**/*", "docs/**/*"],
+  // Needs to include (=not exclude) test files
 	"exclude": ["node_modules", "dist"]
 }
