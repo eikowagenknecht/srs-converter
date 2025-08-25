@@ -76,7 +76,7 @@ pnpm build
 
 ## Usage
 
-For comprehensive usage examples and API documentation, see the [Usage Guide](docs/README.usage.md).
+For usage examples and API documentation, see the [Usage Guide](docs/usage/README.md).
 
 ## Project Status
 
@@ -123,7 +123,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 For detailed development information:
 
-- [Usage Guide](docs/README.usage.md) - Comprehensive usage examples and API documentation
+- [Usage Guide](docs/usage/README.md) - Comprehensive usage examples and API documentation
 - [Architecture Overview](docs/README.architecture.md) - System design and technical decisions
 - [Decision Records](docs/decisions/README.md) - Architectural decisions and their rationale
 - [Development Stories](docs/stories/README.md) - Development roadmap and progress tracking

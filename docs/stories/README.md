@@ -13,7 +13,7 @@ This document outlines the current development roadmap for the srs-converter lib
 ## Story Status Legend
 
 - ⏳ Pending - Not started
-- 🔄 In Progress - Currently being worked on  
+- 🔄 In Progress - Currently being worked on
 - ✅ Completed - Implemented and verified
 - 🧪 Testing - Implementation complete, awaiting verification
 
@@ -38,13 +38,13 @@ This document outlines the current development roadmap for the srs-converter lib
 - **Phase 2.0**: Mnemosyne format reading implementation
   - Progress: 0/4 stories completed (0%) ⏳
 
-- **Phase 2.1**: Mnemosyne format writing implementation  
+- **Phase 2.1**: Mnemosyne format writing implementation
   - Progress: 0/4 stories completed (0%) ⏳
 
 - **Phase 3.0**: Mochi format reading implementation
   - Progress: 0/4 stories completed (0%) ⏳
 
-- **Phase 3.1**: Mochi format writing implementation  
+- **Phase 3.1**: Mochi format writing implementation
   - Progress: 0/4 stories completed (0%) ⏳
 
 - **Phase 4.0**: SuperMemo format reading implementation
@@ -155,7 +155,7 @@ This document outlines the current development roadmap for the srs-converter lib
 **Acceptance Criteria:**
 
 - ✅ Read Basic note types with front/back templates
-- ✅ Read Cloze deletion note types with cloze templates  
+- ✅ Read Cloze deletion note types with cloze templates
 - ✅ Read Image Occlusion note types with occlusion data
 - ✅ Read custom user-defined note types
 - ✅ Preserve note type configuration and styling
@@ -486,7 +486,7 @@ This document outlines the current development roadmap for the srs-converter lib
 - [ ] Handle corrupted .apkg files gracefully
 - [ ] Handle missing media files
 - [ ] Handle unsupported Anki features
-- [ ] Handle database schema mismatches  
+- [ ] Handle database schema mismatches
 - [ ] Provide clear error messages
 - [ ] Support partial data recovery where possible
 
@@ -569,7 +569,7 @@ This document outlines the current development roadmap for the srs-converter lib
 **Acceptance Criteria:**
 
 - [ ] Read Mnemosyne database files
-- [ ] Extract cards with front/back content  
+- [ ] Extract cards with front/back content
 - [ ] Extract scheduling information
 - [ ] Handle Mnemosyne-specific metadata
 - [ ] Create Mnemosyne TypeScript interfaces
@@ -681,7 +681,7 @@ This document outlines the current development roadmap for the srs-converter lib
 **Acceptance Criteria:**
 
 - [ ] Export Mnemosyne learning modes
-- [ ] Export Mnemosyne statistics  
+- [ ] Export Mnemosyne statistics
 - [ ] Export Mnemosyne card types
 - [ ] Export Mnemosyne categories/tags
 - [ ] Export Mnemosyne configuration
@@ -1551,6 +1551,6 @@ This document outlines the current development roadmap for the srs-converter lib
 ### Testing Strategy
 
 - **Format I/O Stories**: Unit testing with real SRS files + round-trip testing
-- **Conversion Stories**: Cross-format testing + data integrity validation  
+- **Conversion Stories**: Cross-format testing + data integrity validation
 - **Performance Stories**: Benchmark testing with large datasets
 - **Integration Stories**: End-to-end testing with actual SRS applications
