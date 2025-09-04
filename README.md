@@ -96,7 +96,7 @@ The library development follows a phase-based approach. For detailed development
 
 ### Anki Format Details
 
-For detailed technical information about the Anki package format, see: [Understanding the Anki .apkg Format (Legacy 2)](https://eikowagenknecht.de/posts/understanding-the-anki-apkg-format-legacy-2/)
+For detailed technical information about the Anki package format, see: [Understanding the Anki .apkg Format (Legacy 2)](https://eikowagenknecht.com/posts/understanding-the-anki-apkg-format-legacy-2/)
 
 | Component | Support Level | Notes |
 |-----------|---------------|-------|
@@ -113,7 +113,7 @@ For detailed technical information about the Anki package format, see: [Understa
 
 ## Maintainer
 
-This project is maintained by [Eiko Wagenknecht](https://eikowagenknecht.de).
+This project is maintained by [Eiko Wagenknecht](https://eikowagenknecht.com).
 
 ## Contributing
 
