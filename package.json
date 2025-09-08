@@ -75,7 +75,7 @@
     "protobufjs": "7.5.4",
     "sql.js": "1.13.0",
     "unzipper": "0.12.3",
-    "uuid": "11.1.0"
+    "uuid": "13.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.3",
