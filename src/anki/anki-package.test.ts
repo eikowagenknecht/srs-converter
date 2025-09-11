@@ -3,7 +3,9 @@ import { access, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { ConversionResult } from "@/error-handling";
+// eslint-disable-next-line no-restricted-imports -- Required for Node.js module resolution
+import type { ConversionResult } from "../error-handling.js";
+// eslint-disable-next-line no-restricted-imports -- Required for Node.js module resolution
 import {
   createCard,
   createCompleteDeckStructure,
@@ -12,17 +14,17 @@ import {
   createNoteType,
   SrsPackage,
   SrsReviewScore,
-} from "@/srs-package";
-import { AnkiPackage } from "./anki-package";
+} from "../srs-package.js";
+import { AnkiPackage } from "./anki-package.js";
 import {
   basicAndReversedCardModel,
   basicModel,
   clozeModel,
   defaultConfig,
   defaultDeck,
-} from "./constants";
-import { type Ease, NoteTypeKind } from "./types";
-import { extractTimestampFromUuid } from "./util";
+} from "./constants.js";
+import { type Ease, NoteTypeKind } from "./types.js";
+import { extractTimestampFromUuid } from "./util.js";
 
 // Helper function to unwrap ConversionResult for tests that expect success
 function expectSuccess<T>(result: ConversionResult<T>): T {

@@ -1,12 +1,12 @@
-export * from "./anki/anki-package";
-export * from "./anki/constants";
-export * from "./anki/database";
-export * from "./anki/types";
-export * from "./anki/util";
+export * from "./anki/anki-package.js";
+export * from "./anki/constants.js";
+export * from "./anki/database.js";
+export * from "./anki/types.js";
+export * from "./anki/util.js";
 export type {
   ConversionIssue,
   ConversionOptions,
   ConversionResult,
-} from "./error-handling";
-export { IssueCollector } from "./error-handling";
-export * from "./srs-package";
+} from "./error-handling.js";
+export { IssueCollector } from "./error-handling.js";
+export * from "./srs-package.js";

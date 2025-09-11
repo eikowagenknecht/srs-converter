@@ -1,4 +1,4 @@
-import type { ColTable, Config, Deck, DeckConfig, NoteType } from "./types";
+import type { ColTable, Config, Deck, DeckConfig, NoteType } from "./types.js";
 
 export const ankiDbSchema = `
 CREATE TABLE cards (

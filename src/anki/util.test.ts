@@ -14,7 +14,7 @@ import {
   parseWithBigInts,
   sanitizeFilename,
   serializeWithBigInts,
-} from "./util";
+} from "./util.js";
 
 describe("guid64", () => {
   it("should generate string with valid base91 characters", () => {

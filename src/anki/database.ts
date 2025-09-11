@@ -2,8 +2,9 @@ import { CompiledQuery, Kysely } from "kysely";
 import { SqlJsDialect } from "kysely-wasm";
 import type { Database } from "sql.js";
 import InitSqlJs from "sql.js";
-import type { ConversionIssue } from "@/error-handling";
-import { ankiDbSchema, ankiDefaultCollectionInsert } from "./constants";
+// eslint-disable-next-line no-restricted-imports -- Required for Node.js module resolution
+import type { ConversionIssue } from "../error-handling.js";
+import { ankiDbSchema, ankiDefaultCollectionInsert } from "./constants.js";
 import type {
   CardsTable,
   ColTable,
@@ -16,8 +17,8 @@ import type {
   NotesTable,
   NoteTypes,
   RevlogTable,
-} from "./types";
-import { parseWithBigInts, serializeWithBigInts } from "./util";
+} from "./types.js";
+import { parseWithBigInts, serializeWithBigInts } from "./util.js";
 
 export class AnkiDatabase {
   private db: Kysely<DBTables>;

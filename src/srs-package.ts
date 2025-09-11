@@ -1,4 +1,4 @@
-import { generateUuid } from "./anki/util";
+import { generateUuid } from "./anki/util.js";
 
 /**
  * Represents a complete SRS (Spaced Repetition System) package containing all

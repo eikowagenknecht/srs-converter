@@ -3,12 +3,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Field, Root, Type } from "protobufjs";
 import { Open } from "unzipper";
+// eslint-disable-next-line no-restricted-imports -- Required for Node.js module resolution
 import {
   type ConversionIssue,
   type ConversionOptions,
   type ConversionResult,
   IssueCollector,
-} from "@/error-handling";
+} from "../error-handling.js";
+// eslint-disable-next-line no-restricted-imports -- Required for Node.js module resolution
 import {
   createCard,
   createDeck,
@@ -18,9 +20,9 @@ import {
   type SrsCard,
   SrsPackage,
   SrsReviewScore,
-} from "@/srs-package";
-import { defaultDeck } from "./constants";
-import { AnkiDatabase } from "./database";
+} from "../srs-package.js";
+import { defaultDeck } from "./constants.js";
+import { AnkiDatabase } from "./database.js";
 import {
   type CardsTable,
   type Config,
@@ -34,7 +36,7 @@ import {
   type NoteType,
   NoteTypeKind,
   type RevlogTable,
-} from "./types";
+} from "./types.js";
 import {
   createSelectiveZip,
   extractTimestampFromUuid,
@@ -42,7 +44,7 @@ import {
   joinAnkiFields,
   serializeWithBigInts,
   splitAnkiFields,
-} from "./util";
+} from "./util.js";
 
 /**
  * Analyzes a note's field content to find cloze deletions and returns the required card ordinals.
