@@ -194,11 +194,92 @@ srs-converter/
 - **Import Errors**: Ensure you're using `@/` imports and proper module exports
 - **Linting Issues**: Run `pnpm lint:biome` for quick fixes, then full `pnpm lint`
 
+## Conventional Commits Guidelines
+
+**ALL commits and pull requests MUST follow the Conventional Commits specification. This is strictly enforced by CI pipelines.**
+
+### Conventional Commits Format
+
+**Required structure:**
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Commit Types
+
+**Primary types (most commonly used):**
+- `feat`: A new feature for the user
+- `fix`: A bug fix
+- `docs`: Documentation only changes
+- `style`: Code style changes (formatting, missing semicolons, etc.)
+- `refactor`: Code changes that neither fix a bug nor add a feature
+- `test`: Adding missing tests or correcting existing tests
+- `chore`: Changes to build process, auxiliary tools, libraries, dependencies
+
+**Examples of well-formed commit messages:**
+```bash
+feat: add SRS to Anki conversion with custom note types
+fix: resolve database connection timeout in large deck imports
+docs: update API documentation for ConversionResult pattern
+test: add comprehensive validation for Anki package creation
+refactor: extract common database operations into utility functions
+chore(deps): bump typescript from 5.2.0 to 5.3.0
+```
+
+### Pull Request Requirements
+
+1. **PR Title**: Must follow conventional commits format - this becomes the squash merge commit message
+2. **Individual Commits**: Should also follow conventional commits (validated by commitlint)
+3. **Enforcement**: The `conventional-pull-request.yml` workflow validates PR titles automatically
+
+**Good PR title examples:**
+- `feat: implement universal SRS format converter`
+- `fix: handle malformed Anki database files gracefully`
+- `docs: create comprehensive GitHub Copilot instructions for effective development`
+
+### Scopes (Optional)
+
+Common scopes used in this project:
+- `anki`: Changes specific to Anki integration
+- `deps`: Dependency updates
+- `ci`: CI/CD pipeline changes
+- `types`: TypeScript type definitions
+
+**Examples with scopes:**
+```bash
+feat(anki): add support for custom card templates
+fix(types): correct ConversionResult generic constraints
+chore(ci): update GitHub Actions to latest versions
+```
+
+### Validation and Enforcement
+
+**Automated enforcement:**
+- **commitlint**: Validates individual commit messages using `@commitlint/config-conventional`
+- **conventional-pull-request**: Validates PR titles match conventional commits format
+- **lefthook**: Git hooks run commitlint on every commit
+
+**Manual validation:**
+```bash
+# Test your commit message format locally
+echo "feat: your commit message" | pnpm dlx commitlint --from=stdin
+```
+
+**If validation fails:**
+- Fix your commit message format
+- For already committed changes: `git commit --amend -m "properly formatted message"`
+- For PR titles: Edit the PR title in the GitHub interface
+
 ## CI/CD Information
 
-- **GitHub Actions**: `.github/workflows/quality-check.yml`
+- **GitHub Actions**: `.github/workflows/quality-check.yml`, `.github/workflows/conventional-pull-request.yml`
 - **Required Checks**: type-check, lint, test, build must all pass
+- **Conventional Commits**: Strictly enforced for all commits and PR titles
 - **Git Hooks**: Managed by lefthook (see `lefthook.yml`)
-- **Commit Convention**: Conventional commits required (enforced by commitlint)
+- **Pull Request Template**: Includes quality checks and CLA agreement requirements
 
 Remember: This is a TypeScript library for converting between spaced repetition system formats (primarily Anki). Focus on data integrity, error handling, and comprehensive testing when making changes.
