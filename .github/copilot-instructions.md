@@ -2,6 +2,8 @@
 
 **Always reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.**
 
+> This comprehensive guide provides GitHub Copilot coding agents with detailed instructions for working effectively in the srs-converter codebase.
+
 ## Working Effectively
 
 ### Bootstrap, Build, and Test the Repository
