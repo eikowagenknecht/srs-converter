@@ -58,7 +58,7 @@ function analyzeClozeOrdinals(fieldContent: string): number[] {
   const clozeNumbers = [...fieldContent.matchAll(clozeRegex)]
     .map((match) => match[1])
     .filter((group): group is string => group !== undefined)
-    .map((group) => Number.parseInt(group) - 1) // Convert to 0-based ordinals
+    .map((group) => Number.parseInt(group, 10) - 1) // Convert to 0-based ordinals
     .filter((ordinal, index, arr) => arr.indexOf(ordinal) === index) // Remove duplicates
     .sort((a, b) => a - b);
 
