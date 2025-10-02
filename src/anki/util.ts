@@ -129,7 +129,7 @@ interface FileConfig {
  * @param outputPath - Path where the ZIP file should be created (parent directories will be created if needed)
  * @param files - Array of file configurations, each specifying the file path and whether to compress it
  * @returns Promise that resolves when ZIP creation is complete
- * @throws Error if file operations fail or archive creation encounters errors
+ * @throws {Error} if file operations fail or archive creation encounters errors
  */
 export async function createSelectiveZip(
   outputPath: string,
