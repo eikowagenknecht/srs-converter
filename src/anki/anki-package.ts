@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Field, Root, Type } from "protobufjs";
+import * as protobuf from "protobufjs";
 import { Open } from "unzipper";
 import {
   type ConversionIssue,
@@ -1067,9 +1067,9 @@ interface MetaMessage {
 }
 
 function parseMeta(buffer: Uint8Array): MetaMessage {
-  const root = new Root();
-  const Meta = new Type("Meta").add(
-    new Field("version", 1, "int32", "required"),
+  const root = new protobuf.Root();
+  const Meta = new protobuf.Type("Meta").add(
+    new protobuf.Field("version", 1, "int32", "required"),
   );
   root.add(Meta);
 
@@ -1078,9 +1078,9 @@ function parseMeta(buffer: Uint8Array): MetaMessage {
 }
 
 function writeMeta(message: MetaMessage): Uint8Array {
-  const root = new Root();
-  const Meta = new Type("Meta").add(
-    new Field("version", 1, "int32", "required"),
+  const root = new protobuf.Root();
+  const Meta = new protobuf.Type("Meta").add(
+    new protobuf.Field("version", 1, "int32", "required"),
   );
   root.add(Meta);
 
