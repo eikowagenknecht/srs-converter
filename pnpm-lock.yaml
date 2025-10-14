@@ -70,8 +70,8 @@ importers:
         specifier: 4.16.1
         version: 4.16.1(@typescript-eslint/utils@8.46.1(eslint@9.37.0(jiti@2.6.1))(typescript@5.9.3))(eslint@9.37.0(jiti@2.6.1))
       eslint-plugin-jsdoc:
-        specifier: 60.8.3
-        version: 60.8.3(eslint@9.37.0(jiti@2.6.1))
+        specifier: 61.1.2
+        version: 61.1.2(eslint@9.37.0(jiti@2.6.1))
       globals:
         specifier: 16.4.0
         version: 16.4.0
@@ -256,8 +256,8 @@ packages:
   '@emnapi/wasi-threads@1.1.0':
     resolution: {integrity: sha512-WI0DdZ8xFSbgMjR1sFsKABJ/C5OnRrjT06JXbZKexJGrDuPTzZdDYfFlsgcCXCyf+suG5QU2e/y1Wo2V/OapLQ==}
 
-  '@es-joy/jsdoccomment@0.71.0':
-    resolution: {integrity: sha512-2p9+dXWNQnp5Kq/V0XVWZiVAabzlX6rUW8vXXvtX8Yc1CkKgD93IPDEnv1sYZFkkS6HMvg6H0RMZfob/Co0YXA==}
+  '@es-joy/jsdoccomment@0.76.0':
+    resolution: {integrity: sha512-g+RihtzFgGTx2WYCuTHbdOXJeAlGnROws0TeALx9ow/ZmOROOZkVg5wp/B44n0WJgI4SQFP1eWM2iRPlU2Y14w==}
     engines: {node: '>=20.11.0'}
 
   '@esbuild/aix-ppc64@0.25.10':
@@ -736,10 +736,6 @@ packages:
     resolution: {integrity: sha512-Lk7uj7y9uQUOEguiDIDLYLJOrYHQa7oBiURYVFqIpGxclAFQ78f6VUOM8lI2XEuNOKNB7XuvM2+2cMXAoq4ALQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
-  '@typescript-eslint/types@8.46.0':
-    resolution: {integrity: sha512-bHGGJyVjSE4dJJIO5yyEWt/cHyNwga/zXGJbJJ8TiO01aVREK6gCTu3L+5wrkb1FbDkQ+TKjMNe9R/QQQP9+rA==}
-    engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
-
   '@typescript-eslint/types@8.46.1':
     resolution: {integrity: sha512-C+soprGBHwWBdkDpbaRC4paGBrkIXxVlNohadL5o0kfhsXqOC6GYH2S/Obmig+I0HTDl8wMaRySwrfrXVP8/pQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
@@ -1212,8 +1208,8 @@ packages:
       eslint-import-resolver-node:
         optional: true
 
-  eslint-plugin-jsdoc@60.8.3:
-    resolution: {integrity: sha512-4191bTMvnd5WUtopCdzNhQchvv/MxtPD86ZGl3vem8Ibm22xJhKuIyClmgSxw+YERtorVc/NhG+bGjfFVa6+VQ==}
+  eslint-plugin-jsdoc@61.1.2:
+    resolution: {integrity: sha512-gbb4VVKRsMJZ+YqJXte6RQ/pDTIQcMauyQb03n5GTfWG+gAb6T3FaOLeoSHAIrBT90ykLkxzRh3z95DoIrUk3A==}
     engines: {node: '>=20.11.0'}
     peerDependencies:
       eslint: ^7.0.0 || ^8.0.0 || ^9.0.0
@@ -1506,8 +1502,8 @@ packages:
     resolution: {integrity: sha512-wpxZs9NoxZaJESJGIZTyDEaYpl0FKSA+FB9aJiyemKhMwkxQg63h4T1KJgUGHpTqPDNRcmmYLugrRjJlBtWvRA==}
     hasBin: true
 
-  jsdoc-type-pratt-parser@6.6.0:
-    resolution: {integrity: sha512-3hSD14nXx66Rspx1RMnz1Pj4JacrMBAsC0CrF9lZYO/Qsp5/oIr6KqujVUNhQu94B6mMip2ukki8MpEWZwyhKA==}
+  jsdoc-type-pratt-parser@6.10.0:
+    resolution: {integrity: sha512-+LexoTRyYui5iOhJGn13N9ZazL23nAHGkXsa1p/C8yeq79WRfLBag6ZZ0FQG2aRoc9yfo59JT9EYCQonOkHKkQ==}
     engines: {node: '>=20.0.0'}
 
   json-buffer@3.0.1:
@@ -2402,7 +2398,7 @@ snapshots:
   '@commitlint/is-ignored@20.0.0':
     dependencies:
       '@commitlint/types': 20.0.0
-      semver: 7.7.2
+      semver: 7.7.3
 
   '@commitlint/lint@20.0.0':
     dependencies:
@@ -2486,13 +2482,13 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@es-joy/jsdoccomment@0.71.0':
+  '@es-joy/jsdoccomment@0.76.0':
     dependencies:
       '@types/estree': 1.0.8
-      '@typescript-eslint/types': 8.46.0
+      '@typescript-eslint/types': 8.46.1
       comment-parser: 1.4.1
       esquery: 1.6.0
-      jsdoc-type-pratt-parser: 6.6.0
+      jsdoc-type-pratt-parser: 6.10.0
 
   '@esbuild/aix-ppc64@0.25.10':
     optional: true
@@ -2873,8 +2869,6 @@ snapshots:
       - supports-color
 
   '@typescript-eslint/types@8.44.1': {}
-
-  '@typescript-eslint/types@8.46.0': {}
 
   '@typescript-eslint/types@8.46.1': {}
 
@@ -3354,9 +3348,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-jsdoc@60.8.3(eslint@9.37.0(jiti@2.6.1)):
+  eslint-plugin-jsdoc@61.1.2(eslint@9.37.0(jiti@2.6.1)):
     dependencies:
-      '@es-joy/jsdoccomment': 0.71.0
+      '@es-joy/jsdoccomment': 0.76.0
       are-docs-informative: 0.0.2
       comment-parser: 1.4.1
       debug: 4.4.3
@@ -3367,7 +3361,7 @@ snapshots:
       html-entities: 2.6.0
       object-deep-merge: 1.0.5
       parse-imports-exports: 0.2.4
-      semver: 7.7.2
+      semver: 7.7.3
       spdx-expression-parse: 4.0.0
     transitivePeerDependencies:
       - supports-color
@@ -3597,7 +3591,7 @@ snapshots:
 
   is-bun-module@2.0.0:
     dependencies:
-      semver: 7.7.2
+      semver: 7.7.3
 
   is-extglob@2.1.1: {}
 
@@ -3660,7 +3654,7 @@ snapshots:
     dependencies:
       argparse: 2.0.1
 
-  jsdoc-type-pratt-parser@6.6.0: {}
+  jsdoc-type-pratt-parser@6.10.0: {}
 
   json-buffer@3.0.1: {}
 
@@ -3801,7 +3795,7 @@ snapshots:
 
   make-dir@4.0.0:
     dependencies:
-      semver: 7.7.2
+      semver: 7.7.3
 
   meow@12.1.1: {}
 
