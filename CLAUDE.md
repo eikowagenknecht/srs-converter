@@ -33,12 +33,17 @@ The commands will take care of that.
 
 ## Communication
 
-When I ask a question, you (Claude) should answer it directly and concisely. You should **NOT** jump to implementation without being asked to do so.
+- Avoid filler phrases like "You're absolutely right," "That's a great point," or "I completely agree" at the start of responses
+- Get straight to the substantive content
+- If you agree with something I said, show it through your response rather than stating it explicitly
+- Focus on adding value rather than validating
+- When I ask a question, answer it directly and concisely. Do **NOT** implementat without being asked to do so.
 
-## Common Pitfalls and Reminders
+## Important Reminders
 
 - When using template strings, numbers **must** be formatted with .toFixed() (NOT String(number))
 - For Stories follow the exact workflow from `docs/README.workflow.md`
+- Use your inbuilt tools to write files, **not** bash commands
 
 ## Self-Improvement
 
