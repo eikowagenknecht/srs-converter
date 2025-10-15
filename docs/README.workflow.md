@@ -68,6 +68,8 @@ Plan:
 - Write clean, self-documenting code
 - Handle errors gracefully
 - Keep functions small and focused
+- Note any changes you would want to make to the documentation (`README` files) in `docs/working/pending.md`
+- Document any bugs found that were not introduced by this story in `docs/working/issues.md`
 
 **Key Files to Check:**
 
@@ -124,22 +126,17 @@ Run all quality gates and build verification as specified in [README.testing.md]
 - Re-run Step 4 (Testing)
 - Submit new verification request
 
-### Step 7: Story Completion
+### Step 7: Documentation Updates
 
-After project maintainer approval:
+Write up any changes you want to make to the documentation and present them to the project maintainer for approval:
 
-- Mark story as ✅ **Completed** in `docs/stories/README.md`
-- Update any relevant documentation files
+- Take into account the notes you made in `docs/working/pending.md` during implementation.
+- Make sure that all README.* files including examples, usage instructions, and architecture docs reflect the new changes.
+- If any examples were added or modified, make sure they pass teh automated tests.
 
-## Documentation Updates
+After the project maintainer approves the documentation changes, update the relevant files.
 
-### Files to Update During Development
-
-- Note any changes you would want to make to the documentation (`README` files) in `docs/working/pending.md`
-- Do **not** update the documentation without project maintainer approval
-- Document any bugs found in `docs/working/issues.md`
-
-## Quality Checklist
+### Step 8: Story Completion
 
 Before marking any story complete, verify:
 
@@ -148,7 +145,11 @@ Before marking any story complete, verify:
 - [ ] No new console errors or warnings
 - [ ] Code follows project conventions
 - [ ] Project maintainer verification completed successfully
-- [ ] Relevant documentation updates suggested
+- [ ] Relevant documentation updates suggested and implemented if approved
+
+Ask the project maintainer for final approval to mark the story as complete. If given:
+
+- Mark story as ✅ **Completed** in `docs/stories/README.md` and update the contents of this story document to reflect the completed work.
 
 ## Emergency Procedures
 
