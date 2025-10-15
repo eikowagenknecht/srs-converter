@@ -131,7 +131,7 @@ Run all quality gates and build verification as specified in [README.testing.md]
 Write up any changes you want to make to the documentation and present them to the project maintainer for approval:
 
 - Take into account the notes you made in `docs/working/pending.md` during implementation.
-- Make sure that all README.* files including examples, usage instructions, and architecture docs reflect the new changes.
+- Make sure that all README.\* files including examples, usage instructions, and architecture docs reflect the new changes.
 - If any examples were added or modified, make sure they pass teh automated tests.
 
 After the project maintainer approves the documentation changes, update the relevant files.
@@ -146,6 +146,7 @@ Before marking any story complete, verify:
 - [ ] Code follows project conventions
 - [ ] Project maintainer verification completed successfully
 - [ ] Relevant documentation updates suggested and implemented if approved
+- [ ] That there are no leftover files artifacts from development (e.g. debug code, console logs). Use git status to check this.
 
 Ask the project maintainer for final approval to mark the story as complete. If given:
 
