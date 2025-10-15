@@ -32,8 +32,8 @@ This document outlines the current development roadmap for the srs-converter lib
   - Status: Currently only metadata is handled - need APIs for actual file operations
 
 - **Phase 1.2**: Achieve 100% test coverage and handle all Anki edge cases
-  - Progress: 1/4 stories completed (25%) 🔄
-  - Status: Round-trip tests pass, but comprehensive coverage needed
+  - Progress: 1/5 stories completed (20%) 🔄
+  - Status: Round-trip tests pass, but comprehensive coverage and ID preservation verification needed
 
 - **Phase 2.0**: Mnemosyne format reading implementation
   - Progress: 0/4 stories completed (0%) ⏳
@@ -526,6 +526,40 @@ This document outlines the current development roadmap for the srs-converter lib
 
 - ✅ Automated: Round-trip test suite passes
 - ✅ Manual: Data integrity verified
+
+---
+
+#### Story 1.2.5: Verify ID Preservation in Round-Trip Conversions
+
+**Status:** ⏳ Pending
+
+**Story:** As a developer, I want to ensure all entity IDs are preserved during round-trip conversions so that Anki → SRS → Anki conversions maintain identical IDs throughout the process.
+
+**Acceptance Criteria:**
+
+- [ ] Verify deck IDs remain unchanged after round-trip conversion
+- [ ] Verify note IDs remain unchanged after round-trip conversion
+- [ ] Verify card IDs remain unchanged after round-trip conversion
+- [ ] Verify note type IDs remain unchanged after round-trip conversion
+- [ ] Verify review log IDs remain unchanged after round-trip conversion
+- [ ] Test ID preservation with multiple round-trip cycles (Anki → SRS → Anki → SRS → Anki)
+- [ ] Automated test suite that validates exact ID matches before and after conversion
+- [ ] Document ID preservation guarantees in library documentation
+
+**Implementation Notes:**
+
+- IDs are critical for maintaining data relationships and references
+- ID preservation is essential for users who want to convert their data and import it back
+- Test should compare original IDs with round-trip IDs at the database level
+- Should verify both internal IDs and any external references
+- Consider timestamp-based IDs and ensure they're preserved accurately
+
+**Testing:**
+
+- [ ] Automated: ID comparison test suite for all entity types
+- [ ] Automated: Multi-cycle round-trip ID preservation tests
+- [ ] Manual: Verify IDs in actual Anki database after round-trip
+- [ ] Edge Cases: Test with custom ID ranges, large IDs, and edge case values
 
 ---
 
