@@ -2096,82 +2096,80 @@ describe("Conversion Anki → SRS", () => {
       // TODO: Test preservation of deck metadata
     });
 
-    it.todo(
-      "should store original Anki IDs in applicationSpecificData",
-      async () => {
-        // Create SRS package manually
-        const srsPackage = new SrsPackage();
+    it("should store original Anki IDs in applicationSpecificData", async () => {
+      // Create SRS package manually
+      const srsPackage = new SrsPackage();
 
-        const deck = createDeck({ name: "Test Deck" });
-        srsPackage.addDeck(deck);
+      const deck = createDeck({ name: "Test Deck" });
+      srsPackage.addDeck(deck);
 
-        const noteType = createNoteType({
-          name: "Basic",
-          fields: [
-            { id: 0, name: "Front" },
-            { id: 1, name: "Back" },
-          ],
-          templates: [
-            {
-              id: 0,
-              name: "Card 1",
-              questionTemplate: "{{Front}}",
-              answerTemplate: "{{Back}}",
-            },
-          ],
-        });
-        srsPackage.addNoteType(noteType);
-
-        const note = createNote(
+      const noteType = createNoteType({
+        name: "Basic",
+        fields: [
+          { id: 0, name: "Front" },
+          { id: 1, name: "Back" },
+        ],
+        templates: [
           {
-            noteTypeId: noteType.id,
-            deckId: deck.id,
-            fieldValues: [
-              ["Front", "Question"],
-              ["Back", "Answer"],
-            ],
+            id: 0,
+            name: "Card 1",
+            questionTemplate: "{{Front}}",
+            answerTemplate: "{{Back}}",
           },
-          noteType,
-        );
-        srsPackage.addNote(note);
+        ],
+      });
+      srsPackage.addNoteType(noteType);
 
-        // Convert to Anki
-        const ankiResult = await AnkiPackage.fromSrsPackage(srsPackage);
-        const ankiPackage = expectSuccess(ankiResult);
+      const note = createNote(
+        {
+          noteTypeId: noteType.id,
+          deckId: deck.id,
+          fieldValues: [
+            ["Front", "Question"],
+            ["Back", "Answer"],
+          ],
+        },
+        noteType,
+      );
+      srsPackage.addNote(note);
 
-        // Get Anki IDs
-        const ankiDecks = ankiPackage.getDecks();
-        const ankiNoteTypes = ankiPackage.getNoteTypes();
-        const ankiDeckId = ankiDecks[0]?.id;
-        const ankiNoteTypeId = ankiNoteTypes[0]?.id;
+      // Create a card for the note
+      const card = createCard({
+        noteId: note.id,
+        templateId: 0,
+      });
+      srsPackage.addCard(card);
 
-        // Convert back to SRS
-        const srsResult = ankiPackage.toSrsPackage();
-        const srsPackage2 = expectSuccess(srsResult);
-        const srsDecks = srsPackage2.getDecks();
-        const srsNoteTypes = srsPackage2.getNoteTypes();
+      // Convert to Anki
+      const ankiResult = await AnkiPackage.fromSrsPackage(srsPackage);
+      const ankiPackage = expectSuccess(ankiResult);
 
-        // Find the "Test Deck" (not the default deck)
-        const testDeck = srsDecks.find((d) => d.name === "Test Deck");
-        const basicNoteType = srsNoteTypes.find((nt) => nt.name === "Basic");
+      // Get Anki IDs
+      const ankiDecks = ankiPackage.getDecks();
+      const ankiNoteTypes = ankiPackage.getNoteTypes();
+      const ankiDeckId = ankiDecks[0]?.id;
+      const ankiNoteTypeId = ankiNoteTypes[0]?.id;
 
-        // TODO: This test fails because testDeck is undefined
-        // The issue is that when we create an SRS package manually, convert to Anki,
-        // and then convert back to SRS, the deck is not being found.
-        // This appears to be a bug in how AnkiPackage manages its internal state
-        // where addDeck() doesn't update databaseContents.collection.decks
+      // Convert back to SRS
+      const srsResult = ankiPackage.toSrsPackage();
+      const srsPackage2 = expectSuccess(srsResult);
+      const srsDecks = srsPackage2.getDecks();
+      const srsNoteTypes = srsPackage2.getNoteTypes();
 
-        // Verify original Anki IDs are stored in applicationSpecificData
-        expect(testDeck?.applicationSpecificData?.["originalAnkiId"]).toBe(
-          ankiDeckId?.toFixed(),
-        );
-        expect(basicNoteType?.applicationSpecificData?.["originalAnkiId"]).toBe(
-          ankiNoteTypeId?.toFixed(),
-        );
+      // Find the "Test Deck" (not the default deck)
+      const testDeck = srsDecks.find((d) => d.name === "Test Deck");
+      const basicNoteType = srsNoteTypes.find((nt) => nt.name === "Basic");
 
-        await ankiPackage.cleanup();
-      },
-    );
+      // Verify original Anki IDs are stored in applicationSpecificData
+      expect(testDeck?.applicationSpecificData?.["originalAnkiId"]).toBe(
+        ankiDeckId?.toFixed(),
+      );
+      expect(basicNoteType?.applicationSpecificData?.["originalAnkiId"]).toBe(
+        ankiNoteTypeId?.toFixed(),
+      );
+
+      await ankiPackage.cleanup();
+    });
   });
 
   describe("Note type conversion", () => {
