@@ -65,7 +65,7 @@
     "test:dist": "pnpm build && pnpm test:dist:node && pnpm test:dist:bun && pnpm test:dist:deno",
     "test:dist:node": "node tests/dist/read-compatibility.mjs",
     "test:dist:bun": "bun tests/dist/read-compatibility.mjs",
-    "test:dist:deno": "deno run --allow-read --allow-env --allow-write tests/dist/read-compatibility.mjs",
+    "test:dist:deno": "deno run --allow-all tests/dist/read-compatibility.mjs",
     "clean:npm": "pnpm dlx rimraf -rf node_modules",
     "sync:npm": "pnpm i --frozen-lockfile",
     "upgrade:npm": "pnpm dlx rimraf pnpm-lock.yaml && pnpm up --latest && pnpm i",

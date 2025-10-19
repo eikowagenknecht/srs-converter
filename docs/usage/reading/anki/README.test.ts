@@ -269,7 +269,7 @@ describe("Anki Reading Documentation Examples", () => {
       });
 
       // Verify file was created
-      await expect(access(outputPath)).resolves.toBeUndefined();
+      await access(outputPath); // Will throw if file doesn't exist
     }
   });
 });

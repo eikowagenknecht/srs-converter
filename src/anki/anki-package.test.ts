@@ -219,7 +219,7 @@ describe("Creation", () => {
 
         // Verify the directory actually exists on the filesystem
         if (tempDirPath) {
-          await expect(access(tempDirPath)).resolves.toBeUndefined(); // access resolves if path exists
+          await access(tempDirPath); // Will throw if path doesn't exist
         }
       } finally {
         await ankiPackage.cleanup();
@@ -239,7 +239,7 @@ describe("Creation", () => {
 
       if (tempDirPath) {
         // Verify the directory exists before cleanup
-        await expect(access(tempDirPath)).resolves.toBeUndefined();
+        await access(tempDirPath); // Will throw if path doesn't exist
 
         // Clean up
         await ankiPackage.cleanup();
@@ -331,9 +331,7 @@ describe("Import / Export", () => {
         await pack.toAnkiExport("./out/empty-legacy-2.apkg");
 
         // Verify the exported file exists
-        await expect(
-          access("./out/empty-legacy-2.apkg"),
-        ).resolves.toBeUndefined();
+        await access("./out/empty-legacy-2.apkg"); // Will throw if file doesn't exist
 
         // Verify the exported file can be re-imported and contains expected data
         const reimportResult = await AnkiPackage.fromAnkiExport(
@@ -382,7 +380,7 @@ describe("Import / Export", () => {
         await ankiPackage.toAnkiExport(exportPath);
 
         // Verify the exported file exists
-        await expect(access(exportPath)).resolves.toBeUndefined();
+        await access(exportPath); // Will throw if file doesn't exist
 
         // Verify the exported file can be re-imported
         const reimportResult = await AnkiPackage.fromAnkiExport(exportPath);
@@ -441,7 +439,7 @@ describe("Import / Export", () => {
         await ankiPackage.toAnkiExport(exportPath);
 
         // Verify the exported file exists
-        await expect(access(exportPath)).resolves.toBeUndefined();
+        await access(exportPath); // Will throw if file doesn't exist
 
         // Verify the file can be re-imported (basic validation)
         const reimportResult = await AnkiPackage.fromAnkiExport(exportPath);
@@ -469,7 +467,7 @@ describe("Import / Export", () => {
         await ankiPackage.toAnkiExport(exportPath);
 
         // Verify the exported file exists
-        await expect(access(exportPath)).resolves.toBeUndefined();
+        await access(exportPath); // Will throw if file doesn't exist
 
         // Re-import and verify the version information is preserved
         const reimportResult = await AnkiPackage.fromAnkiExport(exportPath);
@@ -507,7 +505,7 @@ describe("Import / Export", () => {
         await ankiPackage.toAnkiExport(exportPath);
 
         // Verify the exported file exists
-        await expect(access(exportPath)).resolves.toBeUndefined();
+        await access(exportPath); // Will throw if file doesn't exist
 
         // Re-import and verify the media mapping is preserved
         const reimportResult = await AnkiPackage.fromAnkiExport(exportPath);
@@ -546,7 +544,7 @@ describe("Import / Export", () => {
         await ankiPackage.toAnkiExport(exportPath);
 
         // Verify the exported file exists
-        await expect(access(exportPath)).resolves.toBeUndefined();
+        await access(exportPath); // Will throw if file doesn't exist
 
         // Verify the file can be re-imported and contains all the data
         const reimportResult = await AnkiPackage.fromAnkiExport(exportPath);
@@ -612,7 +610,7 @@ describe("Import / Export", () => {
         await ankiPackage.toAnkiExport(validPath);
 
         // Verify the valid export worked
-        await expect(access(validPath)).resolves.toBeUndefined();
+        await access(validPath); // Will throw if file doesn't exist
 
         // Verify the exported file can be re-imported
         const reimportResult = await AnkiPackage.fromAnkiExport(validPath);
@@ -951,7 +949,7 @@ describe("Create Deck", () => {
 
       // Export to Anki file format
       await ankiPackage.toAnkiExport(directOutputPath);
-      await expect(access(directOutputPath)).resolves.toBeUndefined();
+      await access(directOutputPath); // Will throw if file doesn't exist
 
       // Test that the exported file can be imported back
       const reimportResult = await AnkiPackage.fromAnkiExport(directOutputPath);

@@ -28,7 +28,7 @@ describe("guid64", () => {
     for (let i = 0; i < 1000; i++) {
       const result = guid64();
       results.add(result.length);
-      expect(result.length).lessThanOrEqual(10);
+      expect(result.length).toBeLessThanOrEqual(10);
     }
   });
 
