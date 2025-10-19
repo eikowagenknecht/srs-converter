@@ -1,4 +1,5 @@
 /** biome-ignore-all lint/complexity/useLiteralKeys: <It's a test> */
+import { Buffer } from "node:buffer";
 import { access, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
