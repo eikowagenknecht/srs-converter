@@ -256,7 +256,7 @@ describe("Import / Export", () => {
   describe("fromAnkiExport()", () => {
     it("should load valid .apkg files", async () => {
       const result = await AnkiPackage.fromAnkiExport(
-        "./templates/anki/empty-legacy-2.apkg",
+        "./tests/fixtures/anki/empty-legacy-2.apkg",
       );
       const ankiPackage = expectSuccess(result);
 
@@ -270,7 +270,7 @@ describe("Import / Export", () => {
 
     it("should load valid .colpkg files", async () => {
       const result = await AnkiPackage.fromAnkiExport(
-        "./templates/anki/empty-legacy-2.colpkg",
+        "./tests/fixtures/anki/empty-legacy-2.colpkg",
       );
       const ankiPackage = expectSuccess(result);
 
@@ -284,7 +284,7 @@ describe("Import / Export", () => {
 
     it("should reject non-legacy exports", async () => {
       const result = await AnkiPackage.fromAnkiExport(
-        "./templates/anki/empty-latest.apkg",
+        "./tests/fixtures/anki/empty-latest.apkg",
       );
       expectFailure(result);
       expect(result.issues[0]?.message).toMatch(
@@ -324,7 +324,7 @@ describe("Import / Export", () => {
   describe("toAnkiExport()", () => {
     it("should write back the contents of the default zip file", async () => {
       const result = await AnkiPackage.fromAnkiExport(
-        "./templates/anki/empty-legacy-2.apkg",
+        "./tests/fixtures/anki/empty-legacy-2.apkg",
       );
       const pack = expectSuccess(result);
 
@@ -1146,7 +1146,7 @@ describe("Data Management", () => {
 });
 
 describe("Media File APIs", () => {
-  const MEDIA_PACKAGE_PATH = "templates/anki/mixed-legacy-2.apkg";
+  const MEDIA_PACKAGE_PATH = "tests/fixtures/anki/mixed-legacy-2.apkg";
   const EXPECTED_FILENAME =
     "paste-ab21b25dd3e4ba4af2a1d8bdfa4c47455e53abac.jpg";
 
@@ -3050,7 +3050,7 @@ describe("Utilities and Helper Functions", () => {
   describe("Mixed Note Type Support", () => {
     it("should detect multiple note types including cloze types", async () => {
       const result = await AnkiPackage.fromAnkiExport(
-        "./templates/anki/mixed-legacy-2.apkg",
+        "./tests/fixtures/anki/mixed-legacy-2.apkg",
       );
       const ankiPackage = expectSuccess(result);
 
@@ -3091,7 +3091,7 @@ describe("Utilities and Helper Functions", () => {
 
     it("should preserve cloze content in field values during SRS conversion", async () => {
       const result = await AnkiPackage.fromAnkiExport(
-        "./templates/anki/mixed-legacy-2.apkg",
+        "./tests/fixtures/anki/mixed-legacy-2.apkg",
       );
       const ankiPackage = expectSuccess(result);
 
@@ -3128,7 +3128,7 @@ describe("Utilities and Helper Functions", () => {
     it("should round-trip cloze cards successfully", async () => {
       // Load original cloze package
       const loadResult = await AnkiPackage.fromAnkiExport(
-        "./templates/anki/mixed-legacy-2.apkg",
+        "./tests/fixtures/anki/mixed-legacy-2.apkg",
       );
       const originalAnki = expectSuccess(loadResult);
 
@@ -3173,7 +3173,7 @@ describe("Utilities and Helper Functions", () => {
 
     it("should generate correct number of cloze cards", async () => {
       const result = await AnkiPackage.fromAnkiExport(
-        "./templates/anki/mixed-legacy-2.apkg",
+        "./tests/fixtures/anki/mixed-legacy-2.apkg",
       );
       const ankiPackage = expectSuccess(result);
 
@@ -3285,7 +3285,7 @@ describe("Utilities and Helper Functions", () => {
     it("should preserve all entity IDs in multi-cycle round-trip: Anki -> SRS -> Anki -> SRS -> Anki", async () => {
       // Load an Anki package
       const loadResult = await AnkiPackage.fromAnkiExport(
-        "./templates/anki/mixed-legacy-2.apkg",
+        "./tests/fixtures/anki/mixed-legacy-2.apkg",
       );
       const originalAnki = expectSuccess(loadResult);
 

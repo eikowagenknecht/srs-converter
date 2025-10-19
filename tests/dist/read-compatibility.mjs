@@ -11,7 +11,7 @@
 import { exit } from "node:process";
 import { AnkiPackage } from "../../dist/index.js";
 
-const testFile = "./templates/anki/empty-legacy-2.apkg";
+const testFile = "./tests/fixtures/anki/empty-legacy-2.apkg";
 
 try {
   const result = await AnkiPackage.fromAnkiExport(testFile, {

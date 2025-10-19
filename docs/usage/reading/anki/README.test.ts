@@ -237,7 +237,7 @@ describe("Anki Reading Documentation Examples", () => {
   it("should list and retrieve media files from an Anki package", async () => {
     // Use the test package with media
     const result = await AnkiPackage.fromAnkiExport(
-      "templates/anki/mixed-legacy-2.apkg",
+      "tests/fixtures/anki/mixed-legacy-2.apkg",
     );
 
     if (result.status === "failure" || !result.data) {
