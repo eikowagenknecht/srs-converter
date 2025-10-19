@@ -31,4 +31,4 @@ When the changes are implemented, delete it from "Pending Changes" section.
 
 ## Pending Changes
 
-(No pending changes at this time)
+_No pending documentation changes at this time._

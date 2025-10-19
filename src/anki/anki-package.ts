@@ -65,6 +65,36 @@ function analyzeClozeOrdinals(fieldContent: string): number[] {
   return clozeNumbers;
 }
 
+/**
+ * Resolves an Anki ID from an SRS entity using a two-step strategy.
+ *
+ * Resolution strategy:
+ * 1. Check applicationSpecificData.originalAnkiId (preserved from Anki → SRS conversion)
+ * 2. Fall back to provided fallback value
+ * @param applicationSpecificData - The entity's application-specific metadata
+ * @param fallbackValue - Fallback ID if no valid ID can be resolved
+ * @returns The resolved Anki ID
+ */
+function resolveAnkiId(
+  applicationSpecificData: Record<string, string> | undefined,
+  fallbackValue: number,
+): number {
+  // Check for preserved Anki ID first
+  // biome-ignore lint/complexity/useLiteralKeys: Required for TS index signature
+  if (applicationSpecificData?.["originalAnkiId"]) {
+    const originalId = Number(
+      // biome-ignore lint/complexity/useLiteralKeys: Required for TS index signature
+      applicationSpecificData["originalAnkiId"],
+    );
+    if (!Number.isNaN(originalId)) {
+      return originalId;
+    }
+  }
+
+  // Fall back to provided value
+  return fallbackValue;
+}
+
 const EXPORT_VERSION = ExportVersion.Legacy_V2;
 const DB_VERSION = 11;
 const VALID_FILE_EXTENSIONS = [".apkg", ".colpkg"] as const;
@@ -276,7 +306,10 @@ export class AnkiPackage {
 
     const deckIDs = new Map<string, number>();
     for (const deck of decks) {
-      let deckID = extractTimestampFromUuid(deck.id);
+      let deckID = resolveAnkiId(
+        deck.applicationSpecificData,
+        extractTimestampFromUuid(deck.id),
+      );
 
       // Keep incrementing until we find an unused ID
       while (Array.from(deckIDs.values()).includes(deckID)) {
@@ -313,7 +346,10 @@ export class AnkiPackage {
     const noteTypes = srsPackage.getNoteTypes();
     const noteTypeIDs = new Map<string, number>();
     for (const noteType of noteTypes) {
-      let noteTypeId = extractTimestampFromUuid(noteType.id);
+      let noteTypeId = resolveAnkiId(
+        noteType.applicationSpecificData,
+        extractTimestampFromUuid(noteType.id),
+      );
 
       // Keep incrementing until we find an unused ID
       while (Array.from(noteTypeIDs.values()).includes(noteTypeId)) {
@@ -380,7 +416,10 @@ export class AnkiPackage {
     // Convert notes
     const noteIDs = new Map<string, number>();
     for (const note of srsPackage.getNotes()) {
-      let noteId = extractTimestampFromUuid(note.id);
+      let noteId = resolveAnkiId(
+        note.applicationSpecificData,
+        extractTimestampFromUuid(note.id),
+      );
 
       // Keep incrementing until we find an unused ID
       while (Array.from(noteIDs.values()).includes(noteId)) {
@@ -525,7 +564,10 @@ export class AnkiPackage {
 
       // Create the Anki cards
       for (const { ord, srsCard } of cardsToCreate) {
-        let cardId = extractTimestampFromUuid(srsCard.id);
+        let cardId = resolveAnkiId(
+          srsCard.applicationSpecificData,
+          extractTimestampFromUuid(srsCard.id),
+        );
 
         // Keep incrementing until we find an unused ID
         while (Array.from(cardIDs.values()).includes(cardId)) {
@@ -597,8 +639,13 @@ export class AnkiPackage {
         continue;
       }
 
+      const reviewId = resolveAnkiId(
+        review.applicationSpecificData,
+        review.timestamp, // Reviews use timestamp as fallback, not UUID extraction
+      );
+
       const ankiReviews: RevlogTable = {
-        id: review.timestamp,
+        id: reviewId,
         cid: cardId,
         usn: 0,
         ease: ease,
@@ -829,6 +876,9 @@ export class AnkiPackage {
             ankiTemplateData: serializeWithBigInts(template),
           },
         })),
+        applicationSpecificData: {
+          originalAnkiId: noteTypeId,
+        },
       });
       srsPackage.addNoteType(srsNoteType);
       ankiToSrsNoteTypeMap.set(noteTypeId, srsNoteType.id);
@@ -1034,6 +1084,9 @@ export class AnkiPackage {
           cardId: srsCardId,
           timestamp: ankiReview.id, // Anki review ID is the timestamp
           score: srsScore,
+          applicationSpecificData: {
+            originalAnkiId: ankiReview.id.toFixed(),
+          },
         });
 
         srsPackage.addReview(srsReview);

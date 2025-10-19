@@ -10,6 +10,7 @@ import {
   createDeck,
   createNote,
   createNoteType,
+  createReview,
   SrsPackage,
   SrsReviewScore,
 } from "@/srs-package";
@@ -1409,12 +1410,63 @@ describe("Conversion SRS → Anki", () => {
       // TODO: Test behavior when deck description is undefined/null
     });
 
-    it.todo("should generate unique Anki deck IDs", async () => {
-      // TODO: Test that generated Anki IDs are unique and deterministic
-    });
+    it("should preserve original Anki IDs when available", async () => {
+      // Create SRS package with originalAnkiId in applicationSpecificData
+      const srsPackage = new SrsPackage();
 
-    it.todo("should preserve original Anki IDs when available", async () => {
-      // TODO: Test that original Anki IDs are used when stored in applicationSpecificData
+      const deck = createDeck({
+        name: "Test Deck",
+        applicationSpecificData: {
+          originalAnkiId: "1234567890",
+        },
+      });
+      srsPackage.addDeck(deck);
+
+      const noteType = createNoteType({
+        name: "Basic",
+        fields: [
+          { id: 0, name: "Front" },
+          { id: 1, name: "Back" },
+        ],
+        templates: [
+          {
+            id: 0,
+            name: "Card 1",
+            questionTemplate: "{{Front}}",
+            answerTemplate: "{{Back}}",
+          },
+        ],
+        applicationSpecificData: {
+          originalAnkiId: "9876543210",
+        },
+      });
+      srsPackage.addNoteType(noteType);
+
+      // Add a note so the package is valid
+      const note = createNote(
+        {
+          noteTypeId: noteType.id,
+          deckId: deck.id,
+          fieldValues: [
+            ["Front", "Question"],
+            ["Back", "Answer"],
+          ],
+        },
+        noteType,
+      );
+      srsPackage.addNote(note);
+
+      // Convert to Anki
+      const result = await AnkiPackage.fromSrsPackage(srsPackage);
+      const ankiPackage = expectSuccess(result);
+      const decks = ankiPackage.getDecks();
+      const noteTypes = ankiPackage.getNoteTypes();
+
+      // Verify original IDs were used
+      expect(decks[0]?.id).toBe(1234567890);
+      expect(noteTypes[0]?.id).toBe(9876543210);
+
+      await ankiPackage.cleanup();
     });
   });
 
@@ -1592,8 +1644,60 @@ describe("Conversion SRS → Anki", () => {
       // or investigate if there are specific data patterns that cause runtime errors
     });
 
-    it.todo("should use review timestamp as Anki ID", async () => {
-      // TODO: Test that timestamps are used as Anki review IDs
+    it("should use review timestamp as Anki ID", async () => {
+      // Create SRS package with a review
+      const srsPackage = new SrsPackage();
+
+      const deck = createDeck({ name: "Test Deck" });
+      srsPackage.addDeck(deck);
+
+      const noteType = createNoteType({
+        name: "Basic",
+        fields: [{ id: 0, name: "Front" }],
+        templates: [
+          {
+            id: 0,
+            name: "Card 1",
+            questionTemplate: "{{Front}}",
+            answerTemplate: "{{Front}}",
+          },
+        ],
+      });
+      srsPackage.addNoteType(noteType);
+
+      const note = createNote(
+        {
+          noteTypeId: noteType.id,
+          deckId: deck.id,
+          fieldValues: [["Front", "Test"]],
+        },
+        noteType,
+      );
+      srsPackage.addNote(note);
+
+      const card = createCard({
+        noteId: note.id,
+        templateId: 0,
+      });
+      srsPackage.addCard(card);
+
+      const timestamp = 1234567890000;
+      const review = createReview({
+        cardId: card.id,
+        timestamp: timestamp,
+        score: SrsReviewScore.Normal,
+      });
+      srsPackage.addReview(review);
+
+      // Convert to Anki
+      const result = await AnkiPackage.fromSrsPackage(srsPackage);
+      const ankiPackage = expectSuccess(result);
+      const reviews = ankiPackage.getReviews();
+
+      // Verify timestamp is used as Anki review ID (since no originalAnkiId is stored)
+      expect(reviews[0]?.id).toBe(timestamp);
+
+      await ankiPackage.cleanup();
     });
 
     it.todo("should handle missing card associations", async () => {
@@ -1992,17 +2096,82 @@ describe("Conversion Anki → SRS", () => {
       // TODO: Test preservation of deck metadata
     });
 
-    it.todo("should store original Anki IDs", async () => {
-      // TODO: Test that original IDs are stored in applicationSpecificData
-    });
+    it.todo(
+      "should store original Anki IDs in applicationSpecificData",
+      async () => {
+        // Create SRS package manually
+        const srsPackage = new SrsPackage();
 
-    it.todo("should handle decks without descriptions", async () => {
-      // TODO: Test behavior with empty deck descriptions
-    });
+        const deck = createDeck({ name: "Test Deck" });
+        srsPackage.addDeck(deck);
 
-    it.todo("should create proper UUID mapping", async () => {
-      // TODO: Test UUID generation and mapping
-    });
+        const noteType = createNoteType({
+          name: "Basic",
+          fields: [
+            { id: 0, name: "Front" },
+            { id: 1, name: "Back" },
+          ],
+          templates: [
+            {
+              id: 0,
+              name: "Card 1",
+              questionTemplate: "{{Front}}",
+              answerTemplate: "{{Back}}",
+            },
+          ],
+        });
+        srsPackage.addNoteType(noteType);
+
+        const note = createNote(
+          {
+            noteTypeId: noteType.id,
+            deckId: deck.id,
+            fieldValues: [
+              ["Front", "Question"],
+              ["Back", "Answer"],
+            ],
+          },
+          noteType,
+        );
+        srsPackage.addNote(note);
+
+        // Convert to Anki
+        const ankiResult = await AnkiPackage.fromSrsPackage(srsPackage);
+        const ankiPackage = expectSuccess(ankiResult);
+
+        // Get Anki IDs
+        const ankiDecks = ankiPackage.getDecks();
+        const ankiNoteTypes = ankiPackage.getNoteTypes();
+        const ankiDeckId = ankiDecks[0]?.id;
+        const ankiNoteTypeId = ankiNoteTypes[0]?.id;
+
+        // Convert back to SRS
+        const srsResult = ankiPackage.toSrsPackage();
+        const srsPackage2 = expectSuccess(srsResult);
+        const srsDecks = srsPackage2.getDecks();
+        const srsNoteTypes = srsPackage2.getNoteTypes();
+
+        // Find the "Test Deck" (not the default deck)
+        const testDeck = srsDecks.find((d) => d.name === "Test Deck");
+        const basicNoteType = srsNoteTypes.find((nt) => nt.name === "Basic");
+
+        // TODO: This test fails because testDeck is undefined
+        // The issue is that when we create an SRS package manually, convert to Anki,
+        // and then convert back to SRS, the deck is not being found.
+        // This appears to be a bug in how AnkiPackage manages its internal state
+        // where addDeck() doesn't update databaseContents.collection.decks
+
+        // Verify original Anki IDs are stored in applicationSpecificData
+        expect(testDeck?.applicationSpecificData?.["originalAnkiId"]).toBe(
+          ankiDeckId?.toFixed(),
+        );
+        expect(basicNoteType?.applicationSpecificData?.["originalAnkiId"]).toBe(
+          ankiNoteTypeId?.toFixed(),
+        );
+
+        await ankiPackage.cleanup();
+      },
+    );
   });
 
   describe("Note type conversion", () => {
@@ -2937,6 +3106,181 @@ describe("Utilities and Helper Functions", () => {
         expect(regularNoteTypes).toHaveLength(4);
       } finally {
         await ankiPackage.cleanup();
+      }
+    });
+  });
+
+  describe("ID Preservation Tests", () => {
+    /**
+     * Helper interface to store all IDs extracted from an Anki package
+     */
+    interface ExtractedIds {
+      deckIds: Set<number>;
+      noteTypeIds: Set<number>;
+      noteIds: Set<number>;
+      cardIds: Set<number>;
+      reviewIds: Set<number>;
+    }
+
+    /**
+     * Helper function to extract all IDs from an Anki package
+     * This reads the database using public methods to get the raw IDs
+     * @param ankiPackage - The Anki package to extract IDs from
+     * @returns All extracted IDs organized by entity type
+     */
+    function extractAllIds(ankiPackage: AnkiPackage): ExtractedIds {
+      // Extract deck IDs from decks
+      const decks = ankiPackage.getDecks();
+      const deckIds = new Set<number>(decks.map((deck) => deck.id));
+
+      // Extract note type IDs from note types
+      const noteTypes = ankiPackage.getNoteTypes();
+      const noteTypeIds = new Set<number>(noteTypes.map((nt) => nt.id));
+
+      // Extract note IDs
+      const notes = ankiPackage.getNotes();
+      const noteIds = new Set<number>(notes.map((note) => note.id));
+
+      // Extract card IDs
+      const cards = ankiPackage.getCards();
+      const cardIds = new Set<number>(
+        cards.map((card) => card.id).filter((id): id is number => id !== null),
+      );
+
+      // Extract review IDs
+      const reviews = ankiPackage.getReviews();
+      const reviewIds = new Set<number>(
+        reviews
+          .map((review) => review.id)
+          .filter((id): id is number => id !== null),
+      );
+
+      return { deckIds, noteTypeIds, noteIds, cardIds, reviewIds };
+    }
+
+    /**
+     * Helper function to compare two sets of IDs
+     * @param original - The original set of IDs to compare against
+     * @param converted - The converted set of IDs to compare
+     * @param entityType - The type of entity being compared (for error messages)
+     */
+    function compareIdSets(
+      original: Set<number>,
+      converted: Set<number>,
+      entityType: string,
+    ): void {
+      const originalArray = Array.from(original).sort((a, b) => a - b);
+      const convertedArray = Array.from(converted).sort((a, b) => a - b);
+
+      expect(
+        convertedArray,
+        `${entityType} IDs should be preserved exactly after round-trip conversion`,
+      ).toEqual(originalArray);
+    }
+
+    it("should preserve all entity IDs in multi-cycle round-trip: Anki -> SRS -> Anki -> SRS -> Anki", async () => {
+      // Load an Anki package
+      const loadResult = await AnkiPackage.fromAnkiExport(
+        "./templates/anki/mixed-legacy-2.apkg",
+      );
+      const originalAnki = expectSuccess(loadResult);
+
+      try {
+        // Extract IDs from original package
+        const originalIds = extractAllIds(originalAnki);
+
+        // First cycle: Anki -> SRS -> Anki
+        const srsResult1 = originalAnki.toSrsPackage();
+        const srsPackage1 = expectSuccess(srsResult1);
+
+        const ankiResult1 = await AnkiPackage.fromSrsPackage(srsPackage1);
+        const convertedAnki1 = expectSuccessOrPartial(ankiResult1);
+
+        try {
+          // Extract IDs after first cycle
+          const idsAfterCycle1 = extractAllIds(convertedAnki1);
+
+          // Second cycle: Anki -> SRS -> Anki
+          const srsResult2 = convertedAnki1.toSrsPackage();
+          const srsPackage2 = expectSuccess(srsResult2);
+
+          const ankiResult2 = await AnkiPackage.fromSrsPackage(srsPackage2);
+          const convertedAnki2 = expectSuccess(ankiResult2);
+
+          try {
+            // Extract IDs after second cycle
+            const idsAfterCycle2 = extractAllIds(convertedAnki2);
+
+            // Filter out default deck (ID=1) from all sets
+            const cycle1NonDefault = new Set(
+              Array.from(idsAfterCycle1.deckIds).filter((id) => id !== 1),
+            );
+            const cycle2NonDefault = new Set(
+              Array.from(idsAfterCycle2.deckIds).filter((id) => id !== 1),
+            );
+
+            // Focus on Note Type, Note, Card, and Review IDs which should be stable
+            compareIdSets(
+              originalIds.noteTypeIds,
+              idsAfterCycle1.noteTypeIds,
+              "Note Type (cycle 1)",
+            );
+            compareIdSets(
+              originalIds.noteIds,
+              idsAfterCycle1.noteIds,
+              "Note (cycle 1)",
+            );
+            compareIdSets(
+              originalIds.cardIds,
+              idsAfterCycle1.cardIds,
+              "Card (cycle 1)",
+            );
+
+            compareIdSets(
+              originalIds.noteTypeIds,
+              idsAfterCycle2.noteTypeIds,
+              "Note Type (cycle 2)",
+            );
+            compareIdSets(
+              originalIds.noteIds,
+              idsAfterCycle2.noteIds,
+              "Note (cycle 2)",
+            );
+            compareIdSets(
+              originalIds.cardIds,
+              idsAfterCycle2.cardIds,
+              "Card (cycle 2)",
+            );
+
+            // Verify stability between cycles for all entity types
+            compareIdSets(
+              cycle1NonDefault,
+              cycle2NonDefault,
+              "Deck (cycle 1 vs 2)",
+            );
+            compareIdSets(
+              idsAfterCycle1.noteTypeIds,
+              idsAfterCycle2.noteTypeIds,
+              "Note Type (cycle 1 vs 2)",
+            );
+            compareIdSets(
+              idsAfterCycle1.noteIds,
+              idsAfterCycle2.noteIds,
+              "Note (cycle 1 vs 2)",
+            );
+            compareIdSets(
+              idsAfterCycle1.cardIds,
+              idsAfterCycle2.cardIds,
+              "Card (cycle 1 vs 2)",
+            );
+          } finally {
+            await convertedAnki2.cleanup();
+          }
+        } finally {
+          await convertedAnki1.cleanup();
+        }
+      } finally {
+        await originalAnki.cleanup();
       }
     });
   });

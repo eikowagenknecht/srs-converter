@@ -212,6 +212,8 @@ interface SrsReview {
   timestamp: number;
   /** The review score */
   score: SrsReviewScore;
+  /** Additional data that is specific to the application */
+  applicationSpecificData?: Record<string, string>;
 }
 
 interface SrsNoteField<TName = string> {
@@ -245,13 +247,17 @@ interface SrsNoteType {
   fields: SrsNoteField[];
   /** Templates, e.g. "Front > Back" */
   templates: SrsNoteTemplate[];
+  /** Additional data that is specific to the application */
+  applicationSpecificData?: Record<string, string>;
 }
 
 export interface CreateCompleteDeck<T extends SrsNoteType = SrsNoteType> {
   deck: Omit<SrsDeck, "id">;
   noteTypes: (T & {
     notes: (Omit<SrsNote<T>, "id" | "deckId" | "noteTypeId"> & {
+      id?: string;
       cards?: (Omit<SrsCard<T>, "id" | "noteId"> & {
+        id?: string;
         reviews?: Omit<SrsReview, "id" | "cardId">[];
       })[];
     })[];
@@ -278,12 +284,16 @@ export function createCompleteDeckStructure<T extends SrsNoteType>(
         ...n,
         deckId: deck.id,
         noteTypeId: nt.id,
-        id: generateUuid(),
+        id: n.id ?? generateUuid(),
       };
       srsPackage.addNote(createNote(fullNote, nt));
 
       for (const c of n.cards ?? []) {
-        const fullCard = { ...c, noteId: fullNote.id, id: generateUuid() };
+        const fullCard = {
+          ...c,
+          noteId: fullNote.id,
+          id: c.id ?? generateUuid(),
+        };
         srsPackage.addCard(createCard(fullCard));
 
         for (const r of c.reviews ?? []) {

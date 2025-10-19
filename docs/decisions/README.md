@@ -19,3 +19,4 @@ The MADR documentation is available at <https://adr.github.io/madr/> while gener
 
 - **ADR-0001**: Design SRS converter as standalone npm package
 - **ADR-0002**: Implement tri-state error handling for SRS converter
+- **ADR-0003**: Use applicationSpecificData for Data preservation across formats
