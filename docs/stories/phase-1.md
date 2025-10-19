@@ -367,16 +367,12 @@
 
 - [ ] Implement API to add media files to packages during creation
 - [ ] Support adding files from file paths, buffers, or streams
-- [ ] Automatically generate media file mappings and checksums
-- [ ] Handle media file deduplication based on content checksums
-- [ ] Validate media file types and sizes
+- [ ] Automatically generate media file mappings
 - [ ] Update media database entries when files are added
 
 **Implementation Notes:**
 
 - Build on existing media metadata writing (Story 1.1.2)
-- Implement content-based deduplication
-- Handle various input sources (files, buffers, streams)
 - Integrate with package writing pipeline
 
 **Testing:**
