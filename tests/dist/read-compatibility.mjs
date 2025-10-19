@@ -11,8 +11,6 @@
 import { exit } from "node:process";
 import { AnkiPackage } from "../../dist/index.js";
 
-console.log("Testing compatibility-mode .apkg reading...");
-
 const testFile = "./templates/anki/empty-legacy-2.apkg";
 
 try {

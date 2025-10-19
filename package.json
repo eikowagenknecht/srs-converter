@@ -4,7 +4,8 @@
   "type": "module",
   "packageManager": "pnpm@10.17.1",
   "engines": {
-    "pnpm": ">=10.0.0"
+    "pnpm": ">=10.0.0",
+    "node": ">=22.0.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -51,7 +52,7 @@
   ],
   "scripts": {
     "dev": "tsc --watch",
-    "build": "pnpm dlx rimraf dist && tsup src/index.ts --format esm --dts",
+    "build": "tsdown src/index.ts",
     "format": "prettier --write ./src ./docs && biome format --write ./src ./docs",
     "lint": "pnpm type-check && pnpm lint:eslint && pnpm lint:prettier && pnpm lint:biome",
     "lint:biome": "biome check --write ./src ./docs",
@@ -61,7 +62,10 @@
     "test": "vitest run",
     "test:watch": "vitest watch",
     "test:coverage": "vitest run --coverage",
-    "test:dist": "pnpm build && node tests/dist/read-compatibility.mjs",
+    "test:dist": "pnpm build && pnpm test:dist:node && pnpm test:dist:bun && pnpm test:dist:deno",
+    "test:dist:node": "node tests/dist/read-compatibility.mjs",
+    "test:dist:bun": "bun tests/dist/read-compatibility.mjs",
+    "test:dist:deno": "deno run --allow-read --allow-env --allow-write tests/dist/read-compatibility.mjs",
     "clean:npm": "pnpm dlx rimraf -rf node_modules",
     "sync:npm": "pnpm i --frozen-lockfile",
     "upgrade:npm": "pnpm dlx rimraf pnpm-lock.yaml && pnpm up --latest && pnpm i",
@@ -96,7 +100,7 @@
     "globals": "16.4.0",
     "lefthook": "1.13.6",
     "prettier": "3.6.2",
-    "tsup": "^8.5.0",
+    "tsdown": "0.15.8",
     "typescript": "5.9.3",
     "typescript-eslint": "8.46.1",
     "vitest": "3.2.4"
