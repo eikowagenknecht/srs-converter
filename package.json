@@ -69,9 +69,8 @@
     "clean:npm": "pnpm dlx rimraf -rf node_modules",
     "sync:npm": "pnpm i --frozen-lockfile",
     "upgrade:npm": "pnpm dlx rimraf pnpm-lock.yaml && pnpm up --latest && pnpm i",
-    "release:patch": "npm version patch && pnpm publish && git push --follow-tags",
-    "release:minor": "npm version minor && pnpm publish && git push --follow-tags",
-    "release:major": "npm version major && pnpm publish && git push --follow-tags"
+    "release": "semantic-release",
+    "release:dry": "semantic-release --dry-run"
   },
   "dependencies": {
     "archiver": "7.0.1",
@@ -88,6 +87,8 @@
     "@commitlint/config-conventional": "20.0.0",
     "@commitlint/types": "20.0.0",
     "@eslint/js": "9.37.0",
+    "@semantic-release/changelog": "6.0.3",
+    "@semantic-release/git": "10.0.1",
     "@types/archiver": "6.0.3",
     "@types/node": "24.7.2",
     "@types/sql.js": "1.4.9",
@@ -100,6 +101,7 @@
     "globals": "16.4.0",
     "lefthook": "1.13.6",
     "prettier": "3.6.2",
+    "semantic-release": "25.0.0",
     "tsdown": "0.15.8",
     "typescript": "5.9.3",
     "typescript-eslint": "8.46.1",
