@@ -1,12 +1,12 @@
 # Virtual environment (Node)
 node_modules
 
-# Temp directories
+# Temp directory
 /temp/
 
 # Output
-dist/
-out/
+/dist/
+/out/
 
 # OS
 .DS_Store
@@ -27,7 +27,7 @@ npm-debug.log*
 !.vscode/tasks.json
 
 # Vitest code coverage reports
-coverage/
+/coverage/
 
 # Local configuration files
 *.local.*
