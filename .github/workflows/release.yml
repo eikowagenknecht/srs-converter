@@ -31,17 +31,20 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: "lts/*"
+          node-version: "22"
           cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Verify quality
-        run: |
-          pnpm run lint
-          pnpm run test
-          pnpm run build
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Test
+        run: pnpm run test
+
+      - name: Build
+        run: pnpm run build
 
       - name: Release
         env:
@@ -49,7 +52,7 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           if [ "${{ inputs.dry-run }}" = "true" ]; then
-            npx semantic-release --dry-run
+            pnpm dlx semantic-release --dry-run
           else
-            npx semantic-release
+            pnpm dlx semantic-release
           fi
