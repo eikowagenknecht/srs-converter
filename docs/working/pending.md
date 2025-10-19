@@ -11,9 +11,7 @@ When the changes are implemented, delete it from "Pending Changes" section.
 
 ## Guidelines
 
-- Keep this file updated as you discover documentation gaps
 - Prioritize changes that affect user onboarding or development workflow
-- Remove completed items periodically to keep the file manageable
 - Consider if changes warrant a new ADR in `docs/decisions/`
 
 ## Format Example
@@ -31,4 +29,4 @@ When the changes are implemented, delete it from "Pending Changes" section.
 
 ## Pending Changes
 
-_No pending documentation changes at this time._
+(No pending documentation changes at this time)
