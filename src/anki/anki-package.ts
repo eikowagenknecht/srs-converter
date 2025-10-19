@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import * as protobuf from "protobufjs";
+import protobuf from "protobufjs";
 import { Open } from "unzipper";
 import {
   type ConversionIssue,
@@ -1120,8 +1120,11 @@ interface MetaMessage {
 }
 
 function parseMeta(buffer: Uint8Array): MetaMessage {
+  // eslint-disable-next-line import-x/no-named-as-default-member -- protobufjs is a CommonJS module
   const root = new protobuf.Root();
+  // eslint-disable-next-line import-x/no-named-as-default-member -- protobufjs is a CommonJS module
   const Meta = new protobuf.Type("Meta").add(
+    // eslint-disable-next-line import-x/no-named-as-default-member -- protobufjs is a CommonJS module
     new protobuf.Field("version", 1, "int32", "required"),
   );
   root.add(Meta);
@@ -1131,8 +1134,11 @@ function parseMeta(buffer: Uint8Array): MetaMessage {
 }
 
 function writeMeta(message: MetaMessage): Uint8Array {
+  // eslint-disable-next-line import-x/no-named-as-default-member -- protobufjs is a CommonJS module
   const root = new protobuf.Root();
+  // eslint-disable-next-line import-x/no-named-as-default-member -- protobufjs is a CommonJS module
   const Meta = new protobuf.Type("Meta").add(
+    // eslint-disable-next-line import-x/no-named-as-default-member -- protobufjs is a CommonJS module
     new protobuf.Field("version", 1, "int32", "required"),
   );
   root.add(Meta);
