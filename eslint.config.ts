@@ -17,7 +17,14 @@ export default defineConfig(
   ...tseslint.configs.stylisticTypeChecked,
   {
     // Global ignores
-    ignores: ["node_modules/", "dist/", "out/", "*.config.js", "*.config.ts"],
+    ignores: [
+      "node_modules/",
+      "dist/",
+      "out/",
+      "tests/dist/",
+      "*.config.js",
+      "*.config.ts",
+    ],
   },
   {
     languageOptions: {
