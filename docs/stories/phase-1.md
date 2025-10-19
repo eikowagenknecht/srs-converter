@@ -359,57 +359,111 @@
 
 ### Story 1.1.6.2: Add User-Facing API for Adding Media Files
 
-**Status:** ⏳ Pending
+**Status:** ✅ Completed
 
 **Story:** As a developer, I want to add media files to Anki packages so applications can create packages with custom media content.
 
 **Acceptance Criteria:**
 
-- [ ] Implement API to add media files to packages during creation
-- [ ] Support adding files from file paths, buffers, or streams
-- [ ] Automatically generate media file mappings
-- [ ] Update media database entries when files are added
+- ✅ Implement API to add media files to packages during creation
+- ✅ Support adding files from file paths, buffers, or streams
+- ✅ Automatically generate media file mappings
+- ✅ Update media database entries when files are added
 
 **Implementation Notes:**
 
-- Build on existing media metadata writing (Story 1.1.2)
-- Integrate with package writing pipeline
+- Implemented `addMediaFile(filename, source)` method in `AnkiPackage` class (src/anki/anki-package.ts:877-925)
+- Accepts three source types: file path (string), Buffer, or Readable stream
+- Validates filename uniqueness - throws error if duplicate detected
+- Generates sequential numeric media IDs starting from next available ID
+- Automatically updates `this.mediaFiles` mapping
+- Enhanced `toAnkiExport()` to include all media files in zip (src/anki/anki-package.ts:714-720)
+- Built on existing media metadata writing (Story 1.1.2)
+- Fully integrated with package writing pipeline
 
 **Testing:**
 
-- [ ] Manual: Add various media file types
-- [ ] Manual: Test deduplication logic
-- [ ] Unit: Media addition API validation
+- ✅ Manual: Verified with project maintainer
+- ✅ Automated: 8 comprehensive tests covering all acceptance criteria (src/anki/anki-package.test.ts:1254-1437)
+  - Adding files from paths, buffers, and streams
+  - Duplicate filename error handling
+  - Invalid source error handling
+  - Sequential ID generation
+  - Export/import round-trip verification
+  - Working with packages that already have media
+- ✅ Documentation: Examples added to usage guide with automated tests (docs/usage/creating/anki/raw-anki-methods.md)
+
+**Files Modified:**
+
+- `src/anki/anki-package.ts` - Added `addMediaFile()` method and enhanced export
+- `src/anki/anki-package.test.ts` - Added comprehensive test suite
+- `docs/usage/creating/anki/raw-anki-methods.md` - Added usage documentation
+- `docs/usage/creating/anki/raw-anki-methods.test.ts` - Added documentation example test
+- `docs/usage/exporting/anki/README.md` - Added reference to raw-anki-methods guide
+- `tests/fixtures/media/` - Added test fixtures (image.png, audio.mp3, video.mp4)
+- `README.md` - Updated media files support status to "Full"
 
 ---
 
-### Story 1.1.6.3: Implement Media File Management and Utilities
+### Story 1.1.6.3: Add User-Facing API for Removing Media Files
 
 **Status:** ⏳ Pending
 
-**Story:** As a developer, I want media file management utilities so applications can efficiently work with media in SRS packages.
+**Story:** As a developer, I want to remove media files from Anki packages so applications can update or clean up media content.
 
 **Acceptance Criteria:**
 
-- [ ] Implement media file validation (format, size, integrity)
-- [ ] Provide media file conversion utilities for common formats
-- [ ] Add media file optimization (compression, resizing for images)
-- [ ] Implement media file replacement and updates
-- [ ] Support media file batch operations
-- [ ] Provide media file usage analysis (which notes reference which files)
+- [ ] Implement `removeMediaFile(filename)` method to remove individual files
+- [ ] Throw error if attempting to remove a non-existent file
+- [ ] Remove media file from disk (temp directory)
+- [ ] Update media file mappings when files are removed
+- [ ] Verify removed files are not included in exported packages
+- [ ] Support removing files from packages that were loaded (not just created)
 
 **Implementation Notes:**
 
-- Consider using image processing libraries for optimization
-- Implement format validation for security
-- Support batch operations for efficiency
-- Provide detailed usage tracking
+- Build on existing media file management (Stories 1.1.6.1 and 1.1.6.2)
+- Remove both the physical file from temp directory and the mapping entry
+- Consider whether to warn if media file is referenced in notes (or just remove silently)
+- Integrate with package writing pipeline to ensure removed files don't get exported
 
 **Testing:**
 
-- [ ] Manual: Media file validation and conversion
-- [ ] Manual: Batch operations with large media sets
-- [ ] Unit: Media utility functions
+- [ ] Manual: Remove various media file types
+- [ ] Manual: Verify removed files not in exported packages
+- [ ] Automated: Test removing existing files
+- [ ] Automated: Test error handling for non-existent files
+- [ ] Automated: Test round-trip with file removal
+
+---
+
+### Story 1.1.6.4: Add API for Removing Unreferenced Media Files
+
+**Status:** ⏳ Pending
+
+**Story:** As a developer, I want to remove media files that are not referenced by any notes so applications can clean up unused media and reduce package size.
+
+**Acceptance Criteria:**
+
+- [ ] Implement `removeUnreferencedMediaFiles()` method to identify and remove unused files
+- [ ] Scan all notes to find media file references in field content
+- [ ] Return list of removed filenames
+- [ ] Handle various media reference formats (e.g., `<img src="file.png">`, `[sound:audio.mp3]`)
+- [ ] Provide dry-run option to preview what would be removed without actually removing
+
+**Implementation Notes:**
+
+- Build on removal API from Story 1.1.6.3
+- Parse note field content to find media references
+- Check against all note types and all notes in the package
+- Consider common Anki media reference patterns
+
+**Testing:**
+
+- [ ] Manual: Test with packages containing unused media
+- [ ] Automated: Test identifying referenced vs unreferenced files
+- [ ] Automated: Test various media reference formats
+- [ ] Automated: Test dry-run mode
 
 ---
 

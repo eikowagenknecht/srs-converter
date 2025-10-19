@@ -400,6 +400,31 @@ ankiPackage.addReview(review);
 
 > 📋 **Test:** This example is tested in [`anki/raw-anki-methods.test.ts`](raw-anki-methods.test.ts) - "should add review entry for tracking card performance"
 
+## Adding Media Files
+
+You can add media files (images, audio, video, etc.) to your Anki packages:
+
+```typescript
+import { readFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+
+// Method 1: Add from file path
+await ankiPackage.addMediaFile("image.png", "./path/to/image.png");
+
+// Method 2: Add from Buffer
+const buffer = await readFile("./audio.mp3");
+await ankiPackage.addMediaFile("audio.mp3", buffer);
+
+// Method 3: Add from ReadableStream
+const stream = createReadStream("./video.mp4");
+await ankiPackage.addMediaFile("video.mp4", stream);
+```
+
+> 📋 **Test:** This example is tested in [`anki/raw-anki-methods.test.ts`](raw-anki-methods.test.ts) - "should add media files to an Anki package"
+
+Please note that each filename must be unique because Anki uses filenames as references in notes.
+Attempting to add a duplicate filename will throw an error.
+
 ## FAQ
 
 ### What do I put in each field?

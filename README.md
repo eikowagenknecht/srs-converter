@@ -105,7 +105,7 @@ For detailed technical information about the Anki package format, see: [Understa
 | **Notes** | ✅ Full | Content in all fields, tags, modification timestamps |
 | **Cards** | ✅ Full | Question/answer templates, due dates, intervals, ease factors |
 | **Review History** | ✅ Full | Complete review logs with timestamps and scores |
-| **Media Files** | ⚠️ Partial | Reading: List files, get file size, stream file content. Writing: API for adding files not yet implemented |
+| **Media Files** | ✅ Full | List files, get file size, stream content, add files from paths/buffers/streams |
 | **Formats** | ⚠️ Partial | Only Legacy v2 is supported for now |
 | **Plugin Data** | ❌ No | Plugin-specific data may be ignored |
 | **Conversion Quality** | ⚠️ Partial | Anki ↔ Universal SRS format conversion preserves basic data with round-trip capability |

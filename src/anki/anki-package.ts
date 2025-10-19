@@ -1,8 +1,16 @@
-import { createReadStream } from "node:fs";
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { createReadStream, createWriteStream } from "node:fs";
+import {
+  copyFile,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import protobuf from "protobufjs";
 import { Open } from "unzipper";
 import {
@@ -687,7 +695,8 @@ export class AnkiPackage {
     const dbBuffer = db.toBuffer();
     await writeFile(join(this.tempDir, "collection.anki21"), dbBuffer);
 
-    await createSelectiveZip(filepath, [
+    // Build list of files to include in zip
+    const filesToZip = [
       {
         path: join(this.tempDir, "collection.anki21"),
         compress: true,
@@ -700,7 +709,17 @@ export class AnkiPackage {
         path: join(this.tempDir, "meta"),
         compress: false,
       },
-    ]);
+    ];
+
+    // Add all media files to the zip
+    for (const mediaId of Object.keys(this.mediaFiles)) {
+      filesToZip.push({
+        path: join(this.tempDir, mediaId),
+        compress: false,
+      });
+    }
+
+    await createSelectiveZip(filepath, filesToZip);
   }
 
   public async cleanup(): Promise<ConversionIssue[]> {
@@ -864,6 +883,56 @@ export class AnkiPackage {
 
     // Always return a readable stream for consistency
     return createReadStream(filePath);
+  }
+
+  /**
+   * Adds a media file to the package.
+   * @param filename - The name for the media file (e.g., "image.jpg")
+   * @param source - The source of the media file (file path, Buffer, or Readable stream)
+   * @throws {Error} if the filename already exists in the package
+   * @throws {Error} if the source file cannot be read or processed
+   */
+  public async addMediaFile(
+    filename: string,
+    source: string | Buffer | Readable,
+  ): Promise<void> {
+    // Check if filename already exists
+    const existingFile = Object.values(this.mediaFiles).find(
+      (name) => name === filename,
+    );
+    if (existingFile !== undefined) {
+      throw new Error(`Media file '${filename}' already exists in package`);
+    }
+
+    // Generate unique media ID (next available number)
+    const existingIds = Object.keys(this.mediaFiles).map((id) =>
+      Number.parseInt(id, 10),
+    );
+    const nextId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 0;
+    const mediaId = nextId.toFixed();
+
+    const targetPath = join(this.tempDir, mediaId);
+
+    try {
+      if (typeof source === "string") {
+        // Source is a file path - copy it
+        await copyFile(source, targetPath);
+      } else if (Buffer.isBuffer(source)) {
+        // Source is a Buffer - write it
+        await writeFile(targetPath, source);
+      } else {
+        // Source is a Readable stream - pipe it
+        const writeStream = createWriteStream(targetPath);
+        await pipeline(source, writeStream);
+      }
+
+      // Update media mapping
+      this.mediaFiles[Number.parseInt(mediaId, 10)] = filename;
+    } catch (error) {
+      throw new Error(
+        `Failed to add media file '${filename}': ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**

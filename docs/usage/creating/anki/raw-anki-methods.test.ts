@@ -3,7 +3,8 @@
  * Covers all code samples from raw-anki-methods.md
  */
 
-import { mkdtemp, rm } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -628,5 +629,37 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
     const addedReview = reviews.find((r) => r.id === review.id);
 
     expect(addedReview).toEqual(review);
+  });
+
+  // Code Sample: Adding Media Files
+  it("should add media files to an Anki package", async () => {
+    const result = await AnkiPackage.fromDefault();
+    expect(result.status).toBe("success");
+    if (!result.data) {
+      throw new Error("Failed to create Anki package");
+    }
+    const ankiPackage = result.data;
+
+    // Test the documentation example: Adding Media Files
+    // Method 1: Add from file path
+    await ankiPackage.addMediaFile(
+      "image.png",
+      "tests/fixtures/media/image.png",
+    );
+
+    // Method 2: Add from Buffer
+    const buffer = await readFile("tests/fixtures/media/audio.mp3");
+    await ankiPackage.addMediaFile("audio.mp3", buffer);
+
+    // Method 3: Add from ReadableStream
+    const stream = createReadStream("tests/fixtures/media/video.mp4");
+    await ankiPackage.addMediaFile("video.mp4", stream);
+
+    // Verify media files are added
+    const mediaFiles = ankiPackage.listMediaFiles();
+    expect(mediaFiles).toContain("image.png");
+    expect(mediaFiles).toContain("audio.mp3");
+    expect(mediaFiles).toContain("video.mp4");
+    expect(mediaFiles).toHaveLength(3);
   });
 });

@@ -1250,6 +1250,189 @@ describe("Media File APIs", () => {
       }
     });
   });
+
+  describe("addMediaFile()", () => {
+    const TEST_IMAGE_PATH = "tests/fixtures/media/image.png";
+    const TEST_IMAGE_NAME = "test-image.png";
+
+    it("should add media file from file path", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        // Add the media file
+        await pkg.addMediaFile(TEST_IMAGE_NAME, TEST_IMAGE_PATH);
+
+        // Verify it's in the list
+        const mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).toContain(TEST_IMAGE_NAME);
+        expect(mediaFiles).toHaveLength(1);
+
+        // Verify we can retrieve it
+        const size = await pkg.getMediaFileSize(TEST_IMAGE_NAME);
+        expect(size).toBeGreaterThan(0);
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should add media file from Buffer", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        const buffer = Buffer.from("test content");
+        await pkg.addMediaFile("test-buffer.txt", buffer);
+
+        // Verify it's in the list
+        const mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).toContain("test-buffer.txt");
+
+        // Verify content is correct
+        const stream = pkg.getMediaFile("test-buffer.txt");
+        const chunks: Buffer[] = [];
+        for await (const chunk of stream) {
+          chunks.push(chunk as Buffer);
+        }
+        const retrievedBuffer = Buffer.concat(chunks);
+        expect(retrievedBuffer.toString()).toBe("test content");
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should add media file from Readable stream", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        const { createReadStream } = await import("node:fs");
+        const stream = createReadStream(TEST_IMAGE_PATH);
+        await pkg.addMediaFile("stream-image.png", stream);
+
+        // Verify it's in the list
+        const mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).toContain("stream-image.png");
+
+        // Verify size matches original
+        const size = await pkg.getMediaFileSize("stream-image.png");
+        const { stat } = await import("node:fs/promises");
+        const originalStats = await stat(TEST_IMAGE_PATH);
+        expect(size).toBe(originalStats.size);
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should throw error when adding duplicate filename", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        const buffer = Buffer.from("content");
+        await pkg.addMediaFile("duplicate.txt", buffer);
+
+        // Try to add the same filename again
+        await expect(pkg.addMediaFile("duplicate.txt", buffer)).rejects.toThrow(
+          "Media file 'duplicate.txt' already exists in package",
+        );
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should throw error for non-existent source file path", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        await expect(
+          pkg.addMediaFile("test.txt", "/non/existent/path.txt"),
+        ).rejects.toThrow("Failed to add media file 'test.txt'");
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should generate sequential media IDs", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        // Add three files
+        await pkg.addMediaFile("file1.txt", Buffer.from("content1"));
+        await pkg.addMediaFile("file2.txt", Buffer.from("content2"));
+        await pkg.addMediaFile("file3.txt", Buffer.from("content3"));
+
+        // All three should be in the list
+        const mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).toHaveLength(3);
+        expect(mediaFiles).toContain("file1.txt");
+        expect(mediaFiles).toContain("file2.txt");
+        expect(mediaFiles).toContain("file3.txt");
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should include added media files in exported package", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        // Add a media file
+        await pkg.addMediaFile(TEST_IMAGE_NAME, TEST_IMAGE_PATH);
+
+        // Export to file
+        const exportPath = "out/test-with-added-media.apkg";
+        await pkg.toAnkiExport(exportPath);
+
+        // Re-read the exported package
+        const reimportResult = await AnkiPackage.fromAnkiExport(exportPath);
+        const reimportedPkg = expectSuccess(reimportResult);
+
+        try {
+          // Verify media file is present
+          const mediaFiles = reimportedPkg.listMediaFiles();
+          expect(mediaFiles).toContain(TEST_IMAGE_NAME);
+
+          // Verify content matches
+          const originalStats = await (await import("node:fs/promises")).stat(
+            TEST_IMAGE_PATH,
+          );
+          const reimportedSize =
+            await reimportedPkg.getMediaFileSize(TEST_IMAGE_NAME);
+          expect(reimportedSize).toBe(originalStats.size);
+        } finally {
+          await reimportedPkg.cleanup();
+        }
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should work with packages that already have media", async () => {
+      const result = await AnkiPackage.fromAnkiExport(MEDIA_PACKAGE_PATH);
+      const pkg = expectSuccess(result);
+
+      try {
+        // Package already has one media file
+        const initialFiles = pkg.listMediaFiles();
+        expect(initialFiles).toHaveLength(1);
+
+        // Add another media file
+        await pkg.addMediaFile("new-file.txt", Buffer.from("new content"));
+
+        // Now should have two
+        const updatedFiles = pkg.listMediaFiles();
+        expect(updatedFiles).toHaveLength(2);
+        expect(updatedFiles).toContain(EXPECTED_FILENAME); // Original
+        expect(updatedFiles).toContain("new-file.txt"); // New
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+  });
 });
 
 describe("Conversion SRS → Anki", () => {
