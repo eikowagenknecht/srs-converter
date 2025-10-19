@@ -100,6 +100,54 @@ console.log("\n=== Analysis Complete ===");
 
 > 📋 **Test:** This example is tested in [`anki/README.test.ts`](README.test.ts) - "should analyze an Anki package comprehensively and extract statistics"
 
+## Working with Media Files
+
+Anki packages can contain media files (e.g., images, audio, video).
+You can list and retrieve these files using the media file APIs:
+
+```typescript
+import { AnkiPackage } from "srs-converter";
+import { createWriteStream } from "node:fs";
+
+const result = await AnkiPackage.fromAnkiExport("./deck-with-media.apkg");
+
+if (result.status === "failure") {
+  console.error("Failed to load package");
+  return;
+}
+
+const ankiPackage = result.data;
+
+// List all media files in the package
+const mediaFiles = ankiPackage.listMediaFiles();
+console.log(`Found ${mediaFiles.length} media files`);
+
+for (const filename of mediaFiles) {
+  // Get file size
+  const size = await ankiPackage.getMediaFileSize(filename);
+  console.log(`${filename}: ${size} bytes`);
+
+  // Stream the file content
+  const stream = ankiPackage.getMediaFile(filename);
+
+  // Example: Save to disk
+  const writeStream = createWriteStream(`./output/${filename}`);
+  stream.pipe(writeStream);
+
+  await new Promise((resolve, reject) => {
+    writeStream.on("finish", resolve);
+    writeStream.on("error", reject);
+  });
+}
+
+console.log("Media files extracted successfully");
+```
+
+The `getMediaFile()` method returns a Node.js ReadableStream for memory-efficient handling of large files.
+You can pipe it to a file, process it in chunks, or convert it to a buffer.
+
+> 📋 **Test:** This example is tested in [`anki/README.test.ts`](README.test.ts) - "should list and retrieve media files from an Anki package"
+
 ## Converting to Universal SRS Format
 
 For information about converting loaded Anki packages to the universal SRS format for cross-platform processing, see **[→ Anki to SRS Conversion Guide](../../converting/anki-to-srs.md)**.

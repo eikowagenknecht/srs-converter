@@ -1,6 +1,8 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Readable } from "node:stream";
 import protobuf from "protobufjs";
 import { Open } from "unzipper";
 import {
@@ -804,6 +806,64 @@ export class AnkiPackage {
     } else {
       throw new Error(`Deck with ID ${deckId.toFixed()} does not exist`);
     }
+  }
+
+  /**
+   * Returns a list of all media filenames available in the package.
+   * @returns Array of media filenames
+   */
+  public listMediaFiles(): string[] {
+    return Object.values(this.mediaFiles);
+  }
+
+  /**
+   * Retrieves the size of a specific media file.
+   * @param filename - The name of the media file to get the size for
+   * @returns Promise resolving to the file size in bytes
+   * @throws {Error} if the file is not found in the package
+   */
+  public async getMediaFileSize(filename: string): Promise<number> {
+    // Find the media file ID from the filename
+    const mediaId = Object.entries(this.mediaFiles).find(
+      ([, name]) => name === filename,
+    )?.[0];
+
+    if (mediaId === undefined) {
+      throw new Error(`Media file '${filename}' not found in package`);
+    }
+
+    const filePath = join(this.tempDir, mediaId);
+
+    try {
+      const stats = await stat(filePath);
+      return stats.size;
+    } catch (error) {
+      throw new Error(
+        `Failed to get size for media file '${filename}': ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Retrieves a media file as a ReadableStream for efficient streaming.
+   * @param filename - The name of the media file to retrieve
+   * @returns A ReadableStream for the media file
+   * @throws {Error} if the file is not found in the package
+   */
+  public getMediaFile(filename: string): Readable {
+    // Find the media file ID from the filename
+    const mediaId = Object.entries(this.mediaFiles).find(
+      ([, name]) => name === filename,
+    )?.[0];
+
+    if (mediaId === undefined) {
+      throw new Error(`Media file '${filename}' not found in package`);
+    }
+
+    const filePath = join(this.tempDir, mediaId);
+
+    // Always return a readable stream for consistency
+    return createReadStream(filePath);
   }
 
   /**

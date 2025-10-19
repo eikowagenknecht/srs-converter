@@ -3,7 +3,8 @@
  * Covers all code samples from README.md
  */
 
-import { mkdtemp, rm } from "node:fs/promises";
+import { createWriteStream } from "node:fs";
+import { access, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -230,5 +231,45 @@ describe("Anki Reading Documentation Examples", () => {
     }
 
     // console.log("\n=== Analysis Complete ===");
+  });
+
+  // Code Sample: Working with Media Files
+  it("should list and retrieve media files from an Anki package", async () => {
+    // Use the test package with media
+    const result = await AnkiPackage.fromAnkiExport(
+      "templates/anki/mixed-legacy-2.apkg",
+    );
+
+    if (result.status === "failure" || !result.data) {
+      console.error("Failed to load package");
+      return;
+    }
+
+    const ankiPackage = result.data;
+
+    const mediaFiles = ankiPackage.listMediaFiles();
+    expect(mediaFiles.length).toBeGreaterThan(0);
+
+    for (const filename of mediaFiles) {
+      const size = await ankiPackage.getMediaFileSize(filename);
+      expect(size).toBeGreaterThan(0);
+
+      const stream = ankiPackage.getMediaFile(filename);
+
+      // Example: Save to disk
+      const outputPath = join(tempDir, filename);
+      const writeStream = createWriteStream(outputPath);
+      stream.pipe(writeStream);
+
+      await new Promise<void>((resolve, reject) => {
+        writeStream.on("finish", () => {
+          resolve();
+        });
+        writeStream.on("error", reject);
+      });
+
+      // Verify file was created
+      await expect(access(outputPath)).resolves.toBeUndefined();
+    }
   });
 });

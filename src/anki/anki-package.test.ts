@@ -1146,6 +1146,113 @@ describe("Data Management", () => {
   });
 });
 
+describe("Media File APIs", () => {
+  const MEDIA_PACKAGE_PATH = "templates/anki/mixed-legacy-2.apkg";
+  const EXPECTED_FILENAME =
+    "paste-ab21b25dd3e4ba4af2a1d8bdfa4c47455e53abac.jpg";
+
+  describe("listMediaFiles()", () => {
+    it("should return list of media filenames", async () => {
+      const result = await AnkiPackage.fromAnkiExport(MEDIA_PACKAGE_PATH);
+      const pkg = expectSuccess(result);
+
+      try {
+        const mediaFiles = pkg.listMediaFiles();
+
+        expect(mediaFiles).toBeInstanceOf(Array);
+        expect(mediaFiles).toContain(EXPECTED_FILENAME);
+        expect(mediaFiles).toHaveLength(1);
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should return empty array for package with no media", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        const mediaFiles = pkg.listMediaFiles();
+
+        expect(mediaFiles).toBeInstanceOf(Array);
+        expect(mediaFiles).toHaveLength(0);
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+  });
+
+  describe("getMediaFileSize()", () => {
+    it("should return correct size for existing media file", async () => {
+      const result = await AnkiPackage.fromAnkiExport(MEDIA_PACKAGE_PATH);
+      const pkg = expectSuccess(result);
+
+      try {
+        const size = await pkg.getMediaFileSize(EXPECTED_FILENAME);
+
+        expect(size).toBe(10701); // Known size from the test file
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should throw error for non-existent media file", async () => {
+      const result = await AnkiPackage.fromAnkiExport(MEDIA_PACKAGE_PATH);
+      const pkg = expectSuccess(result);
+
+      try {
+        await expect(
+          pkg.getMediaFileSize("non-existent-file.jpg"),
+        ).rejects.toThrow(
+          "Media file 'non-existent-file.jpg' not found in package",
+        );
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+  });
+
+  describe("getMediaFile()", () => {
+    it("should return ReadableStream for media file", async () => {
+      const result = await AnkiPackage.fromAnkiExport(MEDIA_PACKAGE_PATH);
+      const pkg = expectSuccess(result);
+
+      try {
+        const stream = pkg.getMediaFile(EXPECTED_FILENAME);
+
+        // Read the stream into memory to verify content
+        const chunks: Buffer[] = [];
+        for await (const chunk of stream) {
+          chunks.push(chunk as Buffer);
+        }
+
+        const buffer = Buffer.concat(chunks);
+        expect(buffer.length).toBe(10701); // Known size
+
+        // Verify it's a valid JPEG by checking magic bytes
+        expect(buffer[0]).toBe(0xff);
+        expect(buffer[1]).toBe(0xd8);
+        expect(buffer[2]).toBe(0xff);
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should throw error for non-existent media file", async () => {
+      const result = await AnkiPackage.fromAnkiExport(MEDIA_PACKAGE_PATH);
+      const pkg = expectSuccess(result);
+
+      try {
+        expect(() => pkg.getMediaFile("non-existent-file.jpg")).toThrow(
+          "Media file 'non-existent-file.jpg' not found in package",
+        );
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+  });
+});
+
 describe("Conversion SRS → Anki", () => {
   describe("fromSrsPackage()", () => {
     it("should convert a basic SRS package", async () => {
