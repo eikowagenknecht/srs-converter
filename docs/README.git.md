@@ -15,8 +15,6 @@
   - `revert`: Reverts a previous commit. In the body, it should say: `This reverts commit <hash>.`
 - Uses [semantic versioning](https://semver.org/) starting with `v0.1.0` for this library
 - Run linter before committing
-- Conventional commits required (max 100 chars per line)
-- Git hooks managed by lefthook (see `lefthook.yml`)
-- **Commit Signing Best Practices for AI agents**:
-  - Make sure to always sign commits properly. If they can't be signed, stop and wait for the user to resolve it.
-  - If GPG signing fails due to user cancellation or configuration issues, do not attempt to bypass with `--no-gpg-sign` unless explicitly instructed by the user
+- Use conventional commits (max 100 chars per line)
+- Git hooks are managed by lefthook (see `lefthook.yml`)
+- All commits must be signed
