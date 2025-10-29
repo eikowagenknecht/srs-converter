@@ -886,6 +886,43 @@ export class AnkiPackage {
   }
 
   /**
+   * Removes a media file from the package.
+   * @param filename - The name of the media file to remove
+   * @throws {Error} if the file is not found in the package
+   * @throws {Error} if the file cannot be deleted
+   */
+  public async removeMediaFile(filename: string): Promise<void> {
+    // Find the media file ID from the filename
+    const mediaEntry = Object.entries(this.mediaFiles).find(
+      ([, name]) => name === filename,
+    );
+
+    if (mediaEntry === undefined) {
+      throw new Error(`Media file '${filename}' not found in package`);
+    }
+
+    const [mediaId] = mediaEntry;
+    const filePath = join(this.tempDir, mediaId);
+
+    try {
+      // Delete the physical file
+      await rm(filePath);
+
+      // Remove from mapping by reconstructing without the deleted key
+      const mediaIdNum = Number.parseInt(mediaId, 10);
+      this.mediaFiles = Object.fromEntries(
+        Object.entries(this.mediaFiles).filter(
+          ([id]) => Number.parseInt(id, 10) !== mediaIdNum,
+        ),
+      );
+    } catch (error) {
+      throw new Error(
+        `Failed to remove media file '${filename}': ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
    * Adds a media file to the package.
    * @param filename - The name for the media file (e.g., "image.jpg")
    * @param source - The source of the media file (file path, Buffer, or Readable stream)

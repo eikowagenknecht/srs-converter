@@ -662,4 +662,42 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
     expect(mediaFiles).toContain("video.mp4");
     expect(mediaFiles).toHaveLength(3);
   });
+
+  // Code Sample: Removing Media Files
+  it("should remove media files from an Anki package", async () => {
+    const result = await AnkiPackage.fromDefault();
+    expect(result.status).toBe("success");
+    if (!result.data) {
+      throw new Error("Failed to create Anki package");
+    }
+    const ankiPackage = result.data;
+
+    // Add a media file first
+    await ankiPackage.addMediaFile(
+      "image.png",
+      "tests/fixtures/media/image.png",
+    );
+
+    // Verify it was added
+    let mediaFiles = ankiPackage.listMediaFiles();
+    expect(mediaFiles).toContain("image.png");
+
+    // Test the documentation example: Removing Media Files
+    // Remove a specific media file by filename
+    await ankiPackage.removeMediaFile("image.png");
+
+    // Verify it was removed
+    mediaFiles = ankiPackage.listMediaFiles();
+    expect(mediaFiles).not.toContain("image.png");
+
+    // You can re-add a file after removing it
+    await ankiPackage.addMediaFile(
+      "image.png",
+      "tests/fixtures/media/image.png",
+    );
+
+    // Verify it was re-added
+    mediaFiles = ankiPackage.listMediaFiles();
+    expect(mediaFiles).toContain("image.png");
+  });
 });

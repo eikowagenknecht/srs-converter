@@ -425,6 +425,22 @@ await ankiPackage.addMediaFile("video.mp4", stream);
 Please note that each filename must be unique because Anki uses filenames as references in notes.
 Attempting to add a duplicate filename will throw an error.
 
+## Removing Media Files
+
+You can remove media files from your Anki packages:
+
+```typescript
+// Remove a specific media file by filename
+await ankiPackage.removeMediaFile("image.png");
+
+// You can re-add a file after removing it
+await ankiPackage.addMediaFile("image.png", "./new-image.png");
+```
+
+> 📋 **Test:** This example is tested in [`anki/raw-anki-methods.test.ts`](raw-anki-methods.test.ts) - "should remove media files from an Anki package"
+
+Attempting to remove a non-existent file will throw an error. Removed files will not be included in exported packages.
+
 ## FAQ
 
 ### What do I put in each field?

@@ -407,7 +407,7 @@
 
 ### Story 1.1.6.3: Add User-Facing API for Removing Media Files
 
-**Status:** ⏳ Pending
+**Status:** 🔄 In Progress
 
 **Story:** As a developer, I want to remove media files from Anki packages so applications can update or clean up media content.
 
