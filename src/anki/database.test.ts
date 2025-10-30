@@ -227,7 +227,7 @@ describe("anki db test", () => {
   });
 
   it("should create database from dump and return instance", async () => {
-    // Test the fromDump method return path (lines 103-104)
+    // Test the fromDump method return path
     const dumpData = await db.toObject();
     const newDb = await AnkiDatabase.fromDump(dumpData);
 
@@ -243,7 +243,7 @@ describe("anki db test", () => {
   });
 
   it("should throw error when toBuffer() called on closed database", async () => {
-    // Test the error path in toBuffer() (lines 108-109)
+    // Test the error path in toBuffer()
     const testDb = await AnkiDatabase.fromDefault();
     await testDb.close();
 
@@ -251,7 +251,6 @@ describe("anki db test", () => {
   });
 
   it("should add deck via addDeck()", async () => {
-    // Test the addDeck method (lines 195-203)
     const deckData = {
       id: 12345,
       mod: Math.floor(Date.now() / 1000),
@@ -285,8 +284,6 @@ describe("anki db test", () => {
   });
 
   it("should handle fromDump with reviews and deleted items", async () => {
-    // Test the fromDump method with reviews and deleted items (lines 98-99, 101-102)
-
     // First, create a database with some data
     const testDb = await AnkiDatabase.fromDefault();
 
@@ -348,7 +345,7 @@ describe("anki db test", () => {
     // Verify the dump contains reviews
     expect(dumpData.reviews.length).toBeGreaterThan(0);
 
-    // Create new database from dump - this should cover lines 98-99
+    // Create new database from dump
     const newDb = await AnkiDatabase.fromDump(dumpData);
 
     // Verify the new database has the review data
@@ -361,8 +358,6 @@ describe("anki db test", () => {
   });
 
   it("should handle fromDump with deleted items (graves)", async () => {
-    // Test the fromDump method with deleted items (lines 101-102)
-
     // Create a dump with deleted items manually
     const baseDump = await db.toObject();
 
@@ -383,7 +378,7 @@ describe("anki db test", () => {
       ],
     };
 
-    // Create new database from dump - this should cover lines 101-102
+    // Create new database from dump
     const newDb = await AnkiDatabase.fromDump(dumpWithGraves);
 
     // Verify the deleted items were inserted

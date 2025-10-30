@@ -42,7 +42,7 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
     await rm(tempDir, { recursive: true, force: true });
   });
 
-  // Code Sample 4.1: Prerequisites Import (lines 11-14)
+  // Code Sample 4.1: Prerequisites Import
   it("should import required modules for raw Anki methods", () => {
     // Test the documentation example: Prerequisites Import
     // import { AnkiPackage } from "srs-converter";

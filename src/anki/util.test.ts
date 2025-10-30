@@ -227,7 +227,7 @@ describe("createSelectiveZip archiver warning handling", () => {
       error = err;
     }
 
-    // Verify error was thrown - this tests the error cleanup path (lines 174-176)
+    // Verify error was thrown - this tests the error cleanup path
     expect(error).toBeDefined();
   });
 
