@@ -291,34 +291,94 @@
 
 ---
 
-### Story 1.1.5: Export Anki Plugin Data and Configurations
+### Story 1.1.5: Preserve Plugin Data in Direct Anki Read/Write
 
-**Status:** ⏳ Pending
+**Status:** ✅ Completed
 
-**Story:** As a developer, I want to export Anki plugin data and configurations so the library can preserve plugin-specific functionality where possible.
+**Story:** As a developer, I want plugin data preserved when reading and writing Anki packages directly (without SRS conversion) so that plugin functionality isn't lost.
 
 **Acceptance Criteria:**
 
-- ⏳ Identify plugin data stored in Anki database (config table, etc.)
-- ✅ Export plugin configurations that don't require active plugin code (via raw database export)
-- ✅ Handle plugin-specific note type modifications (preserved in raw export)
-- ✅ Preserve plugin-generated fields and metadata (preserved in raw export)
-- ❌ Document limitations of plugin data portability
-- ❌ Provide warnings when plugin-dependent features are detected
+- ✅ Preserve the `data` field on notes (used by add-ons for custom data)
+- ✅ Preserve the `data` field on cards (used by add-ons for custom data)
+- ✅ Preserve plugin configurations in collection `conf` field via JSON serialization
+- ✅ Export complete database contents without filtering plugin data
 
 **Implementation Notes:**
 
-- Basic plugin data preservation implemented via raw database export in `toAnkiExport()`
-- Plugin configurations in collection table `conf` field are likely preserved
-- Plugin-specific note types, fields, and metadata preserved through complete database export
-- **Missing**: No explicit plugin detection, documentation, or user warnings
-- **Missing**: No testing with actual plugin data to verify preservation
+- Direct Anki read/write fully preserves plugin data fields (database.ts:183-187, 92-100)
+- The `data` field on notes and cards is preserved via `selectAll()` and complete insertion
+- Collection configuration preserved via JSON serialization (database.ts:85-90)
+- All database fields exported without filtering - plugin data flows through transparently
 
 **Testing:**
 
-- ❌ Manual: No testing with packages that contain plugin data
-- ❌ Manual: Plugin preservation not specifically verified
-- ⏳ Automated: Raw database export works, but plugin-specific testing needed
+- ✅ Automated: Round-trip tests verify database preservation
+
+---
+
+### Story 1.1.5.1: Restore Plugin Data During SRS Round-Trip Conversion
+
+**Status:** ✅ Completed
+
+**Story:** As a developer, I want plugin data restored during SRS → Anki conversion so that Anki → SRS → Anki round-trips preserve plugin-specific data.
+
+**Acceptance Criteria:**
+
+- ✅ Store note `data` field as `applicationSpecificData.ankiData` during Anki → SRS conversion
+- ✅ Store card `data` field as `applicationSpecificData.ankiData` during Anki → SRS conversion
+- ✅ Restore note `data` field from `applicationSpecificData.ankiData` during SRS → Anki conversion
+- ✅ Restore card `data` field from `applicationSpecificData.ankiData` during SRS → Anki conversion
+- ✅ Handle missing `ankiData` gracefully (default to empty/`"{}"`)
+- ✅ Verify round-trip conversion preserves plugin data
+
+**Implementation Notes:**
+
+- **Bug Fixed**: Plugin data now stored directly in `applicationSpecificData.ankiData` field
+- During Anki → SRS conversion: Store `data` field directly as `ankiData` (anki-package.ts:1153, 1187)
+- During SRS → Anki conversion: Restore directly from `ankiData` (anki-package.ts:463, 609)
+- Gracefully handles missing data with default values ("" for notes, "{}" for cards)
+- Simple implementation using optional chaining: `?.["ankiData"] ?? defaultValue`
+
+**Testing:**
+
+- ✅ Automated: Round-trip test verifies plugin data preservation (anki-package.test.ts:3201-3376)
+- ✅ Automated: Test creates notes/cards with real plugin data and verifies preservation
+- ✅ Automated: Edge cases handled via optional chaining with fallback defaults
+
+**Files Modified:**
+
+- `src/anki/anki-package.ts` - Direct storage and retrieval of plugin data field
+- `src/anki/anki-package.test.ts` - Added comprehensive round-trip test
+- `docs/stories/phase-1.md` - Story split and updated
+- `docs/stories/README.md` - Progress updated to 9/11 (82%)
+
+---
+
+### Story 1.1.5.2: Document Plugin Data Handling and Limitations
+
+**Status:** ⏳ Pending
+
+**Story:** As a developer, I want clear documentation about plugin data handling so users understand limitations and can troubleshoot issues.
+
+**Acceptance Criteria:**
+
+- [ ] Document which fields store plugin data (`data` on notes/cards, collection `conf`)
+- [ ] Document that plugin data is preserved in round-trip conversions
+- [ ] Document limitations of plugin data portability between systems
+- [ ] Document that plugin functionality requires the original plugin to be installed
+- [ ] Add examples of plugin data preservation in usage docs
+
+**Implementation Notes:**
+
+- Build on Stories 1.1.5 and 1.1.5.1
+- Document in `docs/usage/` and potentially in ADRs
+- Consider adding detection/warnings for common plugin markers
+
+**Testing:**
+
+- [ ] Manual: Test documentation examples with real plugin data
+- [ ] Manual: Verify clarity with user feedback
 
 ---
 

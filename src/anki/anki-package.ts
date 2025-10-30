@@ -459,7 +459,8 @@ export class AnkiPackage {
         sfld: note.fieldValues[0]?.[1] ?? "", // Sort field defaults to the first field value
         csum: 0, // TODO: Find out how Anki calculates this and do it that way as well. Not sure if needed or if Anki accepts notes without it.
         flags: 0,
-        data: "",
+        // biome-ignore lint/complexity/useLiteralKeys: Required for TS index signature
+        data: note.applicationSpecificData?.["ankiData"] ?? "",
       };
       ankiPackage.addNote(ankiNotes);
     }
@@ -604,7 +605,8 @@ export class AnkiPackage {
           odue: 0,
           odid: 0,
           flags: 0,
-          data: "{}",
+          // biome-ignore lint/complexity/useLiteralKeys: Required for TS index signature
+          data: srsCard.applicationSpecificData?.["ankiData"] ?? "{}",
         };
         ankiPackage.addCard(ankiCard);
       }
@@ -1115,7 +1117,7 @@ export class AnkiPackage {
             originalAnkiId: ankiNote.id.toFixed(),
             ankiGuid: ankiNote.guid,
             ankiTags: ankiNote.tags,
-            ankiNoteData: JSON.stringify(ankiNote),
+            ankiData: ankiNote.data,
           },
         },
         srsNoteType,
@@ -1148,7 +1150,7 @@ export class AnkiPackage {
           applicationSpecificData: {
             // TODO: Check which of these fields actually need to be stored. Maybe extract a type.
             originalAnkiId: ankiCard.id?.toFixed() ?? "",
-            ankiCardData: JSON.stringify(ankiCard),
+            ankiData: ankiCard.data,
             ankiDue: ankiCard.due.toFixed(),
             ankiQueue: ankiCard.queue.toString(),
             ankiType: ankiCard.type.toString(),

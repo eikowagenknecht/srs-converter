@@ -2053,13 +2053,13 @@ describe("Conversion SRS → Anki", () => {
         // Find a card to check its application-specific data
         const card = resultPackage.getCards()[0];
 
-        // Verify the specific fields from lines 681-682 are preserved
+        // Verify the specific fields are preserved
         if (card?.applicationSpecificData) {
           expect(card.applicationSpecificData["ankiDue"]).toBeDefined();
           expect(card.applicationSpecificData["ankiQueue"]).toBeDefined();
           expect(card.applicationSpecificData["ankiType"]).toBeDefined();
           expect(card.applicationSpecificData["originalAnkiId"]).toBeDefined();
-          expect(card.applicationSpecificData["ankiCardData"]).toBeDefined();
+          expect(card.applicationSpecificData["ankiData"]).toBeDefined();
 
           // Verify the data types are correct (should be strings)
           expect(typeof card.applicationSpecificData["ankiDue"]).toBe("string");
@@ -2067,6 +2067,9 @@ describe("Conversion SRS → Anki", () => {
             "string",
           );
           expect(typeof card.applicationSpecificData["ankiType"]).toBe(
+            "string",
+          );
+          expect(typeof card.applicationSpecificData["ankiData"]).toBe(
             "string",
           );
         } else {
@@ -2135,7 +2138,7 @@ describe("Conversion SRS → Anki", () => {
     });
 
     it.skip("should handle review conversion exceptions", async () => {
-      // This test attempts to trigger the catch block in review conversion (lines 944-958)
+      // This test attempts to trigger the catch block in review conversion.
       // However, normal invalid data doesn't seem to cause exceptions in the conversion logic
       // The createReview and addReview methods are too simple to throw exceptions easily
       // This test is skipped as it's difficult to trigger the catch block without mocking
@@ -3196,6 +3199,182 @@ describe("Error Handling and Edge Cases", () => {
 
       it.todo("should preserve review timestamps and scores", async () => {
         // TODO: Test review data preservation
+      });
+
+      it("should preserve plugin data in notes and cards during round-trip", async () => {
+        // Create an Anki package with plugin data
+        const ankiPackage = await AnkiPackage.fromDefault();
+        expect(ankiPackage.status).toBe("success");
+        const pkg = ankiPackage.data;
+        if (!pkg) throw new Error("Package creation failed");
+
+        try {
+          // Add a basic deck
+          pkg.addDeck({
+            id: 1,
+            mod: 0,
+            name: "Test Deck",
+            usn: 0,
+            lrnToday: [0, 0],
+            revToday: [0, 0],
+            newToday: [0, 0],
+            timeToday: [0, 0],
+            collapsed: false,
+            browserCollapsed: false,
+            desc: "",
+            dyn: 0,
+            conf: 1,
+            extendNew: 0,
+            extendRev: 0,
+            reviewLimit: null,
+            newLimit: null,
+            reviewLimitToday: null,
+            newLimitToday: null,
+          });
+
+          // Add note type
+          pkg.addNoteType({
+            id: 1,
+            name: "Basic",
+            type: 0,
+            mod: 0,
+            usn: 0,
+            sortf: 0,
+            did: 1,
+            tmpls: [
+              {
+                id: BigInt(0),
+                name: "Card 1",
+                ord: 0,
+                qfmt: "{{Front}}",
+                afmt: "{{Back}}",
+                bqfmt: "",
+                bafmt: "",
+                did: null,
+                bfont: "",
+                bsize: 0,
+              },
+            ],
+            flds: [
+              {
+                id: BigInt(0),
+                name: "Front",
+                ord: 0,
+                sticky: false,
+                rtl: false,
+                font: "Arial",
+                size: 20,
+                description: "",
+                plainText: false,
+                collapsed: false,
+                excludeFromSearch: false,
+                tag: null,
+                preventDeletion: false,
+              },
+              {
+                id: BigInt(1),
+                name: "Back",
+                ord: 1,
+                sticky: false,
+                rtl: false,
+                font: "Arial",
+                size: 20,
+                description: "",
+                plainText: false,
+                collapsed: false,
+                excludeFromSearch: false,
+                tag: null,
+                preventDeletion: false,
+              },
+            ],
+            css: ".card { font-family: arial; }",
+            latexPre: "",
+            latexPost: "",
+            latexsvg: false,
+            req: [[0, "any", [0]]],
+            originalStockKind: 1,
+          });
+
+          // Add note with plugin data
+          const pluginDataForNote = JSON.stringify({
+            pluginName: "test-addon",
+            customField: "custom value",
+          });
+          pkg.addNote({
+            id: 1,
+            guid: "abcdefghij",
+            mid: 1,
+            mod: 0,
+            usn: 0,
+            tags: "",
+            flds: "Front text\x1fBack text",
+            sfld: "Front text",
+            csum: 0,
+            flags: 0,
+            data: pluginDataForNote,
+          });
+
+          // Add card with plugin data
+          const pluginDataForCard = JSON.stringify({
+            pluginName: "card-addon",
+            customSetting: "card value",
+          });
+          pkg.addCard({
+            id: 1,
+            nid: 1,
+            did: 1,
+            ord: 0,
+            mod: 0,
+            usn: 0,
+            type: 0,
+            queue: 0,
+            due: 0,
+            ivl: 0,
+            factor: 0,
+            reps: 0,
+            lapses: 0,
+            left: 0,
+            odue: 0,
+            odid: 0,
+            flags: 0,
+            data: pluginDataForCard,
+          });
+
+          // Convert Anki -> SRS
+          const srsResult = pkg.toSrsPackage();
+          expect(srsResult.status).toBe("success");
+          const srsPackage = srsResult.data;
+          if (!srsPackage) throw new Error("SRS conversion failed");
+
+          // Convert SRS -> Anki
+          const ankiResult = await AnkiPackage.fromSrsPackage(srsPackage);
+          expect(ankiResult.status).toBe("success");
+          const convertedAnki = ankiResult.data;
+          if (!convertedAnki) throw new Error("Anki conversion failed");
+
+          try {
+            // Get the converted notes and cards using public methods
+            const convertedNotes = convertedAnki.getNotes();
+            const convertedCards = convertedAnki.getCards();
+
+            expect(convertedNotes).toHaveLength(1);
+            expect(convertedCards).toHaveLength(1);
+
+            // Verify note plugin data is preserved
+            const convertedNote = convertedNotes[0];
+            if (!convertedNote) throw new Error("Note not found");
+            expect(convertedNote.data).toBe(pluginDataForNote);
+
+            // Verify card plugin data is preserved
+            const convertedCard = convertedCards[0];
+            if (!convertedCard) throw new Error("Card not found");
+            expect(convertedCard.data).toBe(pluginDataForCard);
+          } finally {
+            await convertedAnki.cleanup();
+          }
+        } finally {
+          await pkg.cleanup();
+        }
       });
 
       it.todo("should preserve application-specific metadata", async () => {
