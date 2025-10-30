@@ -2,7 +2,7 @@
 
 This guide covers converting loaded Anki packages to the universal SRS format for cross-platform processing and data normalization.
 
-## Workflows
+## Workflow
 
 The workflow is usually as follows:
 
@@ -10,7 +10,9 @@ The workflow is usually as follows:
 2. Convert to SRS format (**this guide**).
 3. Use the data in your application.
 
-## Basic Conversion
+## Examples
+
+### Basic Conversion
 
 ```typescript
 // Assume ankiPackage is already loaded (see Reading Guide)
@@ -45,7 +47,7 @@ switch (srsResult.status) {
 
 > 📋 **Test:** The success case of this example is tested in [`anki-to-srs.test.ts`](anki-to-srs.test.ts) - "should convert Anki package to SRS format with comprehensive error handling"
 
-## Strict Mode
+### Strict Mode
 
 ```typescript
 // When using strict mode, the conversion will fail on any issues.
@@ -74,3 +76,39 @@ switch (srsResult.status) {
 ## Working with Converted Data
 
 Once converted to SRS format, you can modify the data using the APIs of the SRS package.
+
+## Plugin Data Preservation
+
+When converting from Anki to SRS format, plugin-specific data stored in the `data` field of notes and cards is automatically preserved in the `applicationSpecificData.ankiData` field so that it survives round-trip conversions (Anki → SRS → Anki).
+
+```typescript
+import { AnkiPackage } from "srs-converter";
+
+// Load an Anki package with plugin data
+const ankiResult = await AnkiPackage.fromAnkiExport("./deck-with-plugins.apkg");
+const ankiPackage = ankiResult.data;
+
+// Convert to SRS - plugin data is preserved in applicationSpecificData
+const srsResult = ankiPackage.toSrsPackage();
+const srsPackage = srsResult.data;
+
+// Plugin data is now stored in applicationSpecificData.ankiData
+const notes = srsPackage.getNotes();
+for (const note of notes) {
+  if (note.applicationSpecificData?.ankiData) {
+    console.log("Note has plugin data:", note.applicationSpecificData.ankiData);
+  }
+}
+
+// When converting back to Anki, plugin data is automatically restored
+const reconvertedResult = await AnkiPackage.fromSrsPackage(srsPackage);
+const reconvertedAnki = reconvertedResult.data;
+
+// Original plugin data is restored to the data field
+const reconvertedNotes = reconvertedAnki.getNotes();
+for (const note of reconvertedNotes) {
+  console.log("Restored plugin data:", note.data);
+}
+```
+
+> 📋 **Test:** Plugin data preservation is tested in [`anki-to-srs.test.ts`](anki-to-srs.test.ts) - "should preserve plugin data in round-trip conversion"

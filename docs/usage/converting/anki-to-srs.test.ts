@@ -180,4 +180,131 @@ describe("Anki to SRS Conversion Documentation Examples", () => {
   it.todo(
     "should handle failure conversion in strict mode when minor issues occur",
   );
+
+  // Code Sample: Plugin Data Preservation
+  it("should preserve plugin data in round-trip conversion", async () => {
+    // Create an Anki package with plugin data
+    const result = await AnkiPackage.fromDefault();
+    expect(result.status).toBe("success");
+    const ankiPackage = result.data;
+    if (!ankiPackage) throw new Error("Package creation failed");
+
+    try {
+      // Set up basic structure
+      ankiPackage.addNoteType(basicModel);
+      const testDeck = {
+        ...defaultDeck,
+        id: Date.now(),
+        name: "Test Deck",
+      };
+      ankiPackage.addDeck(testDeck);
+
+      // Add note with plugin data
+      const pluginData = JSON.stringify({
+        pluginName: "test-addon",
+        customField: "custom value",
+      });
+      const testNote = {
+        id: Date.now(),
+        guid: `TestNote_${Date.now().toFixed()}`,
+        mid: basicModel.id,
+        mod: Math.floor(Date.now() / 1000),
+        usn: -1,
+        tags: "",
+        flds: "Front text\x1fBack text",
+        sfld: "Front text",
+        csum: 0,
+        flags: 0,
+        data: pluginData,
+      };
+      ankiPackage.addNote(testNote);
+
+      // Add card with plugin data
+      const cardPluginData = JSON.stringify({
+        pluginName: "card-addon",
+        customSetting: "card value",
+      });
+      const testCard = {
+        id: Date.now() + 1,
+        nid: testNote.id,
+        did: testDeck.id,
+        ord: 0,
+        mod: Math.floor(Date.now() / 1000),
+        usn: -1,
+        type: 0,
+        queue: 0,
+        due: 1,
+        ivl: 0,
+        factor: 0,
+        reps: 0,
+        lapses: 0,
+        left: 0,
+        odue: 0,
+        odid: 0,
+        flags: 0,
+        data: cardPluginData,
+      };
+      ankiPackage.addCard(testCard);
+
+      // Convert Anki -> SRS
+      const srsResult = ankiPackage.toSrsPackage();
+      expect(srsResult.status).toBe("success");
+      const srsPackage = srsResult.data;
+      if (!srsPackage) throw new Error("SRS conversion failed");
+
+      // Plugin data is now stored in applicationSpecificData.ankiData
+      const notes = srsPackage.getNotes();
+      expect(notes.length).toBeGreaterThan(0);
+      const noteWithPlugin = notes.find(
+        // biome-ignore lint/complexity/useLiteralKeys: Required for TS index signature
+        (n) => n.applicationSpecificData?.["ankiData"] === pluginData,
+      );
+      expect(noteWithPlugin).toBeDefined();
+      // biome-ignore lint/complexity/useLiteralKeys: Required for TS index signature
+      expect(noteWithPlugin?.applicationSpecificData?.["ankiData"]).toBe(
+        pluginData,
+      );
+
+      const cards = srsPackage.getCards();
+      expect(cards.length).toBeGreaterThan(0);
+      const cardWithPlugin = cards.find(
+        // biome-ignore lint/complexity/useLiteralKeys: Required for TS index signature
+        (c) => c.applicationSpecificData?.["ankiData"] === cardPluginData,
+      );
+      expect(cardWithPlugin).toBeDefined();
+      // biome-ignore lint/complexity/useLiteralKeys: Required for TS index signature
+      expect(cardWithPlugin?.applicationSpecificData?.["ankiData"]).toBe(
+        cardPluginData,
+      );
+
+      // Convert SRS -> Anki
+      const reconvertedResult = await AnkiPackage.fromSrsPackage(srsPackage);
+      expect(reconvertedResult.status).toBe("success");
+      const reconvertedAnki = reconvertedResult.data;
+      if (!reconvertedAnki) throw new Error("Anki conversion failed");
+
+      try {
+        // Original plugin data is restored to the data field
+        const reconvertedNotes = reconvertedAnki.getNotes();
+        expect(reconvertedNotes.length).toBeGreaterThan(0);
+        const restoredNote = reconvertedNotes.find(
+          (n) => n.data === pluginData,
+        );
+        expect(restoredNote).toBeDefined();
+        expect(restoredNote?.data).toBe(pluginData);
+
+        const reconvertedCards = reconvertedAnki.getCards();
+        expect(reconvertedCards.length).toBeGreaterThan(0);
+        const restoredCard = reconvertedCards.find(
+          (c) => c.data === cardPluginData,
+        );
+        expect(restoredCard).toBeDefined();
+        expect(restoredCard?.data).toBe(cardPluginData);
+      } finally {
+        await reconvertedAnki.cleanup();
+      }
+    } finally {
+      await ankiPackage.cleanup();
+    }
+  });
 });

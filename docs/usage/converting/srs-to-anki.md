@@ -2,7 +2,7 @@
 
 This guide covers converting SRS packages to Anki format for export as `.apkg` files.
 
-## Workflows
+## Workflow
 
 The workflow is usually as follows:
 
@@ -10,7 +10,9 @@ The workflow is usually as follows:
 2. Convert to Anki format (**this guide**).
 3. Export the Anki package to a file (see **[Exporting Guide](../exporting/anki/README.md)**).
 
-## Basic Conversion
+## Examples
+
+### Basic Conversion
 
 ```typescript
 import { AnkiPackage } from "srs-converter";
@@ -44,7 +46,7 @@ switch (ankiResult.status) {
 
 > 📋 **Test:** The success case of this example is tested in [`srs-to-anki.test.ts`](srs-to-anki.test.ts) - "should convert SRS package to Anki format with result handling and file export"
 
-## Strict Mode
+### Strict Mode
 
 ```typescript
 import { AnkiPackage } from "srs-converter";
@@ -71,3 +73,50 @@ switch (ankiResult.status) {
 ```
 
 > 📋 **Test:** The success case of this example is tested in [`srs-to-anki.test.ts`](srs-to-anki.test.ts) - "should convert SRS to Anki in strict mode with no partial results"
+
+## Plugin Data Restoration
+
+When converting from SRS to Anki format, plugin-specific data stored in `applicationSpecificData.ankiData` is automatically restored to the `data` field in notes and cards. This enables full round-trip preservation of Anki add-on data.
+
+```typescript
+import { AnkiPackage, createNote, SrsPackage } from "srs-converter";
+
+// Create an SRS package with plugin data in applicationSpecificData
+const srsPackage = new SrsPackage();
+
+// ... add decks, note types, etc ...
+
+// Create a note with plugin data
+const noteWithPlugin = createNote(
+  {
+    noteTypeId: "note-type-id",
+    deckId: "deck-id",
+    fieldValues: [
+      ["Front", "Question"],
+      ["Back", "Answer"],
+    ],
+    applicationSpecificData: {
+      ankiData: JSON.stringify({
+        pluginName: "my-addon",
+        customData: "value",
+      }),
+    },
+  },
+  noteType,
+);
+
+srsPackage.addNote(noteWithPlugin);
+
+// Convert to Anki - plugin data is restored to the data field
+const ankiResult = await AnkiPackage.fromSrsPackage(srsPackage);
+const ankiPackage = ankiResult.data;
+
+// Plugin data is now in the data field, ready for Anki add-ons
+const notes = ankiPackage.getNotes();
+for (const note of notes) {
+  console.log("Restored plugin data:", note.data);
+  // Output: {"pluginName":"my-addon","customData":"value"}
+}
+```
+
+For more information on plugin data handling, see the [Reading Anki Packages Guide](../reading/anki/README.md#plugin-data-handling).

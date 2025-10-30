@@ -148,6 +148,21 @@ You can pipe it to a file, process it in chunks, or convert it to a buffer.
 
 > 📋 **Test:** This example is tested in [`anki/README.test.ts`](README.test.ts) - "should list and retrieve media files from an Anki package"
 
+## Plugin Data Handling
+
+Anki add-ons can store custom data in notes and cards using the `data` field. This library preserves plugin data during operations:
+
+- **Direct Anki operations** (read/write without SRS conversion): Plugin data is fully preserved automatically
+- **Round-trip conversions** (Anki → SRS → Anki): Plugin data is stored in `applicationSpecificData.ankiData` and restored on conversion back to Anki
+
+**Important limitations:**
+
+- Plugin functionality requires the original Anki add-on to be installed in Anki
+- Plugin data is preserved as-is but not validated or modified by this library
+- Cross-platform portability depends on the specific plugin's data format
+
+For examples of plugin data preservation in conversions, see the [Anki to SRS Conversion Guide](../../converting/anki-to-srs.md#plugin-data-preservation).
+
 ## Converting to Universal SRS Format
 
 For information about converting loaded Anki packages to the universal SRS format for cross-platform processing, see **[→ Anki to SRS Conversion Guide](../../converting/anki-to-srs.md)**.

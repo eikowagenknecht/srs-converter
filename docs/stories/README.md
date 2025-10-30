@@ -28,8 +28,8 @@ Complete Anki reading and writing implementation with all features and edge case
   - Status: Anki reading mostly works, with all major note types supported. Still need schema version support and corrupted file handling.
 
 - **Phase 1.1**: Anki Writing (.apkg/.colpkg) + Media File APIs
-  - Progress: 9/11 stories completed (82%) 🔄
-  - Status: Core writing, media file APIs, and plugin data preservation (including SRS round-trips) complete. Still need: plugin data documentation and unreferenced media cleanup API
+  - Progress: 10/11 stories completed (91%) 🔄
+  - Status: Core writing, media file APIs, plugin data preservation (including SRS round-trips), and plugin data documentation complete. Still need: unreferenced media cleanup API
 
 - **Phase 1.2**: Anki Testing and Edge Cases
   - Progress: 2/5 stories completed (40%) 🔄
