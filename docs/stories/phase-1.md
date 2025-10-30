@@ -407,33 +407,48 @@
 
 ### Story 1.1.6.3: Add User-Facing API for Removing Media Files
 
-**Status:** ⏳ Pending
+**Status:** ✅ Completed
 
 **Story:** As a developer, I want to remove media files from Anki packages so applications can update or clean up media content.
 
 **Acceptance Criteria:**
 
-- [ ] Implement `removeMediaFile(filename)` method to remove individual files
-- [ ] Throw error if attempting to remove a non-existent file
-- [ ] Remove media file from disk (temp directory)
-- [ ] Update media file mappings when files are removed
-- [ ] Verify removed files are not included in exported packages
-- [ ] Support removing files from packages that were loaded (not just created)
+- ✅ Implement `removeMediaFile(filename)` method to remove individual files
+- ✅ Throw error if attempting to remove a non-existent file
+- ✅ Remove media file from disk (temp directory)
+- ✅ Update media file mappings when files are removed
+- ✅ Verify removed files are not included in exported packages
+- ✅ Support removing files from packages that were loaded (not just created)
 
 **Implementation Notes:**
 
-- Build on existing media file management (Stories 1.1.6.1 and 1.1.6.2)
-- Remove both the physical file from temp directory and the mapping entry
-- Consider whether to warn if media file is referenced in notes (or just remove silently)
-- Integrate with package writing pipeline to ensure removed files don't get exported
+- Implemented `removeMediaFile(filename)` method in `AnkiPackage` class (src/anki/anki-package.ts:938-973)
+- Removes both physical file from temp directory using `rm()` and updates media mapping
+- Uses `Object.fromEntries` and `filter` to remove mapping entry (avoiding dynamic delete for lint compliance)
+- Validates file existence before removal - throws clear error if file doesn't exist
+- Fully integrated with package writing pipeline - removed files automatically excluded from exports
+- Built on existing media file management from Stories 1.1.6.1 and 1.1.6.2
+- Design decision: Remove silently without warning about note references (user responsibility to manage references)
 
 **Testing:**
 
-- [ ] Manual: Remove various media file types
-- [ ] Manual: Verify removed files not in exported packages
-- [ ] Automated: Test removing existing files
-- [ ] Automated: Test error handling for non-existent files
-- [ ] Automated: Test round-trip with file removal
+- ✅ Automated: 8 comprehensive tests covering all acceptance criteria (src/anki/anki-package.test.ts:1437-1648)
+  - Basic removal of existing files
+  - Error handling for non-existent files
+  - Verification of file removal from disk
+  - Export/import round-trip verification (removed files not in exports)
+  - Removal from loaded packages (not just created ones)
+  - Multiple file removal scenarios
+  - Removing same file twice error handling
+  - Remove and re-add same filename workflow
+- ✅ Documentation: Usage examples added with automated tests (docs/usage/creating/anki/raw-anki-methods.md)
+
+**Files Modified:**
+
+- `src/anki/anki-package.ts` - Added `removeMediaFile()` method
+- `src/anki/anki-package.test.ts` - Added comprehensive test suite
+- `docs/usage/creating/anki/raw-anki-methods.md` - Added usage documentation
+- `docs/usage/creating/anki/raw-anki-methods.test.ts` - Added documentation example test
 
 ---
 

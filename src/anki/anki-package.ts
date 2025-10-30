@@ -936,6 +936,43 @@ export class AnkiPackage {
   }
 
   /**
+   * Removes a media file from the package.
+   * @param filename - The name of the media file to remove (e.g., "image.jpg")
+   * @throws {Error} if the file does not exist in the package
+   * @throws {Error} if the file cannot be deleted from disk
+   */
+  public async removeMediaFile(filename: string): Promise<void> {
+    // Find the media file ID from the filename
+    const mediaEntry = Object.entries(this.mediaFiles).find(
+      ([, name]) => name === filename,
+    );
+
+    if (mediaEntry === undefined) {
+      throw new Error(`Media file '${filename}' does not exist in package`);
+    }
+
+    const [mediaId] = mediaEntry;
+    const filePath = join(this.tempDir, mediaId);
+
+    try {
+      // Remove the physical file from disk
+      await rm(filePath);
+
+      // Remove from media mapping by creating new object without the key
+      const numericId = Number.parseInt(mediaId, 10);
+      this.mediaFiles = Object.fromEntries(
+        Object.entries(this.mediaFiles).filter(
+          ([key]) => Number.parseInt(key, 10) !== numericId,
+        ),
+      );
+    } catch (error) {
+      throw new Error(
+        `Failed to remove media file '${filename}': ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
    * Converts the AnkiPackage to an SrsPackage.
    * This method transforms Anki data structures into the universal SRS format.
    * @param options - Configuration options for the conversion process

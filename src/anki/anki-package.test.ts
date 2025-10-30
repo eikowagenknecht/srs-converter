@@ -1433,6 +1433,217 @@ describe("Media File APIs", () => {
       }
     });
   });
+
+  describe("removeMediaFile()", () => {
+    const TEST_IMAGE_PATH = "tests/fixtures/media/image.png";
+    const TEST_IMAGE_NAME = "test-image.png";
+
+    it("should remove an existing media file", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        // Add a media file
+        await pkg.addMediaFile(TEST_IMAGE_NAME, TEST_IMAGE_PATH);
+
+        // Verify it's there
+        let mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).toContain(TEST_IMAGE_NAME);
+        expect(mediaFiles).toHaveLength(1);
+
+        // Remove it
+        await pkg.removeMediaFile(TEST_IMAGE_NAME);
+
+        // Verify it's gone
+        mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).not.toContain(TEST_IMAGE_NAME);
+        expect(mediaFiles).toHaveLength(0);
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should throw error when removing non-existent file", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        await expect(pkg.removeMediaFile("non-existent.png")).rejects.toThrow(
+          "Media file 'non-existent.png' does not exist in package",
+        );
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should remove file from disk", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        // Add a media file
+        await pkg.addMediaFile(TEST_IMAGE_NAME, TEST_IMAGE_PATH);
+
+        // Verify we can access it
+        const size = await pkg.getMediaFileSize(TEST_IMAGE_NAME);
+        expect(size).toBeGreaterThan(0);
+
+        // Remove it
+        await pkg.removeMediaFile(TEST_IMAGE_NAME);
+
+        // Verify we can't access it anymore
+        await expect(pkg.getMediaFileSize(TEST_IMAGE_NAME)).rejects.toThrow(
+          "Media file 'test-image.png' not found in package",
+        );
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should not include removed files in exported package", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        // Add two media files
+        await pkg.addMediaFile(TEST_IMAGE_NAME, TEST_IMAGE_PATH);
+        await pkg.addMediaFile(
+          "keep-this.txt",
+          Buffer.from("keep this content"),
+        );
+
+        // Remove one
+        await pkg.removeMediaFile(TEST_IMAGE_NAME);
+
+        // Export to file
+        const exportPath = "out/test-with-removed-media.apkg";
+        await pkg.toAnkiExport(exportPath);
+
+        // Re-read the exported package
+        const reimportResult = await AnkiPackage.fromAnkiExport(exportPath);
+        const reimportedPkg = expectSuccess(reimportResult);
+
+        try {
+          // Verify only the kept file is present
+          const mediaFiles = reimportedPkg.listMediaFiles();
+          expect(mediaFiles).toHaveLength(1);
+          expect(mediaFiles).toContain("keep-this.txt");
+          expect(mediaFiles).not.toContain(TEST_IMAGE_NAME);
+        } finally {
+          await reimportedPkg.cleanup();
+        }
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should work with packages loaded from file", async () => {
+      const result = await AnkiPackage.fromAnkiExport(MEDIA_PACKAGE_PATH);
+      const pkg = expectSuccess(result);
+
+      try {
+        // Package already has one media file
+        const initialFiles = pkg.listMediaFiles();
+        expect(initialFiles).toHaveLength(1);
+        expect(initialFiles).toContain(EXPECTED_FILENAME);
+
+        // Remove the existing media file
+        await pkg.removeMediaFile(EXPECTED_FILENAME);
+
+        // Verify it's gone
+        const updatedFiles = pkg.listMediaFiles();
+        expect(updatedFiles).toHaveLength(0);
+        expect(updatedFiles).not.toContain(EXPECTED_FILENAME);
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should remove multiple files correctly", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        // Add three files
+        await pkg.addMediaFile("file1.txt", Buffer.from("content1"));
+        await pkg.addMediaFile("file2.txt", Buffer.from("content2"));
+        await pkg.addMediaFile("file3.txt", Buffer.from("content3"));
+
+        // Verify all are present
+        let mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).toHaveLength(3);
+
+        // Remove file2
+        await pkg.removeMediaFile("file2.txt");
+
+        // Verify only file2 is gone
+        mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).toHaveLength(2);
+        expect(mediaFiles).toContain("file1.txt");
+        expect(mediaFiles).not.toContain("file2.txt");
+        expect(mediaFiles).toContain("file3.txt");
+
+        // Remove file1
+        await pkg.removeMediaFile("file1.txt");
+
+        // Verify only file3 remains
+        mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).toHaveLength(1);
+        expect(mediaFiles).toContain("file3.txt");
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should throw error when trying to remove same file twice", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        // Add a file
+        await pkg.addMediaFile(TEST_IMAGE_NAME, TEST_IMAGE_PATH);
+
+        // Remove it once (should succeed)
+        await pkg.removeMediaFile(TEST_IMAGE_NAME);
+
+        // Try to remove again (should fail)
+        await expect(pkg.removeMediaFile(TEST_IMAGE_NAME)).rejects.toThrow(
+          "Media file 'test-image.png' does not exist in package",
+        );
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should handle removal and re-adding of same filename", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        // Add a file
+        await pkg.addMediaFile(TEST_IMAGE_NAME, TEST_IMAGE_PATH);
+        const originalSize = await pkg.getMediaFileSize(TEST_IMAGE_NAME);
+
+        // Remove it
+        await pkg.removeMediaFile(TEST_IMAGE_NAME);
+
+        // Add a different file with the same name
+        const newContent = Buffer.from("new content with same name");
+        await pkg.addMediaFile(TEST_IMAGE_NAME, newContent);
+
+        // Verify the new file is present
+        const mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).toContain(TEST_IMAGE_NAME);
+
+        // Verify the content is different (size changed)
+        const newSize = await pkg.getMediaFileSize(TEST_IMAGE_NAME);
+        expect(newSize).toBe(newContent.length);
+        expect(newSize).not.toBe(originalSize);
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+  });
 });
 
 describe("Conversion SRS → Anki", () => {

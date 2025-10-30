@@ -662,4 +662,52 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
     expect(mediaFiles).toContain("video.mp4");
     expect(mediaFiles).toHaveLength(3);
   });
+
+  // Code Sample: Removing Media Files
+  it("should remove media files from an Anki package", async () => {
+    const result = await AnkiPackage.fromDefault();
+    expect(result.status).toBe("success");
+    if (!result.data) {
+      throw new Error("Failed to create Anki package");
+    }
+    const ankiPackage = result.data;
+
+    // Test the documentation example: Removing Media Files
+    // First, add a media file
+    await ankiPackage.addMediaFile(
+      "image.png",
+      "tests/fixtures/media/image.png",
+    );
+    await ankiPackage.addMediaFile(
+      "old-image.png",
+      "tests/fixtures/media/image.png",
+    );
+
+    // Verify files are added
+    let mediaFiles = ankiPackage.listMediaFiles();
+    expect(mediaFiles).toContain("image.png");
+    expect(mediaFiles).toContain("old-image.png");
+    expect(mediaFiles).toHaveLength(2);
+
+    // Remove a media file by filename
+    await ankiPackage.removeMediaFile("image.png");
+
+    // Verify it's removed
+    mediaFiles = ankiPackage.listMediaFiles();
+    expect(mediaFiles).not.toContain("image.png");
+    expect(mediaFiles).toContain("old-image.png");
+    expect(mediaFiles).toHaveLength(1);
+
+    // You can also remove and then re-add a file with the same name
+    await ankiPackage.removeMediaFile("old-image.png");
+    await ankiPackage.addMediaFile(
+      "old-image.png",
+      "tests/fixtures/media/image.png",
+    );
+
+    // Verify the file is back
+    mediaFiles = ankiPackage.listMediaFiles();
+    expect(mediaFiles).toContain("old-image.png");
+    expect(mediaFiles).toHaveLength(1);
+  });
 });
