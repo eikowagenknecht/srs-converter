@@ -1397,9 +1397,9 @@ describe("Media File APIs", () => {
           expect(mediaFiles).toContain(TEST_IMAGE_NAME);
 
           // Verify content matches
-          const originalStats = await (await import("node:fs/promises")).stat(
-            TEST_IMAGE_PATH,
-          );
+          const originalStats = await (
+            await import("node:fs/promises")
+          ).stat(TEST_IMAGE_PATH);
           const reimportedSize =
             await reimportedPkg.getMediaFileSize(TEST_IMAGE_NAME);
           expect(reimportedSize).toBe(originalStats.size);

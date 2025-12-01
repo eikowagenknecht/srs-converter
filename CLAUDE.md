@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 📚 Onboarding
 
-At the start of each session, read:
+At the start of each session:
 
-1. The main `README.md` for project overview
-2. Any `docs/README.*.md` files for detailed development information
+1. Read the main `README.md` for project overview
+2. Consult `docs/README.*.md` files as needed during work (read upfront for complex tasks, or reference on-demand for simpler ones)
 
 ## ✅ Quality Gates
 
@@ -26,10 +26,10 @@ The commands will take care of that.
 
 ## Claude Settings
 
-- You (Claude) should extensively use subagents for tasks that can be run in parallel. Build / Lint / Test tasks may **NOT** be run in parallel, though.
-- Before making changes, search the codebase using parallel subagents.
-- Don't assume an item is not implemented.
-- Use the TodoWrite whereever possible to track your progress.
+- Use subagents for tasks that benefit from parallel execution (e.g., searching multiple areas of the codebase). For simpler tasks, direct execution is fine. Build / Lint / Test tasks may **NOT** be run in parallel.
+- Before making changes, search the codebase to understand existing implementations. Use parallel subagents for broad searches; direct tools are fine for targeted lookups.
+- Verify before assuming: check if functionality exists before implementing it anew.
+- Use TodoWrite for multi-step tasks to track progress; for simple single-step tasks, proceed directly.
 
 ## Communication
 
@@ -37,7 +37,7 @@ The commands will take care of that.
 - Get straight to the substantive content
 - If you agree with something I said, show it through your response rather than stating it explicitly
 - Focus on adding value rather than validating
-- When I ask a question, answer it directly and concisely. Do **NOT** implementat without being asked to do so.
+- When I ask a question, answer it directly and concisely. Do **NOT** implement without being asked to do so.
 
 ## Important Reminders
 
