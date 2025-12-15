@@ -113,32 +113,170 @@
 
 ### Story 1.0.5: Handle Corrupted and Malformed Anki Packages
 
-**Status:** ⏳ Pending
+**Status:** 🔄 In Progress (0/5 substories completed)
 
 **Story:** As a developer, I want to gracefully handle corrupted and malformed Anki package files so the library provides a good user experience even with problematic files.
 
+This story is broken down into the following substories:
+
+| Substory | Scope             | Status     |
+| -------- | ----------------- | ---------- |
+| 1.0.5.1  | ZIP validation    | ⏳ Pending |
+| 1.0.5.2  | Missing files     | ⏳ Pending |
+| 1.0.5.3  | SQLite corruption | ⏳ Pending |
+| 1.0.5.4  | JSON validation   | ⏳ Pending |
+| 1.0.5.5  | Partial recovery  | ⏳ Pending |
+
+**Recommended order:** 1.0.5.1 → 1.0.5.2 → 1.0.5.4 → 1.0.5.3 → 1.0.5.5
+
+Stories 1-4 can be done independently; Story 5 builds on top of them.
+
+---
+
+### Story 1.0.5.1: Handle Corrupted ZIP Archives
+
+**Status:** ⏳ Pending
+
+**Story:** As a developer, I want the library to detect and gracefully handle corrupted, truncated, or invalid ZIP files so users get clear feedback when their package file is damaged.
+
 **Acceptance Criteria:**
 
-- [ ] Handle corrupted ZIP archives gracefully
-- [ ] Handle missing required files (collection.anki2/collection.anki21)
-- [ ] Handle corrupted SQLite database files
-- [ ] Handle invalid JSON in media metadata
-- [ ] Provide clear, actionable error messages for each error type
-- [ ] Support partial data recovery where possible
-- [ ] Use tri-state error handling pattern
+- [ ] Detect truncated ZIP files (incomplete downloads)
+- [ ] Detect files that aren't valid ZIP archives (wrong format, binary data)
+- [ ] Provide specific error message: "The file is not a valid ZIP archive" vs "The ZIP archive is truncated/corrupted"
+- [ ] Use tri-state error handling with `critical` severity
 
 **Implementation Notes:**
 
-- Implement comprehensive error handling in `src/anki/anki-package.ts`
-- Use tri-state error pattern from `src/error-handling.ts`
-- Provide detailed error context for debugging
-- Consider partial recovery strategies (e.g., read valid decks even if some are corrupted)
+- Enhance error handling in `AnkiPackage.fromAnkiExport()` around `Open.file()` call
+- Distinguish between different unzipper error types
+- Test with truncated files, random binary data, text files renamed to .apkg
 
 **Testing:**
 
-- [ ] Manual: Test with various corrupted package scenarios
-- [ ] Automated: Test suite with intentionally corrupted files
-- [ ] Automated: Validate error message quality
+- [ ] Automated: Test with truncated ZIP file
+- [ ] Automated: Test with non-ZIP file (e.g., text file renamed to .apkg)
+- [ ] Automated: Test with empty file
+- [ ] Automated: Validate error messages are specific and actionable
+
+---
+
+### Story 1.0.5.2: Handle Missing Required Files in Package
+
+**Status:** ⏳ Pending
+
+**Story:** As a developer, I want the library to detect missing required files inside Anki packages so users understand exactly what's wrong with their export.
+
+**Acceptance Criteria:**
+
+- [ ] Detect missing `collection.anki21` or `collection.anki2` database file
+- [ ] Detect missing `media` mapping file
+- [ ] Detect missing `meta` version file
+- [ ] Provide specific error message for each missing file type
+- [ ] Include guidance on how to re-export from Anki
+
+**Implementation Notes:**
+
+- Check for file existence before attempting to read
+- Use `stat()` or check extracted files list
+- Provide actionable error messages with re-export instructions
+
+**Testing:**
+
+- [ ] Automated: Test with package missing `collection.anki21`
+- [ ] Automated: Test with package missing `media` file
+- [ ] Automated: Test with package missing `meta` file
+- [ ] Automated: Test with empty ZIP archive
+
+---
+
+### Story 1.0.5.3: Handle Corrupted SQLite Database
+
+**Status:** ⏳ Pending
+
+**Story:** As a developer, I want the library to gracefully handle corrupted or malformed SQLite database files so users get clear feedback when their database is damaged.
+
+**Acceptance Criteria:**
+
+- [ ] Detect corrupted SQLite database (invalid header, checksum failures)
+- [ ] Detect malformed/incomplete database schema (missing required tables)
+- [ ] Handle empty database files
+- [ ] Provide specific error messages for each scenario
+- [ ] Include suggestions (re-export from Anki, check Anki installation)
+
+**Implementation Notes:**
+
+- Wrap `AnkiDatabase.fromBuffer()` with specific error detection
+- Check for required tables (col, notes, cards, revlog, graves) after opening
+- Handle sql.js errors gracefully
+
+**Testing:**
+
+- [ ] Automated: Test with corrupted database file (random bytes)
+- [ ] Automated: Test with valid SQLite but missing required tables
+- [ ] Automated: Test with empty database file
+- [ ] Automated: Test with truncated database file
+
+---
+
+### Story 1.0.5.4: Handle Invalid JSON in Media Metadata
+
+**Status:** ⏳ Pending
+
+**Story:** As a developer, I want the library to handle malformed JSON in the media mapping file so users get clear feedback when media metadata is corrupted.
+
+**Acceptance Criteria:**
+
+- [ ] Detect malformed JSON syntax in `media` file
+- [ ] Detect invalid media mapping structure (wrong types, missing keys)
+- [ ] Handle empty media file gracefully (valid case - no media)
+- [ ] Provide clear error message with JSON parse error details
+
+**Implementation Notes:**
+
+- Wrap `JSON.parse()` call with try-catch
+- Validate parsed structure matches `MediaFileMapping` type
+- Empty object `{}` is valid (no media files)
+
+**Testing:**
+
+- [ ] Automated: Test with malformed JSON (syntax error)
+- [ ] Automated: Test with wrong JSON structure (array instead of object)
+- [ ] Automated: Test with empty media file
+- [ ] Automated: Test with valid empty JSON object `{}`
+
+---
+
+### Story 1.0.5.5: Support Partial Data Recovery
+
+**Status:** ⏳ Pending
+
+**Story:** As a developer, I want the library to support partial data recovery when some data is recoverable so users can extract what's possible from partially corrupted packages.
+
+**Acceptance Criteria:**
+
+- [ ] Return `partial` status when non-critical errors occur
+- [ ] Continue reading valid decks even if some are malformed
+- [ ] Continue reading valid notes even if some have issues
+- [ ] Report all issues in `ConversionIssue[]` array
+- [ ] Respect `errorHandling: "strict" | "best-effort"` option
+- [ ] Document which errors are recoverable vs critical
+
+**Implementation Notes:**
+
+- Critical (unrecoverable): corrupted ZIP, missing database, corrupted database
+- Recoverable: individual malformed notes, missing media files, invalid deck configs
+- Use `IssueCollector` to accumulate warnings/errors during parsing
+- In `best-effort` mode, skip problematic items and continue
+
+**Testing:**
+
+- [ ] Automated: Test recovery with some valid and some invalid notes
+- [ ] Automated: Test `strict` mode fails on recoverable errors
+- [ ] Automated: Test `best-effort` mode returns partial results
+- [ ] Automated: Verify all issues are reported in result
+
+**Dependencies:** Stories 1.0.5.1, 1.0.5.2, 1.0.5.3, 1.0.5.4
 
 ---
 
