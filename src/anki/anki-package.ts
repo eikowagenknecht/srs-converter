@@ -12,7 +12,7 @@ import { join } from "node:path";
 import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import protobuf from "protobufjs";
-import { Open } from "unzipper";
+import { type CentralDirectory, Open } from "unzipper";
 import {
   type ConversionIssue,
   type ConversionOptions,
@@ -212,10 +212,55 @@ export class AnkiPackage {
           return collector.createFailureResult<AnkiPackage>();
         }
 
+        // Check file properties before attempting to unzip
+        const fileStats = await stat(filepath);
+        if (fileStats.size === 0) {
+          collector.addCritical(
+            "The file is empty (0 bytes). This may indicate a failed download or file transfer. Please re-export your deck from Anki.",
+          );
+          const cleanupIssues = await removeDirectory(instance.tempDir);
+          collector.addIssues(cleanupIssues);
+          return collector.createFailureResult<AnkiPackage>();
+        }
+
+        // Read first 4 bytes to check for ZIP magic number
+        const fileHandle = await readFile(filepath);
+        const hasZipMagic =
+          fileHandle.length >= 4 &&
+          fileHandle[0] === 0x50 && // P
+          fileHandle[1] === 0x4b && // K
+          (fileHandle[2] === 0x03 || fileHandle[2] === 0x05) && // 0x03 for local file, 0x05 for empty archive
+          (fileHandle[3] === 0x04 || fileHandle[3] === 0x06); // 0x04 for local file, 0x06 for empty archive
+
         // Unzip the Anki export file to the temp dir
         // TODO: Use zip.js for cross platform compatibility
         // https://github.com/gildas-lormeau/zip.js
-        const directory = await Open.file(filepath);
+        let directory: CentralDirectory;
+        try {
+          directory = await Open.file(filepath);
+        } catch (zipError) {
+          if (
+            zipError instanceof Error &&
+            zipError.message.includes("FILE_ENDED")
+          ) {
+            if (hasZipMagic) {
+              collector.addCritical(
+                "The ZIP archive is truncated or corrupted. This typically happens when a download was interrupted. Please re-download or re-export your deck from Anki.",
+              );
+            } else {
+              collector.addCritical(
+                "The file is not a valid ZIP archive. Anki packages (.apkg/.colpkg) must be ZIP files. Please ensure you're using a file exported from Anki.",
+              );
+            }
+          } else {
+            collector.addCritical(
+              `Failed to open the ZIP archive: ${zipError instanceof Error ? zipError.message : String(zipError)}. Please ensure the file is a valid Anki export.`,
+            );
+          }
+          const cleanupIssues = await removeDirectory(instance.tempDir);
+          collector.addIssues(cleanupIssues);
+          return collector.createFailureResult<AnkiPackage>();
+        }
         await directory.extract({ path: instance.tempDir });
 
         // Read the package version by looking at the "meta" file
@@ -257,13 +302,10 @@ export class AnkiPackage {
 
         return collector.createResult(instance);
       } catch (error) {
-        if (error instanceof Error && error.message.includes("FILE_ENDED")) {
-          collector.addCritical("Anki export file is corrupted or incomplete.");
-        } else {
-          collector.addCritical(
-            `The Anki export file could not be read and may be corrupted. ${error instanceof Error ? error.message : String(error)}.`,
-          );
-        }
+        // Handle any remaining errors (non-ZIP related errors like file reading issues)
+        collector.addCritical(
+          `The Anki export file could not be read. ${error instanceof Error ? error.message : String(error)}.`,
+        );
 
         const cleanupIssues = await removeDirectory(instance.tempDir);
         collector.addIssues(cleanupIssues);

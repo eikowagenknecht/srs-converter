@@ -321,9 +321,8 @@ describe("Import / Export", () => {
 
       const result = await AnkiPackage.fromAnkiExport(corruptedFile);
       expectFailure(result);
-      expect(result.issues[0]?.message).toMatch(
-        /Anki export file is corrupted or incomplete./,
-      );
+      // Text content without ZIP magic bytes should be detected as "not a valid ZIP archive"
+      expect(result.issues[0]?.message).toMatch(/not a valid ZIP archive/i);
     });
 
     it("should reject invalid file extensions", async () => {
@@ -3240,6 +3239,112 @@ describe("Error Handling and Edge Cases", () => {
 
     it.todo("should validate database schema version", async () => {
       // TODO: Test database version validation
+    });
+  });
+
+  describe("Corrupted ZIP Archive Handling (Story 1.0.5.1)", () => {
+    it("should detect and report truncated ZIP files with specific message", async () => {
+      // Create a truncated ZIP file (valid ZIP header but incomplete)
+      const truncatedZipPath = join(tempDir, "truncated.apkg");
+      // ZIP file signature (PK\x03\x04) followed by partial local file header
+      const truncatedContent = Buffer.from([
+        0x50,
+        0x4b,
+        0x03,
+        0x04, // ZIP signature
+        0x14,
+        0x00, // Version needed
+        0x00,
+        0x00, // General purpose flags
+        0x08,
+        0x00, // Compression method (deflate)
+        // Truncated - missing rest of header and data
+      ]);
+      await writeFile(truncatedZipPath, truncatedContent);
+
+      const result = await AnkiPackage.fromAnkiExport(truncatedZipPath);
+
+      expect(result.status).toBe("failure");
+      expect(result.data).toBeUndefined();
+      expect(result.issues.length).toBeGreaterThan(0);
+      expect(result.issues[0]?.severity).toBe("critical");
+      // Specific message for truncated ZIP (has ZIP magic bytes)
+      expect(result.issues[0]?.message).toMatch(/ZIP archive is truncated/i);
+      expect(result.issues[0]?.message).toMatch(/re-download|re-export/i);
+    });
+
+    it("should detect and report non-ZIP files with specific message", async () => {
+      // Create a text file renamed to .apkg
+      const textFilePath = join(tempDir, "not-a-zip.apkg");
+      await writeFile(
+        textFilePath,
+        "This is not a ZIP file, just plain text content.",
+      );
+
+      const result = await AnkiPackage.fromAnkiExport(textFilePath);
+
+      expect(result.status).toBe("failure");
+      expect(result.data).toBeUndefined();
+      expect(result.issues.length).toBeGreaterThan(0);
+      expect(result.issues[0]?.severity).toBe("critical");
+      // Specific message for non-ZIP files (no ZIP magic bytes)
+      expect(result.issues[0]?.message).toMatch(/not a valid ZIP archive/i);
+      expect(result.issues[0]?.message).toMatch(/exported from Anki/i);
+    });
+
+    it("should detect and report empty files with specific message", async () => {
+      // Create an empty file
+      const emptyFilePath = join(tempDir, "empty.apkg");
+      await writeFile(emptyFilePath, Buffer.alloc(0));
+
+      const result = await AnkiPackage.fromAnkiExport(emptyFilePath);
+
+      expect(result.status).toBe("failure");
+      expect(result.data).toBeUndefined();
+      expect(result.issues.length).toBeGreaterThan(0);
+      expect(result.issues[0]?.severity).toBe("critical");
+      // Specific message for empty files
+      expect(result.issues[0]?.message).toMatch(/empty \(0 bytes\)/i);
+      expect(result.issues[0]?.message).toMatch(/re-export/i);
+    });
+
+    it("should detect and report random binary data as invalid ZIP", async () => {
+      // Create a file with random binary data (no ZIP magic bytes)
+      const binaryFilePath = join(tempDir, "random-binary.apkg");
+      // Ensure we don't accidentally create a valid ZIP signature
+      const randomBytes = Buffer.from([
+        0x00,
+        0x01,
+        0x02,
+        0x03, // Not PK\x03\x04
+        ...Array.from({ length: 1020 }, () => Math.floor(Math.random() * 256)),
+      ]);
+      await writeFile(binaryFilePath, randomBytes);
+
+      const result = await AnkiPackage.fromAnkiExport(binaryFilePath);
+
+      expect(result.status).toBe("failure");
+      expect(result.data).toBeUndefined();
+      expect(result.issues.length).toBeGreaterThan(0);
+      expect(result.issues[0]?.severity).toBe("critical");
+      // Random binary without ZIP magic should be detected as "not a valid ZIP"
+      expect(result.issues[0]?.message).toMatch(/not a valid ZIP archive/i);
+    });
+
+    it("should provide actionable error messages with guidance", async () => {
+      // Create a non-ZIP file
+      const textFilePath = join(tempDir, "not-a-zip.apkg");
+      await writeFile(textFilePath, "Not a ZIP file");
+
+      const result = await AnkiPackage.fromAnkiExport(textFilePath);
+
+      expect(result.status).toBe("failure");
+      expect(result.issues[0]?.message).toBeTruthy();
+      // Error message should be descriptive and help user understand the issue
+      const message = result.issues[0]?.message ?? "";
+      expect(message.length).toBeGreaterThan(50); // Should be a meaningful, actionable message
+      // Should mention Anki for context
+      expect(message).toMatch(/Anki/i);
     });
   });
 

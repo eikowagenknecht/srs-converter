@@ -113,19 +113,19 @@
 
 ### Story 1.0.5: Handle Corrupted and Malformed Anki Packages
 
-**Status:** 🔄 In Progress (0/5 substories completed)
+**Status:** 🔄 In Progress (1/5 substories completed)
 
 **Story:** As a developer, I want to gracefully handle corrupted and malformed Anki package files so the library provides a good user experience even with problematic files.
 
 This story is broken down into the following substories:
 
-| Substory | Scope             | Status     |
-| -------- | ----------------- | ---------- |
-| 1.0.5.1  | ZIP validation    | ⏳ Pending |
-| 1.0.5.2  | Missing files     | ⏳ Pending |
-| 1.0.5.3  | SQLite corruption | ⏳ Pending |
-| 1.0.5.4  | JSON validation   | ⏳ Pending |
-| 1.0.5.5  | Partial recovery  | ⏳ Pending |
+| Substory | Scope             | Status       |
+| -------- | ----------------- | ------------ |
+| 1.0.5.1  | ZIP validation    | ✅ Completed |
+| 1.0.5.2  | Missing files     | ⏳ Pending   |
+| 1.0.5.3  | SQLite corruption | ⏳ Pending   |
+| 1.0.5.4  | JSON validation   | ⏳ Pending   |
+| 1.0.5.5  | Partial recovery  | ⏳ Pending   |
 
 **Recommended order:** 1.0.5.1 → 1.0.5.2 → 1.0.5.4 → 1.0.5.3 → 1.0.5.5
 
@@ -135,29 +135,39 @@ Stories 1-4 can be done independently; Story 5 builds on top of them.
 
 ### Story 1.0.5.1: Handle Corrupted ZIP Archives
 
-**Status:** ⏳ Pending
+**Status:** ✅ Completed
 
 **Story:** As a developer, I want the library to detect and gracefully handle corrupted, truncated, or invalid ZIP files so users get clear feedback when their package file is damaged.
 
 **Acceptance Criteria:**
 
-- [ ] Detect truncated ZIP files (incomplete downloads)
-- [ ] Detect files that aren't valid ZIP archives (wrong format, binary data)
-- [ ] Provide specific error message: "The file is not a valid ZIP archive" vs "The ZIP archive is truncated/corrupted"
-- [ ] Use tri-state error handling with `critical` severity
+- [x] Detect truncated ZIP files (incomplete downloads)
+- [x] Detect files that aren't valid ZIP archives (wrong format, binary data)
+- [x] Provide specific error message: "The file is not a valid ZIP archive" vs "The ZIP archive is truncated/corrupted"
+- [x] Use tri-state error handling with `critical` severity
 
 **Implementation Notes:**
 
-- Enhance error handling in `AnkiPackage.fromAnkiExport()` around `Open.file()` call
-- Distinguish between different unzipper error types
-- Test with truncated files, random binary data, text files renamed to .apkg
+- Enhanced error handling in `AnkiPackage.fromAnkiExport()` with pre-validation:
+  - Check file size for empty files (0 bytes)
+  - Check ZIP magic bytes (`PK\x03\x04`) to distinguish truncated ZIPs from non-ZIP files
+- Specific error messages for each scenario:
+  - Empty files: "The file is empty (0 bytes)..."
+  - Non-ZIP files: "The file is not a valid ZIP archive..."
+  - Truncated ZIPs: "The ZIP archive is truncated or corrupted..."
+- All messages include actionable guidance (re-export from Anki)
 
 **Testing:**
 
-- [ ] Automated: Test with truncated ZIP file
-- [ ] Automated: Test with non-ZIP file (e.g., text file renamed to .apkg)
-- [ ] Automated: Test with empty file
-- [ ] Automated: Validate error messages are specific and actionable
+- [x] Automated: Test with truncated ZIP file
+- [x] Automated: Test with non-ZIP file (e.g., text file renamed to .apkg)
+- [x] Automated: Test with empty file
+- [x] Automated: Validate error messages are specific and actionable
+
+**Files Modified:**
+
+- `src/anki/anki-package.ts` - Enhanced ZIP validation in `fromAnkiExport()`
+- `src/anki/anki-package.test.ts` - Added 5 tests for corrupted ZIP handling
 
 ---
 
