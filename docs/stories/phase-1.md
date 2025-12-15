@@ -113,7 +113,7 @@
 
 ### Story 1.0.5: Handle Corrupted and Malformed Anki Packages
 
-**Status:** 🔄 In Progress (3/5 substories completed)
+**Status:** 🔄 In Progress (4/5 substories completed)
 
 **Story:** As a developer, I want to gracefully handle corrupted and malformed Anki package files so the library provides a good user experience even with problematic files.
 
@@ -124,7 +124,7 @@ This story is broken down into the following substories:
 | 1.0.5.1  | ZIP validation    | ✅ Completed |
 | 1.0.5.2  | Missing files     | ✅ Completed |
 | 1.0.5.3  | SQLite corruption | ✅ Completed |
-| 1.0.5.4  | JSON validation   | ⏳ Pending   |
+| 1.0.5.4  | JSON validation   | ✅ Completed |
 | 1.0.5.5  | Partial recovery  | ⏳ Pending   |
 
 **Recommended order:** 1.0.5.1 → 1.0.5.2 → 1.0.5.4 → 1.0.5.3 → 1.0.5.5
@@ -255,29 +255,43 @@ Stories 1-4 can be done independently; Story 5 builds on top of them.
 
 ### Story 1.0.5.4: Handle Invalid JSON in Media Metadata
 
-**Status:** ⏳ Pending
+**Status:** ✅ Completed
 
 **Story:** As a developer, I want the library to handle malformed JSON in the media mapping file so users get clear feedback when media metadata is corrupted.
 
 **Acceptance Criteria:**
 
-- [ ] Detect malformed JSON syntax in `media` file
-- [ ] Detect invalid media mapping structure (wrong types, missing keys)
-- [ ] Handle empty media file gracefully (valid case - no media)
-- [ ] Provide clear error message with JSON parse error details
+- [x] Detect malformed JSON syntax in `media` file
+- [x] Detect invalid media mapping structure (wrong types, missing keys)
+- [x] Handle empty media file gracefully (valid case - no media)
+- [x] Provide clear error message with JSON parse error details
 
 **Implementation Notes:**
 
-- Wrap `JSON.parse()` call with try-catch
-- Validate parsed structure matches `MediaFileMapping` type
-- Empty object `{}` is valid (no media files)
+- Enhanced `AnkiPackage.fromAnkiExport()` with JSON validation:
+  1. Handle empty media file (empty string → treat as `{}`)
+  2. Wrap `JSON.parse()` with try-catch for syntax errors
+  3. Validate parsed structure is a non-null object (not array)
+  4. Validate all values are strings (filenames)
+- Specific error messages for each scenario:
+  - JSON syntax errors: includes original parse error message
+  - Wrong structure: reports actual type (array, null, etc.)
+  - Invalid values: reports key and actual value type
+- All messages include actionable guidance (re-export from Anki)
 
 **Testing:**
 
-- [ ] Automated: Test with malformed JSON (syntax error)
-- [ ] Automated: Test with wrong JSON structure (array instead of object)
-- [ ] Automated: Test with empty media file
-- [ ] Automated: Test with valid empty JSON object `{}`
+- [x] Automated: Test with malformed JSON (syntax error)
+- [x] Automated: Test with wrong JSON structure (array instead of object)
+- [x] Automated: Test with empty media file
+- [x] Automated: Test with valid empty JSON object `{}`
+- [x] Automated: Test with invalid value types (number, null instead of string)
+- [x] Automated: Test actionable guidance in error messages
+
+**Files Modified:**
+
+- `src/anki/anki-package.ts` - Enhanced JSON validation in `fromAnkiExport()`
+- `src/anki/anki-package.test.ts` - Added 7 tests for invalid JSON handling
 
 ---
 

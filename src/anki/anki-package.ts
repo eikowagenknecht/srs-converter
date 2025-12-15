@@ -327,11 +327,66 @@ export class AnkiPackage {
           return collector.createFailureResult<AnkiPackage>();
         }
 
-        // Read the contents of the media mapping file
+        // Read and parse the media mapping file with validation
         const mediaFileContent = await readFile(mediaFilePath);
-        instance.mediaFiles = JSON.parse(
-          mediaFileContent.toString(),
-        ) as MediaFileMapping;
+        const mediaFileString = mediaFileContent.toString().trim();
+
+        // Handle empty media file (valid case - no media)
+        if (mediaFileString === "") {
+          instance.mediaFiles = {};
+        } else {
+          // Parse JSON with error handling
+          let parsedMedia: unknown;
+          try {
+            parsedMedia = JSON.parse(mediaFileString);
+          } catch (jsonError) {
+            const errorMessage =
+              jsonError instanceof Error
+                ? jsonError.message
+                : String(jsonError);
+            collector.addCritical(
+              `The media mapping file contains invalid JSON and cannot be parsed: ${errorMessage}. Please re-export your deck from Anki.`,
+            );
+            const cleanupIssues = await removeDirectory(instance.tempDir);
+            collector.addIssues(cleanupIssues);
+            return collector.createFailureResult<AnkiPackage>();
+          }
+
+          // Validate structure: must be a non-null object (not array)
+          if (
+            parsedMedia === null ||
+            typeof parsedMedia !== "object" ||
+            Array.isArray(parsedMedia)
+          ) {
+            const actualType = Array.isArray(parsedMedia)
+              ? "array"
+              : parsedMedia === null
+                ? "null"
+                : typeof parsedMedia;
+            collector.addCritical(
+              `The media mapping file has an invalid structure. Expected an object mapping media IDs to filenames, but found ${actualType}. Please re-export your deck from Anki.`,
+            );
+            const cleanupIssues = await removeDirectory(instance.tempDir);
+            collector.addIssues(cleanupIssues);
+            return collector.createFailureResult<AnkiPackage>();
+          }
+
+          // Validate that all values are strings (filenames)
+          const mediaRecord = parsedMedia as Record<string, unknown>;
+          for (const [key, value] of Object.entries(mediaRecord)) {
+            if (typeof value !== "string") {
+              const actualType = value === null ? "null" : typeof value;
+              collector.addCritical(
+                `The media mapping file contains an invalid entry: key '${key}' has a ${actualType} value instead of a filename string. Please re-export your deck from Anki.`,
+              );
+              const cleanupIssues = await removeDirectory(instance.tempDir);
+              collector.addIssues(cleanupIssues);
+              return collector.createFailureResult<AnkiPackage>();
+            }
+          }
+
+          instance.mediaFiles = parsedMedia as MediaFileMapping;
+        }
 
         // Open the collection.anki21 file as the database
         try {
