@@ -7,6 +7,9 @@ This document outlines the development workflow for srs-converter.
 >
 > If you are a human reading this, please don't take it too literally and adapt as needed.
 
+> [!note]
+> **For AI agents**: These guidelines describe best practices and expected patterns. Use judgment to adapt the level of detail to the complexity of the task—simple changes don't require extensive ceremony, while complex features benefit from thorough planning and documentation.
+
 ## Overview
 
 srs-converter uses a story-driven development approach where features are implemented as discrete user stories with clear acceptance criteria and testing requirements.
@@ -36,7 +39,7 @@ srs-converter uses a story-driven development approach where features are implem
 - Open `docs/stories/README.md`
 - Find the next story with ⏳ **Pending** status
 - Read the story description and acceptance criteria
-- Create a brief implementation plan (2-3 bullet points)
+- Create an implementation plan appropriate to the complexity (brief bullet points for simple tasks; more detailed analysis for complex features)
 
 Get plan approved by project maintainer before proceeding.
 
@@ -55,10 +58,10 @@ Plan:
 **What to do:**
 
 - Update story status to 🔄 **In Progress** in `docs/stories/README.md`
-- If you haven't done so alreay, read the project README files instructions in `docs/README.**.md`
+- If you haven't done so already, read the project README files instructions in `docs/README.*.md`
 - Read any existing related files to understand the current implementation
 
-**For AI agents:** Use the TodoWrite tool to create detailed implementation checklist.
+**For AI agents:** For multi-step implementations, use the TodoWrite tool to track progress. Simple changes can proceed without extensive checklists.
 
 ### Step 3: Implementation
 
@@ -152,39 +155,30 @@ Ask the project maintainer for final approval to mark the story as complete. If 
 
 - Mark story as ✅ **Completed** in `docs/stories/README.md` and update the contents of this story document to reflect the completed work.
 
-## Emergency Procedures
+## Handling Complications
+
+The following are common situations that may arise during development. Use judgment to handle them appropriately—these are guidelines, not rigid procedures.
 
 ### Story Too Complex
 
-**Problem:** Story cannot be completed in reasonable time or becomes unwieldy.
-
-**Solution:**
-
-1. Break story into smaller sub-stories
-2. Get project maintainer approval for the breakdown approach
-3. Create individual stories documents in `docs/stories/README.md` for each sub-task
-4. Complete sub-stories one by one
+If a story becomes unwieldy, consider breaking it into smaller sub-stories. Discuss the breakdown approach with the project maintainer before proceeding.
 
 ### Architecture Changes Needed
 
-**Problem:** Implementation requires significant changes to existing architecture.
+If implementation requires significant architectural changes:
 
-**Solution:**
-
-1. Document the proposed change and rationale
-2. Create new ADR in `docs/decisions/`
-3. Get approval before making major changes
-4. Update `docs/README.architecture.md` after implementation
+- Document the proposed change and rationale
+- Create an ADR in `docs/decisions/` for major decisions
+- Get approval before making sweeping changes
+- Update `docs/README.architecture.md` after implementation
 
 ### Technical Roadblock
 
-**Problem:** Stuck on technical issue that blocks progress.
+If stuck on a blocking technical issue:
 
-**Solution:**
-
-1. Document the issue in `docs/working/issues.md`
-2. Research 2-3 alternative approaches
-3. Ask project maintainer for guidance
+- Document the issue in `docs/working/issues.md`
+- Research alternative approaches
+- Ask project maintainer for guidance when needed
 
 ## Success Metrics
 
