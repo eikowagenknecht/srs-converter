@@ -23,8 +23,8 @@ import {
   defaultConfig,
   defaultDeck,
 } from "./constants";
-import { type Ease, NoteTypeKind } from "./types";
-import { extractTimestampFromUuid } from "./util";
+import { type Ease, type NotesTable, NoteTypeKind } from "./types";
+import { extractTimestampFromUuid, guid64, joinAnkiFields } from "./util";
 
 // Helper function to unwrap ConversionResult for tests that expect success
 function expectSuccess<T>(result: ConversionResult<T>): T {
@@ -44,6 +44,29 @@ function expectSuccessOrPartial<T>(result: ConversionResult<T>): T {
     throw new Error("Expected data to be defined");
   }
   return result.data;
+}
+
+// Helper function to create a NotesTable object for testing
+function createTestNote(
+  noteTypeId: bigint | number,
+  fields: string[],
+  tags: string[] = [],
+): NotesTable {
+  const now = Date.now();
+  const nowSeconds = Math.floor(now / 1000);
+  return {
+    id: now,
+    guid: guid64(),
+    mid: typeof noteTypeId === "bigint" ? Number(noteTypeId) : noteTypeId,
+    mod: nowSeconds,
+    usn: -1,
+    tags: tags.join(" "),
+    flds: joinAnkiFields(fields),
+    sfld: fields[0] ?? "",
+    csum: 0,
+    flags: 0,
+    data: "",
+  };
 }
 
 // Helper function to check for failure and extract error info
@@ -1641,6 +1664,291 @@ describe("Media File APIs", () => {
         expect(newSize).not.toBe(originalSize);
       } finally {
         await pkg.cleanup();
+      }
+    });
+  });
+
+  describe("removeUnreferencedMediaFiles()", () => {
+    const TEST_IMAGE_PATH = "tests/fixtures/media/image.png";
+    const TEST_AUDIO_PATH = "tests/fixtures/media/audio.mp3";
+    const TEST_VIDEO_PATH = "tests/fixtures/media/video.mp4"; // Anki uses [sound:] for video too
+
+    it("should remove unreferenced media files", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        // Add media files
+        await pkg.addMediaFile("referenced-image.png", TEST_IMAGE_PATH);
+        await pkg.addMediaFile("unreferenced.png", TEST_IMAGE_PATH);
+        await pkg.addMediaFile("referenced-sound.mp3", TEST_AUDIO_PATH);
+
+        // Add a note that references some media
+        pkg.addNote(
+          createTestNote(basicModel.id, [
+            '<img src="referenced-image.png">',
+            "[sound:referenced-sound.mp3]",
+          ]),
+        );
+
+        // Verify all files are present
+        let mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).toHaveLength(3);
+
+        // Remove unreferenced files
+        const removed = await pkg.removeUnreferencedMediaFiles();
+
+        // Verify only the unreferenced file was removed
+        expect(removed).toEqual(["unreferenced.png"]);
+        mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).toHaveLength(2);
+        expect(mediaFiles).toContain("referenced-image.png");
+        expect(mediaFiles).toContain("referenced-sound.mp3");
+        expect(mediaFiles).not.toContain("unreferenced.png");
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should keep files referenced in img tags with various formats", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        await pkg.addMediaFile("with-quotes.png", TEST_IMAGE_PATH);
+        await pkg.addMediaFile("without-quotes.png", TEST_IMAGE_PATH);
+        await pkg.addMediaFile("single-quotes.png", TEST_IMAGE_PATH);
+        await pkg.addMediaFile("unreferenced.png", TEST_IMAGE_PATH);
+
+        // Add notes with different img tag formats
+        pkg.addNote(
+          createTestNote(basicModel.id, [
+            '<img src="with-quotes.png">',
+            "Back",
+          ]),
+        );
+        pkg.addNote(
+          createTestNote(basicModel.id, [
+            "<img src=without-quotes.png>",
+            "Back",
+          ]),
+        );
+        pkg.addNote(
+          createTestNote(basicModel.id, [
+            "<img src='single-quotes.png'>",
+            "Back",
+          ]),
+        );
+
+        const removed = await pkg.removeUnreferencedMediaFiles();
+
+        expect(removed).toEqual(["unreferenced.png"]);
+        const mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).toHaveLength(3);
+        expect(mediaFiles).toContain("with-quotes.png");
+        expect(mediaFiles).toContain("without-quotes.png");
+        expect(mediaFiles).toContain("single-quotes.png");
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should keep files referenced in sound tags", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        await pkg.addMediaFile("audio1.mp3", TEST_AUDIO_PATH);
+        await pkg.addMediaFile("audio2.mp3", TEST_AUDIO_PATH);
+        await pkg.addMediaFile("unreferenced.mp3", TEST_AUDIO_PATH);
+
+        pkg.addNote(
+          createTestNote(basicModel.id, [
+            "Front",
+            "[sound:audio1.mp3] [sound:audio2.mp3]",
+          ]),
+        );
+
+        const removed = await pkg.removeUnreferencedMediaFiles();
+
+        expect(removed).toEqual(["unreferenced.mp3"]);
+        const mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).toHaveLength(2);
+        expect(mediaFiles).toContain("audio1.mp3");
+        expect(mediaFiles).toContain("audio2.mp3");
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should keep video files referenced via sound tags (Anki uses [sound:] for video)", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        await pkg.addMediaFile("video1.mp4", TEST_VIDEO_PATH);
+        await pkg.addMediaFile("video2.mp4", TEST_VIDEO_PATH);
+        await pkg.addMediaFile("unreferenced.mp4", TEST_VIDEO_PATH);
+
+        // Anki uses [sound:] syntax for both audio and video files
+        pkg.addNote(
+          createTestNote(basicModel.id, [
+            "Front",
+            "[sound:video1.mp4] [sound:video2.mp4]",
+          ]),
+        );
+
+        const removed = await pkg.removeUnreferencedMediaFiles();
+
+        expect(removed).toEqual(["unreferenced.mp4"]);
+        const mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).toHaveLength(2);
+        expect(mediaFiles).toContain("video1.mp4");
+        expect(mediaFiles).toContain("video2.mp4");
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should return empty array when no unreferenced files exist", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        await pkg.addMediaFile("referenced.png", TEST_IMAGE_PATH);
+
+        pkg.addNote(
+          createTestNote(basicModel.id, ['<img src="referenced.png">', "Back"]),
+        );
+
+        const removed = await pkg.removeUnreferencedMediaFiles();
+
+        expect(removed).toEqual([]);
+        const mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).toHaveLength(1);
+        expect(mediaFiles).toContain("referenced.png");
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should remove all files when no notes reference media", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        await pkg.addMediaFile("file1.png", TEST_IMAGE_PATH);
+        await pkg.addMediaFile("file2.mp3", TEST_AUDIO_PATH);
+        await pkg.addMediaFile("file3.png", TEST_IMAGE_PATH);
+
+        pkg.addNote(
+          createTestNote(basicModel.id, [
+            "Front without media",
+            "Back without media",
+          ]),
+        );
+
+        const removed = await pkg.removeUnreferencedMediaFiles();
+
+        expect(removed).toHaveLength(3);
+        expect(removed).toContain("file1.png");
+        expect(removed).toContain("file2.mp3");
+        expect(removed).toContain("file3.png");
+        const mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).toHaveLength(0);
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should handle packages with no media files", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        pkg.addNote(createTestNote(basicModel.id, ["Front", "Back"]));
+
+        const removed = await pkg.removeUnreferencedMediaFiles();
+
+        expect(removed).toEqual([]);
+        const mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).toHaveLength(0);
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should scan all note fields for references", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        await pkg.addMediaFile("in-field1.png", TEST_IMAGE_PATH);
+        await pkg.addMediaFile("in-field2.mp3", TEST_AUDIO_PATH);
+        await pkg.addMediaFile("unreferenced.png", TEST_IMAGE_PATH);
+
+        // Note with media in different fields
+        pkg.addNote(
+          createTestNote(basicModel.id, [
+            '<img src="in-field1.png">',
+            "[sound:in-field2.mp3]",
+          ]),
+        );
+
+        const removed = await pkg.removeUnreferencedMediaFiles();
+
+        expect(removed).toEqual(["unreferenced.png"]);
+        const mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).toHaveLength(2);
+        expect(mediaFiles).toContain("in-field1.png");
+        expect(mediaFiles).toContain("in-field2.mp3");
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should handle complex HTML with multiple media references", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        await pkg.addMediaFile("img1.png", TEST_IMAGE_PATH);
+        await pkg.addMediaFile("img2.png", TEST_IMAGE_PATH);
+        await pkg.addMediaFile("sound1.mp3", TEST_AUDIO_PATH);
+        await pkg.addMediaFile("unreferenced.png", TEST_IMAGE_PATH);
+
+        pkg.addNote(
+          createTestNote(basicModel.id, [
+            '<div><img src="img1.png" alt="test"><img src="img2.png"></div>',
+            "Text before [sound:sound1.mp3] text after",
+          ]),
+        );
+
+        const removed = await pkg.removeUnreferencedMediaFiles();
+
+        expect(removed).toEqual(["unreferenced.png"]);
+        const mediaFiles = pkg.listMediaFiles();
+        expect(mediaFiles).toHaveLength(3);
+      } finally {
+        await pkg.cleanup();
+      }
+    });
+
+    it("should throw error if database not available", async () => {
+      const result = await AnkiPackage.fromDefault();
+      const pkg = expectSuccess(result);
+
+      try {
+        // Clear the database contents to simulate unavailable database
+        // biome-ignore lint/suspicious/noExplicitAny: Need to access private property for testing
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+        (pkg as any).databaseContents = undefined;
+
+        await expect(pkg.removeUnreferencedMediaFiles()).rejects.toThrow(
+          "Database contents not available",
+        );
+      } finally {
+        // Note: cleanup would fail since we cleared databaseContents, but that's OK for this test
       }
     });
   });

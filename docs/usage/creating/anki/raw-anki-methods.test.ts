@@ -710,4 +710,65 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
     expect(mediaFiles).toContain("old-image.png");
     expect(mediaFiles).toHaveLength(1);
   });
+
+  // Code Sample: Removing Unreferenced Media Files
+  it("should remove unreferenced media files", async () => {
+    const result = await AnkiPackage.fromDefault();
+    expect(result.status).toBe("success");
+    if (!result.data) {
+      throw new Error("Failed to create Anki package");
+    }
+    const ankiPackage = result.data;
+
+    // Add the basicModel note type
+    ankiPackage.addNoteType(basicModel);
+
+    // Add some media files
+    await ankiPackage.addMediaFile(
+      "referenced-image.png",
+      "tests/fixtures/media/image.png",
+    );
+    await ankiPackage.addMediaFile(
+      "unreferenced.png",
+      "tests/fixtures/media/image.png",
+    );
+    await ankiPackage.addMediaFile(
+      "referenced-sound.mp3",
+      "tests/fixtures/media/audio.mp3",
+    );
+
+    // Add a note that references some media
+    const note: NotesTable = {
+      id: Date.now(),
+      guid: `TestNote_${Date.now().toFixed()}`,
+      mid: basicModel.id,
+      mod: Math.floor(Date.now() / 1000),
+      usn: -1,
+      tags: "",
+      flds: '<img src="referenced-image.png">\x1f[sound:referenced-sound.mp3]',
+      sfld: "Test",
+      csum: 0,
+      flags: 0,
+      data: "",
+    };
+    ankiPackage.addNote(note);
+
+    // Verify all files are present before cleanup
+    let mediaFiles = ankiPackage.listMediaFiles();
+    expect(mediaFiles).toHaveLength(3);
+
+    // Test the documentation example: Remove all media files that aren't referenced in note fields
+    const removedFiles = await ankiPackage.removeUnreferencedMediaFiles();
+
+    console.log(`Removed ${removedFiles.length.toFixed()} unreferenced files:`);
+    console.log(removedFiles); // Array of filenames that were removed
+
+    // Verify only unreferenced files were removed
+    expect(removedFiles).toEqual(["unreferenced.png"]);
+    mediaFiles = ankiPackage.listMediaFiles();
+    expect(mediaFiles).toHaveLength(2);
+    expect(mediaFiles).toContain("referenced-image.png");
+    expect(mediaFiles).toContain("referenced-sound.mp3");
+    expect(mediaFiles).not.toContain("unreferenced.png");
+  });
 });

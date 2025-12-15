@@ -975,6 +975,63 @@ export class AnkiPackage {
   }
 
   /**
+   * Removes all media files that are not referenced by any notes.
+   * Scans all note fields for media references and removes files that are not found.
+   *
+   * Common Anki media reference formats:
+   * - Images: `<img src="filename.jpg">`
+   * - Audio/Video: `[sound:filename.mp3]` (Anki uses `[sound:]` for both audio and video)
+   *
+   * The regex pattern used for detection can be easily modified if additional formats are discovered.
+   * @returns Array of filenames that were removed
+   * @throws {Error} if database contents are not available
+   */
+  public async removeUnreferencedMediaFiles(): Promise<string[]> {
+    if (!this.databaseContents) {
+      throw new Error("Database contents not available");
+    }
+
+    // Regex pattern for detecting media references in Anki notes
+    // This pattern can be easily modified if we discover additional formats
+    // Matches:
+    // - <img src="filename.ext"> and variants (with/without quotes)
+    // - [sound:filename.ext] (used for both audio and video in Anki)
+    const mediaReferencePattern =
+      /<img[^>]+src=["']?([^"'>\s]+)["']?|\[sound:([^\]]+)\]/gi;
+
+    // Collect all referenced filenames from all notes
+    const referencedFiles = new Set<string>();
+    const notes = this.getNotes();
+
+    for (const note of notes) {
+      const fields = splitAnkiFields(note.flds);
+      for (const field of fields) {
+        // Use matchAll() to avoid lastIndex issues with global regex
+        for (const match of field.matchAll(mediaReferencePattern)) {
+          // match[1] contains img src, match[2] contains sound filename
+          const filename = match[1] ?? match[2];
+          if (filename) {
+            referencedFiles.add(filename);
+          }
+        }
+      }
+    }
+
+    // Find unreferenced files
+    const allMediaFiles = Object.values(this.mediaFiles);
+    const unreferencedFiles = allMediaFiles.filter(
+      (filename) => !referencedFiles.has(filename),
+    );
+
+    // Remove unreferenced files
+    for (const filename of unreferencedFiles) {
+      await this.removeMediaFile(filename);
+    }
+
+    return unreferencedFiles;
+  }
+
+  /**
    * Converts the AnkiPackage to an SrsPackage.
    * This method transforms Anki data structures into the universal SRS format.
    * @param options - Configuration options for the conversion process

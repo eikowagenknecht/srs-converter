@@ -447,6 +447,31 @@ Notes:
 - After removing a file, you can add a new file with the same name.
 - This operation removes both the file from disk and from the package's media mapping.
 
+## Removing Unreferenced Media Files
+
+You can clean up media files that are not referenced by any notes:
+
+```typescript
+// Remove all media files that aren't referenced in note fields
+const removedFiles = await ankiPackage.removeUnreferencedMediaFiles();
+
+console.log(`Removed ${removedFiles.length} unreferenced files:`);
+console.log(removedFiles); // Array of filenames that were removed
+```
+
+> 📋 **Test:** This example is tested in [`anki/raw-anki-methods.test.ts`](raw-anki-methods.test.ts) - "should remove unreferenced media files"
+
+The method scans all note fields for media references and removes any files that aren't found. It detects common Anki media reference formats:
+
+- Images: `<img src="filename.jpg">`
+- Audio/Video: `[sound:filename.mp3]` (Anki uses `[sound:]` for both audio and video)
+
+Notes:
+
+- Returns an array of filenames that were removed
+- Only removes files that are not referenced in any note field
+- The regex pattern used for detection can be easily modified in the source if additional formats are discovered
+
 ## FAQ
 
 ### What do I put in each field?

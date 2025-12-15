@@ -531,31 +531,43 @@
 
 ### Story 1.1.6.4: Add API for Removing Unreferenced Media Files
 
-**Status:** ⏳ Pending
+**Status:** ✅ Completed
 
 **Story:** As a developer, I want to remove media files that are not referenced by any notes so applications can clean up unused media and reduce package size.
 
 **Acceptance Criteria:**
 
-- [ ] Implement `removeUnreferencedMediaFiles()` method to identify and remove unused files
-- [ ] Scan all notes to find media file references in field content
-- [ ] Return list of removed filenames
-- [ ] Handle various media reference formats (e.g., `<img src="file.png">`, `[sound:audio.mp3]`)
-- [ ] Provide dry-run option to preview what would be removed without actually removing
+- ✅ Implement `removeUnreferencedMediaFiles()` method to identify and remove unused files
+- ✅ Scan all notes to find media file references in field content
+- ✅ Return list of removed filenames
+- ✅ Handle various media reference formats (e.g., `<img src="file.png">`, `[sound:audio.mp3]`)
+- ❌ Provide dry-run option to preview what would be removed without actually removing (not implemented per user request)
 
 **Implementation Notes:**
 
-- Build on removal API from Story 1.1.6.3
-- Parse note field content to find media references
-- Check against all note types and all notes in the package
-- Consider common Anki media reference patterns
+- Implemented `removeUnreferencedMediaFiles()` method in `AnkiPackage` class (src/anki/anki-package.ts:989-1033)
+- Uses regex pattern to detect media references: `/<img[^>]+src=["']?([^"'>\s]+)["']?|\[sound:([^\]]+)\]/gi`
+- Note: Anki uses `[sound:]` syntax for both audio and video files
+- Regex pattern is documented as easily modifiable if additional formats are discovered
+- Scans all notes and all fields within each note
+- Returns array of removed filenames
+- Built on existing `removeMediaFile()` method from Story 1.1.6.3
 
 **Testing:**
 
-- [ ] Manual: Test with packages containing unused media
-- [ ] Automated: Test identifying referenced vs unreferenced files
-- [ ] Automated: Test various media reference formats
-- [ ] Automated: Test dry-run mode
+- ✅ Automated: 10 comprehensive tests in src/anki/anki-package.test.ts covering:
+  - Basic removal of unreferenced files
+  - Keeping files referenced in img tags (with/without quotes, single/double quotes)
+  - Keeping files referenced in sound tags (audio)
+  - Keeping video files referenced via sound tags (Anki uses [sound:] for both)
+  - Handling packages with no unreferenced files
+  - Handling packages with no media files
+  - Removing all files when none are referenced
+  - Scanning all note fields
+  - Complex HTML with multiple references
+  - Error handling for unavailable database
+- ✅ Documentation: Usage example in docs/usage/creating/anki/raw-anki-methods.md
+- ✅ Documentation: Automated test for documentation example in docs/usage/creating/anki/raw-anki-methods.test.ts
 
 ---
 
