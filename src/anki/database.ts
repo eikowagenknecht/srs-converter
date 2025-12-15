@@ -3,6 +3,36 @@ import { SqlJsDialect } from "kysely-wasm";
 import type { Database } from "sql.js";
 import InitSqlJs from "sql.js";
 import type { ConversionIssue } from "@/error-handling";
+
+/**
+ * Error types for AnkiDatabase operations
+ */
+export type AnkiDatabaseErrorType =
+  | "empty"
+  | "truncated"
+  | "invalid_header"
+  | "corrupted"
+  | "missing_tables";
+
+/**
+ * Custom error class for AnkiDatabase-specific errors
+ */
+export class AnkiDatabaseError extends Error {
+  readonly type: AnkiDatabaseErrorType;
+  readonly missingTables: string[] | undefined;
+
+  constructor(
+    type: AnkiDatabaseErrorType,
+    message: string,
+    missingTables?: string[],
+  ) {
+    super(message);
+    this.name = "AnkiDatabaseError";
+    this.type = type;
+    this.missingTables = missingTables;
+  }
+}
+
 import { ankiDbSchema, ankiDefaultCollectionInsert } from "./constants";
 import type {
   CardsTable,
@@ -47,9 +77,73 @@ export class AnkiDatabase {
     return newDb;
   }
 
+  /**
+   * SQLite magic bytes: "SQLite format 3\0" (16 bytes)
+   */
+  private static readonly SQLITE_MAGIC = new Uint8Array([
+    0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61,
+    0x74, 0x20, 0x33, 0x00,
+  ]);
+
+  /**
+   * Required tables for a valid Anki database
+   */
+  static readonly REQUIRED_TABLES = [
+    "col",
+    "notes",
+    "cards",
+    "revlog",
+    "graves",
+  ] as const;
+
+  /**
+   * Creates an AnkiDatabase from a buffer containing SQLite data.
+   * @param buffer - The SQLite database file contents
+   * @returns A new AnkiDatabase instance
+   * @throws {AnkiDatabaseError} if the buffer is empty, not a valid SQLite file, or corrupted
+   */
   static async fromBuffer(buffer: Uint8Array): Promise<AnkiDatabase> {
-    const SQL = await InitSqlJs();
-    const sqlJsInstance = new SQL.Database(buffer);
+    // Check for empty buffer
+    if (buffer.length === 0) {
+      throw new AnkiDatabaseError(
+        "empty",
+        "The database file is empty (0 bytes).",
+      );
+    }
+
+    // Check for SQLite magic bytes (first 16 bytes should be "SQLite format 3\0")
+    if (buffer.length < 16) {
+      throw new AnkiDatabaseError(
+        "truncated",
+        "The database file is too small to be a valid SQLite database.",
+      );
+    }
+
+    const hasSqliteMagic = AnkiDatabase.SQLITE_MAGIC.every(
+      (byte, index) => buffer[index] === byte,
+    );
+
+    if (!hasSqliteMagic) {
+      throw new AnkiDatabaseError(
+        "invalid_header",
+        "The file is not a valid SQLite database (invalid header).",
+      );
+    }
+
+    // Try to open the database
+    let sqlJsInstance: Database;
+    try {
+      const SQL = await InitSqlJs();
+      sqlJsInstance = new SQL.Database(buffer);
+    } catch (error) {
+      // sql.js throws various errors for corrupted databases
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      throw new AnkiDatabaseError(
+        "corrupted",
+        `The database file is corrupted and cannot be opened: ${errorMessage}`,
+      );
+    }
 
     const dialect = new SqlJsDialect({
       database() {
@@ -59,6 +153,57 @@ export class AnkiDatabase {
 
     const db = new Kysely<DBTables>({ dialect });
     return new AnkiDatabase(db, sqlJsInstance);
+  }
+
+  /**
+   * Validates that the database has all required Anki tables.
+   * @throws {AnkiDatabaseError} if any required tables are missing or database is corrupted
+   */
+  validateSchema(): void {
+    if (!this.sqlJsInstance) {
+      throw new AnkiDatabaseError(
+        "corrupted",
+        "Database instance not available for schema validation.",
+      );
+    }
+
+    // Query sqlite_master to get list of tables
+    let result: ReturnType<Database["exec"]>;
+    try {
+      result = this.sqlJsInstance.exec(
+        "SELECT name FROM sqlite_master WHERE type='table'",
+      );
+    } catch (error) {
+      // sql.js throws for corrupted/truncated databases when queried
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      throw new AnkiDatabaseError(
+        "corrupted",
+        `The database is corrupted and cannot be read: ${errorMessage}`,
+      );
+    }
+
+    const existingTables = new Set<string>();
+    if (result.length > 0 && result[0]) {
+      for (const row of result[0].values) {
+        if (typeof row[0] === "string") {
+          existingTables.add(row[0]);
+        }
+      }
+    }
+
+    const missingTables = AnkiDatabase.REQUIRED_TABLES.filter(
+      (table) => !existingTables.has(table),
+    );
+
+    if (missingTables.length > 0) {
+      const missingList = missingTables.map((t) => `'${t}'`).join(", ");
+      throw new AnkiDatabaseError(
+        "missing_tables",
+        `The database is missing required tables: ${missingList}. This may indicate a corrupted or incompatible database.`,
+        [...missingTables],
+      );
+    }
   }
 
   static async fromDump(dump: DatabaseDump): Promise<AnkiDatabase> {

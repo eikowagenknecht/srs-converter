@@ -113,7 +113,7 @@
 
 ### Story 1.0.5: Handle Corrupted and Malformed Anki Packages
 
-**Status:** 🔄 In Progress (2/5 substories completed)
+**Status:** 🔄 In Progress (3/5 substories completed)
 
 **Story:** As a developer, I want to gracefully handle corrupted and malformed Anki package files so the library provides a good user experience even with problematic files.
 
@@ -123,7 +123,7 @@ This story is broken down into the following substories:
 | -------- | ----------------- | ------------ |
 | 1.0.5.1  | ZIP validation    | ✅ Completed |
 | 1.0.5.2  | Missing files     | ✅ Completed |
-| 1.0.5.3  | SQLite corruption | ⏳ Pending   |
+| 1.0.5.3  | SQLite corruption | ✅ Completed |
 | 1.0.5.4  | JSON validation   | ⏳ Pending   |
 | 1.0.5.5  | Partial recovery  | ⏳ Pending   |
 
@@ -213,30 +213,43 @@ Stories 1-4 can be done independently; Story 5 builds on top of them.
 
 ### Story 1.0.5.3: Handle Corrupted SQLite Database
 
-**Status:** ⏳ Pending
+**Status:** ✅ Completed
 
 **Story:** As a developer, I want the library to gracefully handle corrupted or malformed SQLite database files so users get clear feedback when their database is damaged.
 
 **Acceptance Criteria:**
 
-- [ ] Detect corrupted SQLite database (invalid header, checksum failures)
-- [ ] Detect malformed/incomplete database schema (missing required tables)
-- [ ] Handle empty database files
-- [ ] Provide specific error messages for each scenario
-- [ ] Include suggestions (re-export from Anki, check Anki installation)
+- [x] Detect corrupted SQLite database (invalid header, checksum failures)
+- [x] Detect malformed/incomplete database schema (missing required tables)
+- [x] Handle empty database files
+- [x] Provide specific error messages for each scenario
+- [x] Include suggestions (re-export from Anki, check Anki installation)
 
 **Implementation Notes:**
 
-- Wrap `AnkiDatabase.fromBuffer()` with specific error detection
-- Check for required tables (col, notes, cards, revlog, graves) after opening
-- Handle sql.js errors gracefully
+- Added `AnkiDatabaseError` custom error class with typed error categories (`empty`, `truncated`, `invalid_header`, `corrupted`, `missing_tables`)
+- Enhanced `AnkiDatabase.fromBuffer()` with 3-stage validation:
+  1. Check for empty buffer (0 bytes)
+  2. Verify SQLite magic bytes ("SQLite format 3\0" - first 16 bytes)
+  3. Catch sql.js errors during database open
+- Added `validateSchema()` method to check required tables (col, notes, cards, revlog, graves)
+- Updated `AnkiPackage.fromAnkiExport()` with specific error handling for each `AnkiDatabaseError` type
+- All error messages include actionable guidance (re-export from Anki)
 
 **Testing:**
 
-- [ ] Automated: Test with corrupted database file (random bytes)
-- [ ] Automated: Test with valid SQLite but missing required tables
-- [ ] Automated: Test with empty database file
-- [ ] Automated: Test with truncated database file
+- [x] Automated: Test with corrupted database file (random bytes)
+- [x] Automated: Test with valid SQLite but missing required tables
+- [x] Automated: Test with empty database file
+- [x] Automated: Test with truncated database file
+- [x] Automated: Test with file too small to be valid SQLite
+- [x] Automated: Test actionable guidance in error messages
+
+**Files Modified:**
+
+- `src/anki/database.ts` - Added `AnkiDatabaseError` class, enhanced `fromBuffer()`, added `validateSchema()`
+- `src/anki/anki-package.ts` - Added specific database error handling in `fromAnkiExport()`
+- `src/anki/anki-package.test.ts` - Added 6 tests for corrupted database handling
 
 ---
 

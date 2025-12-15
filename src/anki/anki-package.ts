@@ -30,7 +30,7 @@ import {
   SrsReviewScore,
 } from "@/srs-package";
 import { defaultDeck } from "./constants";
-import { AnkiDatabase } from "./database";
+import { AnkiDatabase, AnkiDatabaseError } from "./database";
 import {
   type CardsTable,
   type Config,
@@ -334,7 +334,55 @@ export class AnkiPackage {
         ) as MediaFileMapping;
 
         // Open the collection.anki21 file as the database
-        db = await AnkiDatabase.fromBuffer(await readFile(dbFilePath));
+        try {
+          db = await AnkiDatabase.fromBuffer(await readFile(dbFilePath));
+        } catch (dbError) {
+          if (dbError instanceof AnkiDatabaseError) {
+            let userMessage: string;
+            switch (dbError.type) {
+              case "empty":
+                userMessage =
+                  "The collection.anki21 database file is empty (0 bytes). This may indicate an incomplete export or file corruption. Please re-export your deck from Anki.";
+                break;
+              case "truncated":
+                userMessage =
+                  "The collection.anki21 database file is truncated and too small to be valid. This may indicate an interrupted download or corrupted export. Please re-export your deck from Anki.";
+                break;
+              case "invalid_header":
+                userMessage =
+                  "The collection.anki21 file is not a valid SQLite database. The file may have been corrupted or replaced with non-database content. Please re-export your deck from Anki.";
+                break;
+              case "corrupted":
+                userMessage = `The collection.anki21 database is corrupted and cannot be opened. ${dbError.message} Please try re-exporting your deck from Anki, or check if your Anki installation is working correctly.`;
+                break;
+              default:
+                userMessage = `Database error: ${dbError.message}`;
+            }
+            collector.addCritical(userMessage);
+            const cleanupIssues = await removeDirectory(instance.tempDir);
+            collector.addIssues(cleanupIssues);
+            return collector.createFailureResult<AnkiPackage>();
+          }
+          throw dbError; // Re-throw non-AnkiDatabaseError errors
+        }
+
+        // Validate the database schema has all required tables
+        try {
+          db.validateSchema();
+        } catch (schemaError) {
+          if (schemaError instanceof AnkiDatabaseError) {
+            const missingTables = schemaError.missingTables
+              ? schemaError.missingTables.map((t) => `'${t}'`).join(", ")
+              : "unknown tables";
+            collector.addCritical(
+              `The collection.anki21 database is missing required tables: ${missingTables}. This may indicate a corrupted database or an incompatible Anki version. Please re-export your deck from Anki.`,
+            );
+            const cleanupIssues = await removeDirectory(instance.tempDir);
+            collector.addIssues(cleanupIssues);
+            return collector.createFailureResult<AnkiPackage>();
+          }
+          throw schemaError; // Re-throw non-AnkiDatabaseError errors
+        }
 
         // Read the contents of the database
         instance.databaseContents = await db.toObject();

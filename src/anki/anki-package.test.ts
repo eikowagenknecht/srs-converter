@@ -3494,6 +3494,176 @@ describe("Error Handling and Edge Cases", () => {
     });
   });
 
+  describe("Corrupted SQLite Database Handling (Story 1.0.5.3)", () => {
+    // Valid meta file for version 2 (Legacy_V2)
+    // Protobuf encoding: field 1 (varint) with value 2 = [0x08, 0x02]
+    const validMetaV2 = Buffer.from([0x08, 0x02]);
+
+    // Helper function to create a ZIP file with specific contents
+    async function createTestZip(
+      zipPath: string,
+      files: { name: string; content: string | Buffer }[],
+    ): Promise<void> {
+      return new Promise((resolve, reject) => {
+        const output = createWriteStream(zipPath);
+        const archive = archiver("zip");
+
+        output.on("close", () => {
+          resolve();
+        });
+        archive.on("error", (err) => {
+          reject(err);
+        });
+
+        archive.pipe(output);
+        for (const file of files) {
+          archive.append(file.content, { name: file.name });
+        }
+        void archive.finalize();
+      });
+    }
+
+    it("should detect and report corrupted database file (random bytes) with specific message", async () => {
+      const zipPath = join(tempDir, "corrupted-db.apkg");
+      // Create database file with random bytes (not valid SQLite)
+      const randomBytes = Buffer.from(
+        Array.from({ length: 100 }, () => Math.floor(Math.random() * 256)),
+      );
+      await createTestZip(zipPath, [
+        { name: "meta", content: validMetaV2 },
+        { name: "media", content: "{}" },
+        { name: "collection.anki21", content: randomBytes },
+      ]);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath);
+
+      expect(result.status).toBe("failure");
+      expect(result.data).toBeUndefined();
+      expect(result.issues.length).toBeGreaterThan(0);
+      expect(result.issues[0]?.severity).toBe("critical");
+      // Should detect invalid SQLite header and provide guidance
+      expect(result.issues[0]?.message).toMatch(
+        /not a valid SQLite database.*re-export/is,
+      );
+    });
+
+    it("should detect and report empty database file with specific message", async () => {
+      const zipPath = join(tempDir, "empty-db.apkg");
+      // Create an empty database file (0 bytes)
+      await createTestZip(zipPath, [
+        { name: "meta", content: validMetaV2 },
+        { name: "media", content: "{}" },
+        { name: "collection.anki21", content: Buffer.alloc(0) },
+      ]);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath);
+
+      expect(result.status).toBe("failure");
+      expect(result.data).toBeUndefined();
+      expect(result.issues.length).toBeGreaterThan(0);
+      expect(result.issues[0]?.severity).toBe("critical");
+      // Should detect empty database and provide guidance
+      expect(result.issues[0]?.message).toMatch(/empty.*0 bytes.*re-export/is);
+    });
+
+    it("should detect and report truncated database file with specific message", async () => {
+      const zipPath = join(tempDir, "truncated-db.apkg");
+      // Create a truncated database file (valid SQLite header but too short)
+      // SQLite header is "SQLite format 3\0" (16 bytes)
+      const truncatedDb = Buffer.from("SQLite format 3\0");
+      // Add just a few more bytes to make it seem truncated
+      const truncatedContent = Buffer.concat([truncatedDb, Buffer.alloc(10)]);
+
+      await createTestZip(zipPath, [
+        { name: "meta", content: validMetaV2 },
+        { name: "media", content: "{}" },
+        { name: "collection.anki21", content: truncatedContent },
+      ]);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath);
+
+      expect(result.status).toBe("failure");
+      expect(result.data).toBeUndefined();
+      expect(result.issues.length).toBeGreaterThan(0);
+      expect(result.issues[0]?.severity).toBe("critical");
+      // Truncated files with valid header may open but have no tables
+      expect(result.issues[0]?.message).toMatch(
+        /missing required tables.*re-export/is,
+      );
+    });
+
+    it("should detect and report database with missing required tables", async () => {
+      // Create a valid SQLite database but without Anki's required tables
+      const InitSqlJs = (await import("sql.js")).default;
+      const SQL = await InitSqlJs();
+      const emptyDb = new SQL.Database();
+      // Create a simple table that is NOT an Anki table
+      emptyDb.run("CREATE TABLE dummy (id INTEGER PRIMARY KEY, name TEXT)");
+      const dbBuffer = Buffer.from(emptyDb.export());
+
+      const zipPath = join(tempDir, "missing-tables-db.apkg");
+      await createTestZip(zipPath, [
+        { name: "meta", content: validMetaV2 },
+        { name: "media", content: "{}" },
+        { name: "collection.anki21", content: dbBuffer },
+      ]);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath);
+
+      expect(result.status).toBe("failure");
+      expect(result.data).toBeUndefined();
+      expect(result.issues.length).toBeGreaterThan(0);
+      expect(result.issues[0]?.severity).toBe("critical");
+      // Should report missing required tables with specific table names and guidance
+      expect(result.issues[0]?.message).toMatch(
+        /missing required tables.*(col|notes|cards|revlog|graves).*re-export/is,
+      );
+    });
+
+    it("should detect database file that is too small to be valid SQLite", async () => {
+      const zipPath = join(tempDir, "tiny-db.apkg");
+      // Create a file that's smaller than the SQLite header (16 bytes)
+      const tinyContent = Buffer.from("SQLite"); // Only 6 bytes
+
+      await createTestZip(zipPath, [
+        { name: "meta", content: validMetaV2 },
+        { name: "media", content: "{}" },
+        { name: "collection.anki21", content: tinyContent },
+      ]);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath);
+
+      expect(result.status).toBe("failure");
+      expect(result.data).toBeUndefined();
+      expect(result.issues.length).toBeGreaterThan(0);
+      expect(result.issues[0]?.severity).toBe("critical");
+      // Should detect file is too small and provide guidance
+      expect(result.issues[0]?.message).toMatch(
+        /truncated.*too small.*re-export/is,
+      );
+    });
+
+    it("should provide actionable guidance for corrupted database", async () => {
+      const zipPath = join(tempDir, "corrupted-db-guidance.apkg");
+      // Create database file with invalid content
+      const invalidContent = Buffer.from("This is not a database file!");
+
+      await createTestZip(zipPath, [
+        { name: "meta", content: validMetaV2 },
+        { name: "media", content: "{}" },
+        { name: "collection.anki21", content: invalidContent },
+      ]);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath);
+
+      expect(result.status).toBe("failure");
+      const message = result.issues[0]?.message ?? "";
+      // Should be a meaningful, actionable message mentioning Anki and re-export
+      expect(message.length).toBeGreaterThan(50);
+      expect(message).toMatch(/Anki.*re-export/is);
+    });
+  });
+
   describe("Data Integrity Tests", () => {
     it.todo("should handle missing note type references", async () => {
       // TODO: Test behavior when referenced note types don't exist

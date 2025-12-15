@@ -27,6 +27,8 @@ Required tests (must be run in order):
 - Follow the tri-state error handling pattern when testing error cases
 - Mock external dependencies appropriately
 - Test both successful and failure scenarios
+- ALWAYS use exact equality checks (`toBe`, `toEqual`) that check the exact expected output. If you need, run the test to see the exact output and copy-paste it into the test if it is correct.
+- NEVER use unprecise equality checks (">=", "<=", ">0", "<", multiple possible Regex outcomes etc.)
 
 When writing a test and you're not 100% sure if the test is correct or if the code is correct:
 
