@@ -1,8 +1,10 @@
 /** biome-ignore-all lint/complexity/useLiteralKeys: <It's a test> */
 import { Buffer } from "node:buffer";
+import { createWriteStream } from "node:fs";
 import { access, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import archiver from "archiver";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ConversionResult } from "@/error-handling";
 import {
@@ -1939,9 +1941,9 @@ describe("Media File APIs", () => {
 
       try {
         // Clear the database contents to simulate unavailable database
-        // biome-ignore lint/suspicious/noExplicitAny: Need to access private property for testing
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-        (pkg as any).databaseContents = undefined;
+
+        (pkg as unknown as { databaseContents: undefined }).databaseContents =
+          undefined;
 
         await expect(pkg.removeUnreferencedMediaFiles()).rejects.toThrow(
           "Database contents not available",
@@ -3345,6 +3347,150 @@ describe("Error Handling and Edge Cases", () => {
       expect(message.length).toBeGreaterThan(50); // Should be a meaningful, actionable message
       // Should mention Anki for context
       expect(message).toMatch(/Anki/i);
+    });
+  });
+
+  describe("Missing Required Files Handling (Story 1.0.5.2)", () => {
+    // Valid meta file for version 2 (Legacy_V2)
+    // Protobuf encoding: field 1 (varint) with value 2 = [0x08, 0x02]
+    const validMetaV2 = Buffer.from([0x08, 0x02]);
+
+    // Helper function to create a ZIP file with specific contents
+    async function createTestZip(
+      zipPath: string,
+      files: { name: string; content: string | Buffer }[],
+    ): Promise<void> {
+      return new Promise((resolve, reject) => {
+        const output = createWriteStream(zipPath);
+        const archive = archiver("zip");
+
+        output.on("close", () => {
+          resolve();
+        });
+        archive.on("error", (err) => {
+          reject(err);
+        });
+
+        archive.pipe(output);
+        for (const file of files) {
+          archive.append(file.content, { name: file.name });
+        }
+        void archive.finalize();
+      });
+    }
+
+    it("should detect and report missing meta file with specific message", async () => {
+      const zipPath = join(tempDir, "missing-meta.apkg");
+      // Create ZIP with media and database, but no meta file
+      await createTestZip(zipPath, [
+        { name: "media", content: "{}" },
+        { name: "collection.anki21", content: Buffer.alloc(100) }, // Dummy database
+      ]);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath);
+
+      expect(result.status).toBe("failure");
+      expect(result.data).toBeUndefined();
+      expect(result.issues.length).toBeGreaterThan(0);
+      expect(result.issues[0]?.severity).toBe("critical");
+      expect(result.issues[0]?.message).toMatch(/missing.*'meta'/i);
+      expect(result.issues[0]?.message).toMatch(/re-export/i);
+    });
+
+    it("should detect and report missing media file with specific message", async () => {
+      const zipPath = join(tempDir, "missing-media.apkg");
+      // Create ZIP with valid meta and database, but no media file
+      await createTestZip(zipPath, [
+        { name: "meta", content: validMetaV2 },
+        { name: "collection.anki21", content: Buffer.alloc(100) }, // Dummy database
+      ]);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath);
+
+      expect(result.status).toBe("failure");
+      expect(result.data).toBeUndefined();
+      expect(result.issues.length).toBeGreaterThan(0);
+      expect(result.issues[0]?.severity).toBe("critical");
+      expect(result.issues[0]?.message).toMatch(/missing.*'media'/i);
+      expect(result.issues[0]?.message).toMatch(/re-export/i);
+    });
+
+    it("should detect and report missing database file with specific message", async () => {
+      const zipPath = join(tempDir, "missing-database.apkg");
+      // Create ZIP with valid meta and media, but no database file
+      await createTestZip(zipPath, [
+        { name: "meta", content: validMetaV2 },
+        { name: "media", content: "{}" },
+      ]);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath);
+
+      expect(result.status).toBe("failure");
+      expect(result.data).toBeUndefined();
+      expect(result.issues.length).toBeGreaterThan(0);
+      expect(result.issues[0]?.severity).toBe("critical");
+      expect(result.issues[0]?.message).toMatch(
+        /missing.*'collection\.anki21'/i,
+      );
+      expect(result.issues[0]?.message).toMatch(/re-export/i);
+    });
+
+    it("should report all missing files when multiple are missing", async () => {
+      const zipPath = join(tempDir, "missing-multiple.apkg");
+      // Create ZIP with only valid meta, missing media and database
+      await createTestZip(zipPath, [{ name: "meta", content: validMetaV2 }]);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath);
+
+      expect(result.status).toBe("failure");
+      expect(result.data).toBeUndefined();
+      // Should have multiple critical issues for each missing file
+      const criticalIssues = result.issues.filter(
+        (issue) => issue.severity === "critical",
+      );
+      expect(criticalIssues.length).toBeGreaterThanOrEqual(2);
+      // Check that both media and database are mentioned
+      const allMessages = criticalIssues.map((i) => i.message).join(" ");
+      expect(allMessages).toMatch(/media/i);
+      expect(allMessages).toMatch(/collection\.anki21/i);
+    });
+
+    it("should detect empty ZIP archive and report missing meta file", async () => {
+      const zipPath = join(tempDir, "empty-archive.apkg");
+      // Create an empty ZIP archive
+      await createTestZip(zipPath, []);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath);
+
+      expect(result.status).toBe("failure");
+      expect(result.data).toBeUndefined();
+      // Should have critical issue for missing meta file (checked first)
+      const criticalIssues = result.issues.filter(
+        (issue) => issue.severity === "critical",
+      );
+      expect(criticalIssues.length).toBeGreaterThanOrEqual(1);
+      expect(criticalIssues[0]?.message).toMatch(/meta/i);
+    });
+
+    it("should provide actionable guidance for missing files", async () => {
+      const zipPath = join(tempDir, "missing-files-guidance.apkg");
+      // Create ZIP with valid meta and database, but missing media file
+      await createTestZip(zipPath, [
+        { name: "meta", content: validMetaV2 },
+        { name: "collection.anki21", content: Buffer.alloc(100) },
+        // Missing media file
+      ]);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath);
+
+      expect(result.status).toBe("failure");
+      const message = result.issues[0]?.message ?? "";
+      // Should be a meaningful, actionable message
+      expect(message.length).toBeGreaterThan(50);
+      // Should mention Anki for context
+      expect(message).toMatch(/Anki/i);
+      // Should provide guidance to re-export
+      expect(message).toMatch(/re-export/i);
     });
   });
 

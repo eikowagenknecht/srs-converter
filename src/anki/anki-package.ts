@@ -263,8 +263,26 @@ export class AnkiPackage {
         }
         await directory.extract({ path: instance.tempDir });
 
-        // Read the package version by looking at the "meta" file
+        // Define paths for required files
         const metaFilePath = join(instance.tempDir, "meta");
+        const mediaFilePath = join(instance.tempDir, "media");
+        const dbFilePath = join(instance.tempDir, "collection.anki21");
+
+        // Step 1: Check for meta file (required for all Anki exports)
+        const metaExists = await stat(metaFilePath)
+          .then(() => true)
+          .catch(() => false);
+
+        if (!metaExists) {
+          collector.addCritical(
+            "The Anki package is missing the 'meta' file which contains version information. This file is required for all Anki exports. Please re-export your deck from Anki.",
+          );
+          const cleanupIssues = await removeDirectory(instance.tempDir);
+          collector.addIssues(cleanupIssues);
+          return collector.createFailureResult<AnkiPackage>();
+        }
+
+        // Step 2: Read and validate version before checking other files
         const metaFileContent = await readFile(metaFilePath);
         const meta = parseMeta(metaFileContent);
 
@@ -277,15 +295,45 @@ export class AnkiPackage {
           return collector.createFailureResult<AnkiPackage>();
         }
 
+        // Step 3: Check for remaining required files (version-specific)
+        const [mediaExists, dbExists] = await Promise.all([
+          stat(mediaFilePath)
+            .then(() => true)
+            .catch(() => false),
+          stat(dbFilePath)
+            .then(() => true)
+            .catch(() => false),
+        ]);
+
+        const missingFiles: string[] = [];
+
+        if (!mediaExists) {
+          missingFiles.push("media");
+          collector.addCritical(
+            "The Anki package is missing the 'media' file which contains media file mappings. This file is required for all Anki exports. Please re-export your deck from Anki.",
+          );
+        }
+
+        if (!dbExists) {
+          missingFiles.push("collection.anki21");
+          collector.addCritical(
+            "The Anki package is missing the 'collection.anki21' database file. This file contains all your cards and decks. Please re-export your deck from Anki.",
+          );
+        }
+
+        if (missingFiles.length > 0) {
+          const cleanupIssues = await removeDirectory(instance.tempDir);
+          collector.addIssues(cleanupIssues);
+          return collector.createFailureResult<AnkiPackage>();
+        }
+
         // Read the contents of the media mapping file
-        const mediaFilePath = join(instance.tempDir, "media");
         const mediaFileContent = await readFile(mediaFilePath);
         instance.mediaFiles = JSON.parse(
           mediaFileContent.toString(),
         ) as MediaFileMapping;
 
         // Open the collection.anki21 file as the database
-        const dbFilePath = join(instance.tempDir, "collection.anki21");
         db = await AnkiDatabase.fromBuffer(await readFile(dbFilePath));
 
         // Read the contents of the database

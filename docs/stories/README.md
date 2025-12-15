@@ -24,8 +24,8 @@ This document outlines the current development roadmap for the srs-converter lib
 Complete Anki reading and writing implementation with all features and edge cases.
 
 - **Phase 1.0**: Anki Reading (.apkg/.colpkg)
-  - Progress: 5/10 stories completed (50%) 🔄
-  - Status: Anki reading mostly works, with all major note types supported. Story 1.0.5.1 (ZIP validation) completed. Still need remaining 1.0.5 substories and schema version support (1.0.6).
+  - Progress: 6/10 stories completed (60%) 🔄
+  - Status: Anki reading mostly works, with all major note types supported. Stories 1.0.5.1 (ZIP validation) and 1.0.5.2 (missing files) completed. Still need remaining 1.0.5 substories and schema version support (1.0.6).
 
 - **Phase 1.1**: Anki Writing (.apkg/.colpkg) + Media File APIs
   - Progress: 11/11 stories completed (100%) ✅

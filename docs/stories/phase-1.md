@@ -113,7 +113,7 @@
 
 ### Story 1.0.5: Handle Corrupted and Malformed Anki Packages
 
-**Status:** 🔄 In Progress (1/5 substories completed)
+**Status:** 🔄 In Progress (2/5 substories completed)
 
 **Story:** As a developer, I want to gracefully handle corrupted and malformed Anki package files so the library provides a good user experience even with problematic files.
 
@@ -122,7 +122,7 @@ This story is broken down into the following substories:
 | Substory | Scope             | Status       |
 | -------- | ----------------- | ------------ |
 | 1.0.5.1  | ZIP validation    | ✅ Completed |
-| 1.0.5.2  | Missing files     | ⏳ Pending   |
+| 1.0.5.2  | Missing files     | ✅ Completed |
 | 1.0.5.3  | SQLite corruption | ⏳ Pending   |
 | 1.0.5.4  | JSON validation   | ⏳ Pending   |
 | 1.0.5.5  | Partial recovery  | ⏳ Pending   |
@@ -173,30 +173,41 @@ Stories 1-4 can be done independently; Story 5 builds on top of them.
 
 ### Story 1.0.5.2: Handle Missing Required Files in Package
 
-**Status:** ⏳ Pending
+**Status:** ✅ Completed
 
 **Story:** As a developer, I want the library to detect missing required files inside Anki packages so users understand exactly what's wrong with their export.
 
 **Acceptance Criteria:**
 
-- [ ] Detect missing `collection.anki21` or `collection.anki2` database file
-- [ ] Detect missing `media` mapping file
-- [ ] Detect missing `meta` version file
-- [ ] Provide specific error message for each missing file type
-- [ ] Include guidance on how to re-export from Anki
+- [x] Detect missing `collection.anki21` database file
+- [x] Detect missing `media` mapping file
+- [x] Detect missing `meta` version file
+- [x] Provide specific error message for each missing file type
+- [x] Include guidance on how to re-export from Anki
 
 **Implementation Notes:**
 
-- Check for file existence before attempting to read
-- Use `stat()` or check extracted files list
-- Provide actionable error messages with re-export instructions
+- Added 3-step validation in `AnkiPackage.fromAnkiExport()`:
+  1. Check for `meta` file first (required for all Anki exports)
+  2. Validate export version (reject unsupported versions early)
+  3. Check for remaining required files (`media`, `collection.anki21`)
+- Uses `stat()` to check file existence after ZIP extraction
+- Specific error messages for each missing file type with re-export instructions
+- Note: Only checks for `collection.anki21` (schema version support is Story 1.0.6)
 
 **Testing:**
 
-- [ ] Automated: Test with package missing `collection.anki21`
-- [ ] Automated: Test with package missing `media` file
-- [ ] Automated: Test with package missing `meta` file
-- [ ] Automated: Test with empty ZIP archive
+- [x] Automated: Test with package missing `collection.anki21`
+- [x] Automated: Test with package missing `media` file
+- [x] Automated: Test with package missing `meta` file
+- [x] Automated: Test with empty ZIP archive
+- [x] Automated: Test with multiple missing files
+- [x] Automated: Test actionable guidance in error messages
+
+**Files Modified:**
+
+- `src/anki/anki-package.ts` - Added file existence checks in `fromAnkiExport()`
+- `src/anki/anki-package.test.ts` - Added 6 tests for missing files handling
 
 ---
 
