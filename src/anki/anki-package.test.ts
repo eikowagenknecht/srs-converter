@@ -4085,6 +4085,705 @@ describe("Error Handling and Edge Cases", () => {
     });
   });
 
+  describe("Partial Data Recovery (Story 1.0.5.5)", () => {
+    // Valid meta file for version 2 (Legacy_V2)
+    const validMetaV2 = Buffer.from([0x08, 0x02]);
+
+    // Helper function to create a valid SQLite database for testing partial recovery
+    async function createAnkiDatabaseWithData(options: {
+      models?: Record<string, unknown>;
+      decks?: Record<string, unknown>;
+      notes?: {
+        id: number;
+        guid: string;
+        mid: number;
+        flds: string;
+      }[];
+      cards?: {
+        id: number;
+        nid: number;
+        did: number;
+      }[];
+      reviews?: {
+        id: number;
+        cid: number;
+      }[];
+    }): Promise<Buffer> {
+      const InitSqlJs = (await import("sql.js")).default;
+      const SQL = await InitSqlJs();
+      const db = new SQL.Database();
+
+      // Create required Anki tables
+      db.run(`
+        CREATE TABLE col (
+          id INTEGER PRIMARY KEY,
+          crt INTEGER NOT NULL,
+          mod INTEGER NOT NULL,
+          scm INTEGER NOT NULL,
+          ver INTEGER NOT NULL,
+          dty INTEGER NOT NULL,
+          usn INTEGER NOT NULL,
+          ls INTEGER NOT NULL,
+          conf TEXT NOT NULL,
+          models TEXT NOT NULL,
+          decks TEXT NOT NULL,
+          dconf TEXT NOT NULL,
+          tags TEXT NOT NULL
+        )
+      `);
+      db.run(`
+        CREATE TABLE notes (
+          id INTEGER PRIMARY KEY,
+          guid TEXT NOT NULL,
+          mid INTEGER NOT NULL,
+          mod INTEGER NOT NULL,
+          usn INTEGER NOT NULL,
+          tags TEXT NOT NULL,
+          flds TEXT NOT NULL,
+          sfld TEXT NOT NULL,
+          csum INTEGER NOT NULL,
+          flags INTEGER NOT NULL,
+          data TEXT NOT NULL
+        )
+      `);
+      db.run(`
+        CREATE TABLE cards (
+          id INTEGER PRIMARY KEY,
+          nid INTEGER NOT NULL,
+          did INTEGER NOT NULL,
+          ord INTEGER NOT NULL,
+          mod INTEGER NOT NULL,
+          usn INTEGER NOT NULL,
+          type INTEGER NOT NULL,
+          queue INTEGER NOT NULL,
+          due INTEGER NOT NULL,
+          ivl INTEGER NOT NULL,
+          factor INTEGER NOT NULL,
+          reps INTEGER NOT NULL,
+          lapses INTEGER NOT NULL,
+          left INTEGER NOT NULL,
+          odue INTEGER NOT NULL,
+          odid INTEGER NOT NULL,
+          flags INTEGER NOT NULL,
+          data TEXT NOT NULL
+        )
+      `);
+      db.run(`
+        CREATE TABLE revlog (
+          id INTEGER PRIMARY KEY,
+          cid INTEGER NOT NULL,
+          usn INTEGER NOT NULL,
+          ease INTEGER NOT NULL,
+          ivl INTEGER NOT NULL,
+          lastIvl INTEGER NOT NULL,
+          factor INTEGER NOT NULL,
+          time INTEGER NOT NULL,
+          type INTEGER NOT NULL
+        )
+      `);
+      db.run(
+        "CREATE TABLE graves (usn INTEGER NOT NULL, oid INTEGER NOT NULL, type INTEGER NOT NULL)",
+      );
+
+      const now = Date.now();
+
+      // Default model (note type) - needed for notes to be valid
+      const defaultModels = options.models ?? {
+        "1234567890123": {
+          id: 1234567890123,
+          name: "Basic",
+          type: 0,
+          mod: Math.floor(now / 1000),
+          usn: -1,
+          sortf: 0,
+          did: null,
+          tmpls: [
+            {
+              name: "Card 1",
+              ord: 0,
+              qfmt: "{{Front}}",
+              afmt: "{{Back}}",
+              bqfmt: "",
+              bafmt: "",
+              did: null,
+              bfont: "",
+              bsize: 0,
+            },
+          ],
+          flds: [
+            {
+              name: "Front",
+              ord: 0,
+              sticky: false,
+              rtl: false,
+              font: "Arial",
+              size: 20,
+              description: "",
+              plainText: false,
+              collapsed: false,
+              excludeFromSearch: false,
+              tag: null,
+              preventDeletion: false,
+            },
+            {
+              name: "Back",
+              ord: 1,
+              sticky: false,
+              rtl: false,
+              font: "Arial",
+              size: 20,
+              description: "",
+              plainText: false,
+              collapsed: false,
+              excludeFromSearch: false,
+              tag: null,
+              preventDeletion: false,
+            },
+          ],
+          css: "",
+          latexPre: "",
+          latexPost: "",
+          latexsvg: false,
+          req: [],
+          originalStockKind: null,
+        },
+      };
+
+      const defaultDecks = options.decks ?? {
+        "1": {
+          id: 1,
+          name: "Default",
+          mod: Math.floor(now / 1000),
+          usn: -1,
+          lrnToday: [0, 0],
+          revToday: [0, 0],
+          newToday: [0, 0],
+          timeToday: [0, 0],
+          collapsed: false,
+          browserCollapsed: false,
+          desc: "",
+          dyn: 0,
+          conf: 1,
+          extendNew: 0,
+          extendRev: 0,
+          reviewLimit: null,
+          newLimit: null,
+          reviewLimitToday: null,
+          newLimitToday: null,
+        },
+      };
+
+      const defaultConf = {
+        schedVer: 2,
+        collapseTime: 1200,
+        estTimes: true,
+        dueCounts: true,
+        curDeck: 1,
+        newSpread: 0,
+        curModel: 1234567890123,
+        dayLearnFirst: false,
+        timeLim: 0,
+        activeDecks: [1],
+        sortType: "noteFld",
+        nextPos: 1,
+        sortBackwards: false,
+        addToCur: true,
+        creationOffset: 0,
+        sched2021: true,
+      };
+
+      const defaultDconf = {
+        "1": {
+          id: 1,
+          name: "Default",
+          new: {
+            delays: [1, 10],
+            ints: [1, 4, 0],
+            initialFactor: 2500,
+            order: 1,
+            perDay: 20,
+            bury: false,
+          },
+          rev: {
+            perDay: 200,
+            ease4: 1.3,
+            ivlFct: 1,
+            maxIvl: 36500,
+            bury: false,
+            hardFactor: 1.2,
+          },
+          lapse: {
+            delays: [10],
+            mult: 0,
+            minInt: 1,
+            leechFails: 8,
+            leechAction: 0,
+          },
+          dyn: false,
+          maxTaken: 60,
+          timer: 0,
+          autoplay: true,
+          replayq: true,
+          mod: 0,
+          usn: 0,
+          newMix: 0,
+          newPerDayMinimum: 0,
+          interdayLearningMix: 0,
+          reviewOrder: 0,
+          newSortOrder: 0,
+          newGatherPriority: 0,
+          buryInterdayLearning: false,
+          fsrsWeights: [],
+          desiredRetention: 0.9,
+          ignoreRevlogsBeforeDate: "",
+          stopTimerOnAnswer: false,
+          secondsToShowQuestion: 0.0,
+          secondsToShowAnswer: 0.0,
+          questionAction: 0,
+          answerAction: 0,
+          waitForAudio: true,
+          sm2Retention: 0.9,
+          weightSearch: "",
+        },
+      };
+
+      db.run("INSERT INTO col VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [
+        1,
+        Math.floor(now / 1000),
+        now,
+        now,
+        11,
+        0,
+        -1,
+        0,
+        JSON.stringify(defaultConf),
+        JSON.stringify(defaultModels),
+        JSON.stringify(defaultDecks),
+        JSON.stringify(defaultDconf),
+        "{}",
+      ]);
+
+      // Insert notes
+      if (options.notes) {
+        for (const note of options.notes) {
+          db.run("INSERT INTO notes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [
+            note.id,
+            note.guid,
+            note.mid,
+            Math.floor(now / 1000),
+            -1,
+            "",
+            note.flds,
+            note.flds.split("\u001f")[0] ?? "",
+            0,
+            0,
+            "",
+          ]);
+        }
+      }
+
+      // Insert cards
+      if (options.cards) {
+        for (const card of options.cards) {
+          db.run(
+            "INSERT INTO cards VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+              card.id,
+              card.nid,
+              card.did,
+              0,
+              Math.floor(now / 1000),
+              -1,
+              0,
+              0,
+              0,
+              0,
+              2500,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              "",
+            ],
+          );
+        }
+      }
+
+      // Insert reviews
+      if (options.reviews) {
+        for (const review of options.reviews) {
+          db.run("INSERT INTO revlog VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", [
+            review.id,
+            review.cid,
+            -1,
+            3,
+            1,
+            0,
+            2500,
+            5000,
+            0,
+          ]);
+        }
+      }
+
+      return Buffer.from(db.export());
+    }
+
+    // Helper function to create a ZIP file with specific contents
+    async function createTestZip(
+      zipPath: string,
+      files: { name: string; content: string | Buffer }[],
+    ): Promise<void> {
+      return new Promise((resolve, reject) => {
+        const output = createWriteStream(zipPath);
+        const archive = archiver("zip");
+
+        output.on("close", () => {
+          resolve();
+        });
+        archive.on("error", (err) => {
+          reject(err);
+        });
+
+        archive.pipe(output);
+        for (const file of files) {
+          archive.append(file.content, { name: file.name });
+        }
+        void archive.finalize();
+      });
+    }
+
+    it("should return partial status with valid and invalid notes (best-effort mode)", async () => {
+      const zipPath = join(tempDir, "partial-notes.apkg");
+
+      // Create database with 2 valid notes and 1 note referencing non-existent note type
+      const validDb = await createAnkiDatabaseWithData({
+        notes: [
+          {
+            id: 1000,
+            guid: "valid1",
+            mid: 1234567890123, // Valid note type
+            flds: "Front 1\u001fBack 1",
+          },
+          {
+            id: 2000,
+            guid: "valid2",
+            mid: 1234567890123, // Valid note type
+            flds: "Front 2\u001fBack 2",
+          },
+          {
+            id: 3000,
+            guid: "invalid",
+            mid: 9999999999999, // Non-existent note type
+            flds: "Invalid\u001fNote",
+          },
+        ],
+        cards: [
+          { id: 100, nid: 1000, did: 1 }, // Valid card for valid note
+          { id: 200, nid: 2000, did: 1 }, // Valid card for valid note
+          { id: 300, nid: 3000, did: 1 }, // Card for invalid note (should be skipped)
+        ],
+      });
+
+      await createTestZip(zipPath, [
+        { name: "meta", content: validMetaV2 },
+        { name: "media", content: "{}" },
+        { name: "collection.anki21", content: validDb },
+      ]);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath, {
+        errorHandling: "best-effort",
+      });
+
+      expect(result.status).toBe("partial");
+      expect(result.data).toBeDefined();
+      expect(result.issues.length).toBeGreaterThan(0);
+
+      // Verify invalid note is reported
+      const noteIssue = result.issues.find(
+        (i) => i.context?.itemType === "note",
+      );
+      expect(noteIssue).toBeDefined();
+      expect(noteIssue?.severity).toBe("error");
+      expect(noteIssue?.message).toMatch(/Note.*invalid/i);
+
+      // Verify card for invalid note is also skipped
+      const cardIssue = result.issues.find(
+        (i) => i.context?.itemType === "card",
+      );
+      expect(cardIssue).toBeDefined();
+      expect(cardIssue?.severity).toBe("error");
+
+      // Verify we still have the valid data
+      if (result.data) {
+        expect(result.data.getNotes().length).toBe(2); // Only valid notes
+        expect(result.data.getCards().length).toBe(2); // Only valid cards
+      }
+    });
+
+    it("should return failure status in strict mode with recoverable errors", async () => {
+      const zipPath = join(tempDir, "strict-mode.apkg");
+
+      // Create database with a note referencing non-existent note type
+      const validDb = await createAnkiDatabaseWithData({
+        notes: [
+          {
+            id: 1000,
+            guid: "valid",
+            mid: 1234567890123,
+            flds: "Front\u001fBack",
+          },
+          {
+            id: 2000,
+            guid: "invalid",
+            mid: 9999999999999, // Non-existent note type
+            flds: "Invalid\u001fNote",
+          },
+        ],
+        cards: [{ id: 100, nid: 1000, did: 1 }],
+      });
+
+      await createTestZip(zipPath, [
+        { name: "meta", content: validMetaV2 },
+        { name: "media", content: "{}" },
+        { name: "collection.anki21", content: validDb },
+      ]);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath, {
+        errorHandling: "strict",
+      });
+
+      expect(result.status).toBe("failure");
+      expect(result.data).toBeUndefined();
+      expect(result.issues.length).toBeGreaterThan(0);
+
+      // Verify error is reported
+      const noteIssue = result.issues.find(
+        (i) => i.context?.itemType === "note",
+      );
+      expect(noteIssue).toBeDefined();
+      expect(noteIssue?.severity).toBe("error");
+    });
+
+    it("should skip cards referencing non-existent decks", async () => {
+      const zipPath = join(tempDir, "missing-deck-ref.apkg");
+
+      // Create database with card referencing non-existent deck
+      const validDb = await createAnkiDatabaseWithData({
+        notes: [
+          {
+            id: 1000,
+            guid: "note1",
+            mid: 1234567890123,
+            flds: "Front\u001fBack",
+          },
+        ],
+        cards: [
+          { id: 100, nid: 1000, did: 1 }, // Valid deck
+          { id: 200, nid: 1000, did: 99999 }, // Non-existent deck
+        ],
+      });
+
+      await createTestZip(zipPath, [
+        { name: "meta", content: validMetaV2 },
+        { name: "media", content: "{}" },
+        { name: "collection.anki21", content: validDb },
+      ]);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath, {
+        errorHandling: "best-effort",
+      });
+
+      expect(result.status).toBe("partial");
+      expect(result.data).toBeDefined();
+
+      // Verify card error is reported
+      const cardIssue = result.issues.find(
+        (i) =>
+          i.context?.itemType === "card" && i.message.includes("non-existent"),
+      );
+      expect(cardIssue).toBeDefined();
+      expect(cardIssue?.message).toMatch(/deck/i);
+
+      // Verify only valid card remains
+      if (result.data) {
+        expect(result.data.getCards().length).toBe(1);
+      }
+    });
+
+    it("should skip reviews referencing non-existent cards", async () => {
+      const zipPath = join(tempDir, "missing-card-ref.apkg");
+
+      // Create database with review referencing non-existent card
+      const validDb = await createAnkiDatabaseWithData({
+        notes: [
+          {
+            id: 1000,
+            guid: "note1",
+            mid: 1234567890123,
+            flds: "Front\u001fBack",
+          },
+        ],
+        cards: [{ id: 100, nid: 1000, did: 1 }],
+        reviews: [
+          { id: 1001, cid: 100 }, // Valid card reference
+          { id: 1002, cid: 99999 }, // Non-existent card
+        ],
+      });
+
+      await createTestZip(zipPath, [
+        { name: "meta", content: validMetaV2 },
+        { name: "media", content: "{}" },
+        { name: "collection.anki21", content: validDb },
+      ]);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath, {
+        errorHandling: "best-effort",
+      });
+
+      expect(result.status).toBe("partial");
+      expect(result.data).toBeDefined();
+
+      // Verify review error is reported
+      const reviewIssue = result.issues.find(
+        (i) => i.context?.itemType === "review",
+      );
+      expect(reviewIssue).toBeDefined();
+      expect(reviewIssue?.message).toMatch(/non-existent card/i);
+
+      // Verify only valid review remains
+      if (result.data) {
+        expect(result.data.getReviews().length).toBe(1);
+      }
+    });
+
+    it("should report all issues in the result", async () => {
+      const zipPath = join(tempDir, "multiple-issues.apkg");
+
+      // Create database with multiple types of issues
+      const validDb = await createAnkiDatabaseWithData({
+        notes: [
+          {
+            id: 1000,
+            guid: "valid",
+            mid: 1234567890123,
+            flds: "Front\u001fBack",
+          },
+          {
+            id: 2000,
+            guid: "invalid-model",
+            mid: 8888888888888,
+            flds: "Bad\u001fNote",
+          },
+        ],
+        cards: [
+          { id: 100, nid: 1000, did: 1 },
+          { id: 200, nid: 2000, did: 1 }, // Will be orphaned when note is skipped
+          { id: 300, nid: 1000, did: 77777 }, // Non-existent deck
+        ],
+        reviews: [
+          { id: 1001, cid: 100 },
+          { id: 1002, cid: 300 }, // Will be orphaned when card is skipped
+          { id: 1003, cid: 66666 }, // Non-existent card
+        ],
+      });
+
+      await createTestZip(zipPath, [
+        { name: "meta", content: validMetaV2 },
+        { name: "media", content: "{}" },
+        { name: "collection.anki21", content: validDb },
+      ]);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath, {
+        errorHandling: "best-effort",
+      });
+
+      expect(result.status).toBe("partial");
+      expect(result.data).toBeDefined();
+
+      // Should have multiple issues reported
+      expect(result.issues.length).toBeGreaterThanOrEqual(3);
+
+      // Verify different item types are in issues
+      const itemTypes = result.issues
+        .map((i) => i.context?.itemType)
+        .filter(Boolean);
+      expect(itemTypes).toContain("note");
+      expect(itemTypes).toContain("card");
+      expect(itemTypes).toContain("review");
+    });
+
+    it("should warn about missing media files", async () => {
+      const zipPath = join(tempDir, "missing-media-files.apkg");
+
+      // Create a valid database
+      const validDb = await createAnkiDatabaseWithData({});
+
+      // Create media mapping that references files that don't exist in the zip
+      const mediaMapping = JSON.stringify({
+        "0": "image.png",
+        "1": "audio.mp3",
+      });
+
+      await createTestZip(zipPath, [
+        { name: "meta", content: validMetaV2 },
+        { name: "media", content: mediaMapping },
+        { name: "collection.anki21", content: validDb },
+        // Note: NOT including the actual media files "0" and "1"
+      ]);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath, {
+        errorHandling: "best-effort",
+      });
+
+      // Should succeed (missing media is just a warning)
+      expect(["success", "partial"]).toContain(result.status);
+      expect(result.data).toBeDefined();
+
+      // Should have warnings about missing media files
+      const mediaWarnings = result.issues.filter(
+        (i) => i.context?.itemType === "media" && i.severity === "warning",
+      );
+      expect(mediaWarnings.length).toBe(2);
+      expect(mediaWarnings[0]?.message).toMatch(/image\.png/);
+      expect(mediaWarnings[1]?.message).toMatch(/audio\.mp3/);
+    });
+
+    it("should return success when there are no issues", async () => {
+      const zipPath = join(tempDir, "clean-package.apkg");
+
+      // Create a completely valid database
+      const validDb = await createAnkiDatabaseWithData({
+        notes: [
+          {
+            id: 1000,
+            guid: "note1",
+            mid: 1234567890123,
+            flds: "Front 1\u001fBack 1",
+          },
+        ],
+        cards: [{ id: 100, nid: 1000, did: 1 }],
+        reviews: [{ id: 1001, cid: 100 }],
+      });
+
+      await createTestZip(zipPath, [
+        { name: "meta", content: validMetaV2 },
+        { name: "media", content: "{}" },
+        { name: "collection.anki21", content: validDb },
+      ]);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath, {
+        errorHandling: "best-effort",
+      });
+
+      expect(result.status).toBe("success");
+      expect(result.data).toBeDefined();
+      expect(result.issues.length).toBe(0);
+    });
+  });
+
   describe("Data Integrity Tests", () => {
     it.todo("should handle missing note type references", async () => {
       // TODO: Test behavior when referenced note types don't exist

@@ -55,6 +55,313 @@ import {
 } from "./util";
 
 /**
+ * Validation result for individual items
+ */
+interface ValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+/**
+ * Validates a deck entry from the database
+ * @param deckId - The deck ID key from the decks object
+ * @param data - The raw deck data to validate
+ * @returns Validation result indicating if the deck is valid
+ */
+function validateDeckEntry(deckId: string, data: unknown): ValidationResult {
+  if (data === null || typeof data !== "object") {
+    return { valid: false, error: "not an object" };
+  }
+
+  const deck = data as Record<string, unknown>;
+  // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
+  const deckIdValue = deck["id"];
+  // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
+  const deckNameValue = deck["name"];
+
+  if (typeof deckIdValue !== "number" || Number.isNaN(deckIdValue)) {
+    return { valid: false, error: "missing or invalid 'id' field" };
+  }
+
+  if (typeof deckNameValue !== "string") {
+    return { valid: false, error: "missing or invalid 'name' field" };
+  }
+
+  if (deckIdValue.toString() !== deckId) {
+    return {
+      valid: false,
+      error: `deck ID mismatch: key is '${deckId}' but id field is '${deckIdValue.toString()}'`,
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Validates a note type entry from the database
+ * @param noteTypeId - The note type ID key from the models object
+ * @param data - The raw note type data to validate
+ * @returns Validation result indicating if the note type is valid
+ */
+function validateNoteTypeEntry(
+  noteTypeId: string,
+  data: unknown,
+): ValidationResult {
+  if (data === null || typeof data !== "object") {
+    return { valid: false, error: "not an object" };
+  }
+
+  const noteType = data as Record<string, unknown>;
+  // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
+  const noteTypeIdValue = noteType["id"];
+  // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
+  const noteTypeNameValue = noteType["name"];
+  // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
+  const noteTypeFldsValue = noteType["flds"];
+  // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
+  const noteTypeTmplsValue = noteType["tmpls"];
+
+  if (typeof noteTypeIdValue !== "number" || Number.isNaN(noteTypeIdValue)) {
+    return { valid: false, error: "missing or invalid 'id' field" };
+  }
+
+  if (typeof noteTypeNameValue !== "string") {
+    return { valid: false, error: "missing or invalid 'name' field" };
+  }
+
+  if (!Array.isArray(noteTypeFldsValue)) {
+    return { valid: false, error: "missing or invalid 'flds' (fields) array" };
+  }
+
+  if (!Array.isArray(noteTypeTmplsValue)) {
+    return {
+      valid: false,
+      error: "missing or invalid 'tmpls' (templates) array",
+    };
+  }
+
+  if (noteTypeIdValue.toString() !== noteTypeId) {
+    return {
+      valid: false,
+      error: `note type ID mismatch: key is '${noteTypeId}' but id field is '${noteTypeIdValue.toString()}'`,
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Validates a note from the database
+ * @param note - The note to validate
+ * @param validNoteTypeIds - Set of valid note type IDs to check against
+ * @returns Validation result indicating if the note is valid
+ */
+function validateNote(
+  note: NotesTable,
+  validNoteTypeIds: Set<number>,
+): ValidationResult {
+  if (Number.isNaN(note.id)) {
+    return { valid: false, error: "missing or invalid 'id' field" };
+  }
+
+  if (typeof note.guid !== "string" || note.guid === "") {
+    return { valid: false, error: "missing or invalid 'guid' field" };
+  }
+
+  if (typeof note.mid !== "number" || Number.isNaN(note.mid)) {
+    return { valid: false, error: "missing or invalid 'mid' (note type id)" };
+  }
+
+  if (!validNoteTypeIds.has(note.mid)) {
+    return {
+      valid: false,
+      error: `references non-existent note type '${note.mid.toFixed()}'`,
+    };
+  }
+
+  if (typeof note.flds !== "string") {
+    return { valid: false, error: "missing or invalid 'flds' (fields)" };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Validates a card from the database
+ * @param card - The card to validate
+ * @param validNoteIds - Set of valid note IDs to check against
+ * @param validDeckIds - Set of valid deck IDs to check against
+ * @returns Validation result indicating if the card is valid
+ */
+function validateCard(
+  card: CardsTable,
+  validNoteIds: Set<number>,
+  validDeckIds: Set<number>,
+): ValidationResult {
+  if (card.id === null || Number.isNaN(card.id)) {
+    return { valid: false, error: "missing or invalid 'id' field" };
+  }
+
+  if (typeof card.nid !== "number" || Number.isNaN(card.nid)) {
+    return { valid: false, error: "missing or invalid 'nid' (note id)" };
+  }
+
+  if (!validNoteIds.has(card.nid)) {
+    return {
+      valid: false,
+      error: `references non-existent note '${card.nid.toFixed()}'`,
+    };
+  }
+
+  if (typeof card.did !== "number" || Number.isNaN(card.did)) {
+    return { valid: false, error: "missing or invalid 'did' (deck id)" };
+  }
+
+  if (!validDeckIds.has(card.did)) {
+    return {
+      valid: false,
+      error: `references non-existent deck '${card.did.toFixed()}'`,
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Validates a review from the database
+ * @param review - The review to validate
+ * @param validCardIds - Set of valid card IDs to check against
+ * @returns Validation result indicating if the review is valid
+ */
+function validateReview(
+  review: RevlogTable,
+  validCardIds: Set<number>,
+): ValidationResult {
+  if (review.id === null || Number.isNaN(review.id)) {
+    return { valid: false, error: "missing or invalid 'id' field" };
+  }
+
+  if (typeof review.cid !== "number" || Number.isNaN(review.cid)) {
+    return { valid: false, error: "missing or invalid 'cid' (card id)" };
+  }
+
+  if (!validCardIds.has(review.cid)) {
+    return {
+      valid: false,
+      error: `references non-existent card '${review.cid.toFixed()}'`,
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Filters database contents to keep only valid items.
+ * @param dump - The raw database dump to filter
+ * @param collector - Issue collector to report validation errors
+ * @returns Database dump with only valid items
+ */
+function filterValidDatabaseItems(
+  dump: DatabaseDump,
+  collector: IssueCollector,
+): DatabaseDump {
+  // Step 1: Validate decks
+  const validDecks: Record<string, Deck> = {};
+  for (const [deckId, deckData] of Object.entries(dump.collection.decks)) {
+    const validation = validateDeckEntry(deckId, deckData);
+    if (validation.valid) {
+      validDecks[deckId] = deckData;
+    } else {
+      collector.addError(
+        `Deck '${deckId}' is invalid: ${validation.error ?? "unknown error"}. This deck will be skipped.`,
+        { itemType: "deck", originalData: deckData },
+      );
+    }
+  }
+
+  // Step 2: Validate note types
+  const validNoteTypes: Record<string, NoteType> = {};
+  for (const [modelId, modelData] of Object.entries(dump.collection.models)) {
+    const validation = validateNoteTypeEntry(modelId, modelData);
+    if (validation.valid) {
+      validNoteTypes[modelId] = modelData;
+    } else {
+      collector.addError(
+        `Note type '${modelId}' is invalid: ${validation.error ?? "unknown error"}. This note type will be skipped.`,
+        { itemType: "noteType", originalData: modelData },
+      );
+    }
+  }
+
+  const validDeckIds = new Set(Object.keys(validDecks).map((id) => Number(id)));
+  const validNoteTypeIds = new Set(
+    Object.keys(validNoteTypes).map((id) => Number(id)),
+  );
+
+  // Step 3: Validate notes
+  const validNotes: NotesTable[] = [];
+  for (const note of dump.notes) {
+    const validation = validateNote(note, validNoteTypeIds);
+    if (validation.valid) {
+      validNotes.push(note);
+    } else {
+      collector.addError(
+        `Note ${note.id.toFixed()} is invalid: ${validation.error ?? "unknown error"}. This note will be skipped.`,
+        { itemType: "note", originalData: note },
+      );
+    }
+  }
+
+  const validNoteIds = new Set(validNotes.map((n) => n.id));
+
+  // Step 4: Validate cards
+  const validCards: CardsTable[] = [];
+  for (const card of dump.cards) {
+    const validation = validateCard(card, validNoteIds, validDeckIds);
+    if (validation.valid) {
+      validCards.push(card);
+    } else {
+      const cardId = card.id !== null ? card.id.toFixed() : "unknown";
+      collector.addError(
+        `Card ${cardId} is invalid: ${validation.error ?? "unknown error"}. This card will be skipped.`,
+        { itemType: "card", originalData: card },
+      );
+    }
+  }
+
+  const validCardIds = new Set(
+    validCards.map((c) => c.id).filter((id): id is number => id !== null),
+  );
+
+  // Step 5: Validate reviews
+  const validReviews: RevlogTable[] = [];
+  for (const review of dump.reviews) {
+    const validation = validateReview(review, validCardIds);
+    if (validation.valid) {
+      validReviews.push(review);
+    } else {
+      const reviewId = review.id !== null ? review.id.toFixed() : "unknown";
+      collector.addError(
+        `Review ${reviewId} is invalid: ${validation.error ?? "unknown error"}. This review will be skipped.`,
+        { itemType: "review", originalData: review },
+      );
+    }
+  }
+
+  return {
+    collection: {
+      ...dump.collection,
+      decks: validDecks,
+      models: validNoteTypes,
+    },
+    notes: validNotes,
+    cards: validCards,
+    reviews: validReviews,
+    deletedItems: dump.deletedItems,
+  };
+}
+
+/**
  * Analyzes a note's field content to find cloze deletions and returns the required card ordinals.
  * For cloze note types, cards are generated based on the cloze deletion numbers found in the field content.
  * @param fieldContent - The combined field content of a note (joined with \x1f separator)
@@ -172,7 +479,11 @@ export class AnkiPackage {
 
       try {
         db = await AnkiDatabase.fromDefault();
-        instance.databaseContents = await db.toObject();
+        const rawDump = await db.toObject();
+        instance.databaseContents = filterValidDatabaseItems(
+          rawDump,
+          collector,
+        );
 
         return collector.createResult(instance);
       } catch (error) {
@@ -439,8 +750,12 @@ export class AnkiPackage {
           throw schemaError; // Re-throw non-AnkiDatabaseError errors
         }
 
-        // Read the contents of the database
-        instance.databaseContents = await db.toObject();
+        // Read the contents of the database and validate
+        const rawDump = await db.toObject();
+        instance.databaseContents = filterValidDatabaseItems(
+          rawDump,
+          collector,
+        );
 
         if (instance.databaseContents.collection.ver !== DB_VERSION) {
           collector.addCritical(
@@ -449,6 +764,21 @@ export class AnkiPackage {
           const cleanupIssues = await removeDirectory(instance.tempDir);
           collector.addIssues(cleanupIssues);
           return collector.createFailureResult<AnkiPackage>();
+        }
+
+        // Validate media file existence
+        for (const [mediaId, filename] of Object.entries(instance.mediaFiles)) {
+          const mediaPath = join(instance.tempDir, mediaId);
+          const mediaExists = await stat(mediaPath)
+            .then(() => true)
+            .catch(() => false);
+
+          if (!mediaExists) {
+            collector.addWarning(
+              `Media file '${filename}' (ID: ${mediaId}) is listed in the media mapping but not found in the package. References to this file may be broken.`,
+              { itemType: "media", originalData: { mediaId, filename } },
+            );
+          }
         }
 
         return collector.createResult(instance);

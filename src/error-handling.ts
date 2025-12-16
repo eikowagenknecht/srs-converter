@@ -8,7 +8,7 @@ export interface ConversionIssue {
   severity: "critical" | "error" | "warning";
   message: string;
   context?: {
-    itemType?: "card" | "note" | "review" | "deck";
+    itemType?: "card" | "note" | "review" | "deck" | "noteType" | "media";
     originalData?: unknown;
   };
 }

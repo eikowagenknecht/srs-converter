@@ -256,6 +256,10 @@ export class AnkiDatabase {
     return this.sqlJsInstance.export();
   }
 
+  /**
+   * Converts the database to a DatabaseDump object.
+   * @returns DatabaseDump containing the raw data from the database
+   */
   async toObject(): Promise<DatabaseDump> {
     const dump: DatabaseDump = {
       collection: await this.getCollection(),
