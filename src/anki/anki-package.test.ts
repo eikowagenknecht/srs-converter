@@ -53,10 +53,10 @@ function expectSuccess<T>(result: ConversionResult<T>): T {
   return result.data;
 }
 
-// TODO: We never expect ... OR ..., refactor to expectPartial
-function expectSuccessOrPartial<T>(result: ConversionResult<T>): T {
-  expect(["success", "partial"]).toContain(result.status);
+function expectPartial<T>(result: ConversionResult<T>): T {
+  expect(result.status).toBe("partial");
   expect(result.data).toBeDefined();
+  expect(result.issues.length).toBeGreaterThan(0);
   if (!result.data) {
     throw new Error("Expected data to be defined");
   }
@@ -2489,7 +2489,7 @@ describe("Conversion SRS → Anki", () => {
 
       // Convert to Anki first to get valid cards
       const ankiResult = await AnkiPackage.fromSrsPackage(srsPackage);
-      const ankiPackage = expectSuccessOrPartial(ankiResult);
+      const ankiPackage = expectSuccess(ankiResult);
 
       // Get the first card ID from the existing cards
       const cards = ankiPackage.getCards();
@@ -2845,7 +2845,7 @@ describe("Conversion Anki → SRS", () => {
         const convertResult = ankiPackage.toSrsPackage();
 
         // The conversion should succeed with partial status due to error handling
-        const convertedSrs = expectSuccessOrPartial(convertResult);
+        const convertedSrs = expectPartial(convertResult);
         expect(convertedSrs).toBeDefined();
 
         // Verify that an error was reported
@@ -3177,7 +3177,7 @@ describe("Conversion Anki → SRS", () => {
 
       // Convert back to SRS and verify error handling
       const convertedSrsResult = ankiPackage.toSrsPackage();
-      const convertedSrsPackage = expectSuccessOrPartial(convertedSrsResult);
+      const convertedSrsPackage = expectPartial(convertedSrsResult);
 
       // Verify that the invalid review was handled properly
       expect(convertedSrsResult.issues.length).toBeGreaterThan(0);
@@ -3216,7 +3216,7 @@ describe("Conversion Anki → SRS", () => {
 
       // Convert back to SRS and verify error handling
       const convertedSrsResult = ankiPackage.toSrsPackage();
-      const convertedSrsPackage = expectSuccessOrPartial(convertedSrsResult);
+      const convertedSrsPackage = expectPartial(convertedSrsResult);
 
       // Verify that the review with null ID was handled properly
       expect(convertedSrsResult.issues.length).toBeGreaterThan(0);
@@ -3285,7 +3285,7 @@ describe("Conversion Anki → SRS", () => {
 
       // Convert back to SRS and verify error handling
       const convertedSrsResult = ankiPackage.toSrsPackage();
-      const convertedSrsPackage = expectSuccessOrPartial(convertedSrsResult);
+      const convertedSrsPackage = expectPartial(convertedSrsResult);
 
       // Verify that the review for non-existent card was handled properly
       expect(convertedSrsResult.issues.length).toBeGreaterThan(0);
@@ -5743,7 +5743,7 @@ describe("Utilities and Helper Functions", () => {
         const srsPackage1 = expectSuccess(srsResult1);
 
         const ankiResult1 = await AnkiPackage.fromSrsPackage(srsPackage1);
-        const convertedAnki1 = expectSuccessOrPartial(ankiResult1);
+        const convertedAnki1 = expectSuccess(ankiResult1);
 
         try {
           // Extract IDs after first cycle
