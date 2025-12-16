@@ -5,6 +5,7 @@ import { access, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import archiver from "archiver";
+import { Open } from "unzipper";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ConversionResult } from "@/error-handling";
 import {
@@ -304,6 +305,17 @@ async function createTestZip(
     }
     void archive.finalize();
   });
+}
+
+// Helper to get a valid Anki database buffer from the fixture (cached)
+let cachedValidDb: Buffer | null = null;
+async function getValidAnkiDatabaseBuffer(): Promise<Buffer> {
+  if (cachedValidDb) return cachedValidDb;
+  const zip = await Open.file("./tests/fixtures/anki/empty-legacy-2.apkg");
+  const dbEntry = zip.files.find((f) => f.path === "collection.anki21");
+  if (!dbEntry) throw new Error("Database not found in fixture");
+  cachedValidDb = await dbEntry.buffer();
+  return cachedValidDb;
 }
 
 // Helper for creating unique timestamps in tests (Anki uses timestamps as IDs)
@@ -3681,265 +3693,9 @@ describe("Error Handling and Edge Cases", () => {
   });
 
   describe("Invalid JSON in Media Metadata Handling (Story 1.0.5.4)", () => {
-    // Helper function to create a valid SQLite database for testing
-    async function createValidAnkiDatabase(): Promise<Buffer> {
-      const InitSqlJs = (await import("sql.js")).default;
-      const SQL = await InitSqlJs();
-      const db = new SQL.Database();
-
-      // Create required Anki tables
-      db.run(`
-        CREATE TABLE col (
-          id INTEGER PRIMARY KEY,
-          crt INTEGER NOT NULL,
-          mod INTEGER NOT NULL,
-          scm INTEGER NOT NULL,
-          ver INTEGER NOT NULL,
-          dty INTEGER NOT NULL,
-          usn INTEGER NOT NULL,
-          ls INTEGER NOT NULL,
-          conf TEXT NOT NULL,
-          models TEXT NOT NULL,
-          decks TEXT NOT NULL,
-          dconf TEXT NOT NULL,
-          tags TEXT NOT NULL
-        )
-      `);
-      db.run(`
-        CREATE TABLE notes (
-          id INTEGER PRIMARY KEY,
-          guid TEXT NOT NULL,
-          mid INTEGER NOT NULL,
-          mod INTEGER NOT NULL,
-          usn INTEGER NOT NULL,
-          tags TEXT NOT NULL,
-          flds TEXT NOT NULL,
-          sfld TEXT NOT NULL,
-          csum INTEGER NOT NULL,
-          flags INTEGER NOT NULL,
-          data TEXT NOT NULL
-        )
-      `);
-      db.run(`
-        CREATE TABLE cards (
-          id INTEGER PRIMARY KEY,
-          nid INTEGER NOT NULL,
-          did INTEGER NOT NULL,
-          ord INTEGER NOT NULL,
-          mod INTEGER NOT NULL,
-          usn INTEGER NOT NULL,
-          type INTEGER NOT NULL,
-          queue INTEGER NOT NULL,
-          due INTEGER NOT NULL,
-          ivl INTEGER NOT NULL,
-          factor INTEGER NOT NULL,
-          reps INTEGER NOT NULL,
-          lapses INTEGER NOT NULL,
-          left INTEGER NOT NULL,
-          odue INTEGER NOT NULL,
-          odid INTEGER NOT NULL,
-          flags INTEGER NOT NULL,
-          data TEXT NOT NULL
-        )
-      `);
-      db.run(`
-        CREATE TABLE revlog (
-          id INTEGER PRIMARY KEY,
-          cid INTEGER NOT NULL,
-          usn INTEGER NOT NULL,
-          ease INTEGER NOT NULL,
-          ivl INTEGER NOT NULL,
-          lastIvl INTEGER NOT NULL,
-          factor INTEGER NOT NULL,
-          time INTEGER NOT NULL,
-          type INTEGER NOT NULL
-        )
-      `);
-      db.run(
-        "CREATE TABLE graves (usn INTEGER NOT NULL, oid INTEGER NOT NULL, type INTEGER NOT NULL)",
-      );
-
-      // Insert minimal collection data
-      const now = Date.now();
-      const defaultDeck = {
-        "1": {
-          id: 1,
-          name: "Default",
-          mod: now,
-          usn: -1,
-          lrnToday: [0, 0],
-          revToday: [0, 0],
-          newToday: [0, 0],
-          timeToday: [0, 0],
-          collapsed: false,
-          desc: "",
-          dyn: 0,
-          conf: 1,
-          extendNew: 10,
-          extendRev: 50,
-        },
-      };
-      const defaultModel = {
-        "1234567890123": {
-          id: 1234567890123,
-          name: "Basic",
-          type: 0,
-          mod: now,
-          usn: -1,
-          sortf: 0,
-          did: 1,
-          tmpls: [
-            {
-              name: "Card 1",
-              ord: 0,
-              qfmt: "{{Front}}",
-              afmt: "{{FrontSide}}<hr id=answer>{{Back}}",
-              bqfmt: "",
-              bafmt: "",
-              did: null,
-              bfont: "",
-              bsize: 0,
-              id: 0,
-            },
-          ],
-          flds: [
-            {
-              name: "Front",
-              ord: 0,
-              sticky: false,
-              rtl: false,
-              font: "Arial",
-              size: 20,
-              media: [],
-              id: 0,
-              tag: null,
-              preventDeletion: false,
-              description: "",
-              plainText: false,
-              collapsed: false,
-              excludeFromSearch: false,
-            },
-            {
-              name: "Back",
-              ord: 1,
-              sticky: false,
-              rtl: false,
-              font: "Arial",
-              size: 20,
-              media: [],
-              id: 1,
-              tag: null,
-              preventDeletion: false,
-              description: "",
-              plainText: false,
-              collapsed: false,
-              excludeFromSearch: false,
-            },
-          ],
-          css: ".card { font-family: arial; font-size: 20px; }",
-          latexPre: "",
-          latexPost: "",
-          latexsvg: false,
-          req: [[0, "any", [0]]],
-          originalStockKind: 1,
-          tags: [],
-        },
-      };
-      const defaultConf = {
-        activeDecks: [1],
-        curDeck: 1,
-        newSpread: 0,
-        collapseTime: 1200,
-        timeLim: 0,
-        estTimes: true,
-        dueCounts: true,
-        curModel: "1234567890123",
-        nextPos: 1,
-        sortType: "noteFld",
-        sortBackwards: false,
-        addToCur: true,
-      };
-      const defaultDconf = {
-        "1": {
-          id: 1,
-          name: "Default",
-          new: {
-            delays: [1, 10],
-            ints: [1, 4, 0],
-            initialFactor: 2500,
-            order: 1,
-            perDay: 20,
-          },
-          rev: {
-            perDay: 200,
-            ease4: 1.3,
-            ivlFct: 1,
-            maxIvl: 36500,
-            fuzz: 0.05,
-          },
-          lapse: {
-            delays: [10],
-            mult: 0,
-            minInt: 1,
-            leechFails: 8,
-            leechAction: 0,
-          },
-          dyn: false,
-          maxTaken: 60,
-          timer: 0,
-          autoplay: true,
-          replayq: true,
-          mod: 0,
-          usn: 0,
-        },
-      };
-
-      db.run("INSERT INTO col VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [
-        1,
-        Math.floor(now / 1000),
-        now,
-        now,
-        11,
-        0,
-        -1,
-        0,
-        JSON.stringify(defaultConf),
-        JSON.stringify(defaultModel),
-        JSON.stringify(defaultDeck),
-        JSON.stringify(defaultDconf),
-        "{}",
-      ]);
-
-      return Buffer.from(db.export());
-    }
-
-    // Helper function to create a ZIP file with specific contents
-    async function createTestZip(
-      zipPath: string,
-      files: { name: string; content: string | Buffer }[],
-    ): Promise<void> {
-      return new Promise((resolve, reject) => {
-        const output = createWriteStream(zipPath);
-        const archive = archiver("zip");
-
-        output.on("close", () => {
-          resolve();
-        });
-        archive.on("error", (err) => {
-          reject(err);
-        });
-
-        archive.pipe(output);
-        for (const file of files) {
-          archive.append(file.content, { name: file.name });
-        }
-        void archive.finalize();
-      });
-    }
-
     it("should detect and report malformed JSON syntax in media file", async () => {
       const zipPath = join(tempDir, "malformed-json-media.apkg");
-      const validDb = await createValidAnkiDatabase();
+      const validDb = await getValidAnkiDatabaseBuffer();
       // Create media file with invalid JSON syntax
       const malformedJson = '{ "0": "image.png", "1": }'; // Missing value
 
@@ -3963,7 +3719,7 @@ describe("Error Handling and Edge Cases", () => {
 
     it("should detect and report wrong JSON structure (array instead of object)", async () => {
       const zipPath = join(tempDir, "array-media.apkg");
-      const validDb = await createValidAnkiDatabase();
+      const validDb = await getValidAnkiDatabaseBuffer();
       // Create media file with array instead of object
       const arrayJson = '["image.png", "audio.mp3"]';
 
@@ -3985,7 +3741,7 @@ describe("Error Handling and Edge Cases", () => {
 
     it("should handle empty media file gracefully (valid case - no media)", async () => {
       const zipPath = join(tempDir, "empty-media-file.apkg");
-      const validDb = await createValidAnkiDatabase();
+      const validDb = await getValidAnkiDatabaseBuffer();
       // Create empty media file (0 bytes)
       const emptyContent = "";
 
@@ -4007,7 +3763,7 @@ describe("Error Handling and Edge Cases", () => {
 
     it("should handle valid empty JSON object {} (no media)", async () => {
       const zipPath = join(tempDir, "empty-json-object-media.apkg");
-      const validDb = await createValidAnkiDatabase();
+      const validDb = await getValidAnkiDatabaseBuffer();
       // Create media file with empty JSON object
       const emptyObjectJson = "{}";
 
@@ -4029,7 +3785,7 @@ describe("Error Handling and Edge Cases", () => {
 
     it("should detect invalid value type in media mapping (number instead of string)", async () => {
       const zipPath = join(tempDir, "invalid-value-type-media.apkg");
-      const validDb = await createValidAnkiDatabase();
+      const validDb = await getValidAnkiDatabaseBuffer();
       // Create media file with number value instead of string
       const invalidValueJson = '{ "0": 12345 }';
 
@@ -4053,7 +3809,7 @@ describe("Error Handling and Edge Cases", () => {
 
     it("should detect null value in media mapping", async () => {
       const zipPath = join(tempDir, "null-value-media.apkg");
-      const validDb = await createValidAnkiDatabase();
+      const validDb = await getValidAnkiDatabaseBuffer();
       // Create media file with null value
       const nullValueJson = '{ "0": null }';
 
@@ -4077,7 +3833,7 @@ describe("Error Handling and Edge Cases", () => {
 
     it("should provide actionable guidance for invalid media JSON", async () => {
       const zipPath = join(tempDir, "guidance-test-media.apkg");
-      const validDb = await createValidAnkiDatabase();
+      const validDb = await getValidAnkiDatabaseBuffer();
       // Create media file with invalid JSON
       const brokenJson = "not valid json at all {{{";
 
