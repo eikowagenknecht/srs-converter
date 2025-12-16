@@ -14,6 +14,8 @@ import {
   createNote,
   createNoteType,
   createReview,
+  type SrsNoteTemplate,
+  type SrsNoteType,
   SrsPackage,
   SrsReviewScore,
 } from "@/srs-package";
@@ -178,8 +180,7 @@ function createTestAnkiReview(
   };
 }
 
-// TODO: Use proper return type
-function createBasicTemplate(id = 0, name = "Card 1") {
+function createBasicTemplate(id = 0, name = "Card 1"): SrsNoteTemplate {
   return {
     id,
     name,
@@ -188,8 +189,7 @@ function createBasicTemplate(id = 0, name = "Card 1") {
   };
 }
 
-// TODO: Use proper return type
-function createBasicNoteType(name = "Basic") {
+function createBasicNoteType(name = "Basic"): SrsNoteType {
   return createNoteType({
     name,
     fields: [
@@ -200,7 +200,6 @@ function createBasicNoteType(name = "Basic") {
   });
 }
 
-// TODO: Use proper return type
 function createBasicSrsPackage(
   options: {
     deckName?: string;
@@ -209,7 +208,13 @@ function createBasicSrsPackage(
     frontValue?: string;
     backValue?: string;
   } = {},
-) {
+): {
+  srsPackage: SrsPackage;
+  deck: ReturnType<typeof createDeck>;
+  noteType: SrsNoteType;
+  note: ReturnType<typeof createNote>;
+  card: ReturnType<typeof createCard>;
+} {
   const {
     deckName = "Test Deck",
     deckDescription = "A test deck",
@@ -245,8 +250,7 @@ function createBasicSrsPackage(
   return { srsPackage, deck, noteType, note, card };
 }
 
-// TODO: Use proper return type
-function createMultiCardPackage(noteCount = 10) {
+function createMultiCardPackage(noteCount = 10): SrsPackage {
   const { srsPackage, deck, noteType } = createBasicSrsPackage();
 
   for (let i = 1; i < noteCount; i++) {

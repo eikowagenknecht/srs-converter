@@ -159,7 +159,7 @@ export class SrsPackage {
   }
 }
 
-interface SrsDeck {
+export interface SrsDeck {
   /** UUIDv7 identifier */
   id: string;
   /** Name of the deck */
@@ -170,7 +170,7 @@ interface SrsDeck {
   applicationSpecificData?: Record<string, string>;
 }
 
-interface SrsNote<T extends SrsNoteType = SrsNoteType> {
+export interface SrsNote<T extends SrsNoteType = SrsNoteType> {
   /** UUIDv7 identifier */
   id: string;
   /** The note type of the note (UUIDv7) */
@@ -203,7 +203,7 @@ export enum SrsReviewScore {
   Easy = 4,
 }
 
-interface SrsReview {
+export interface SrsReview {
   /** UUIDv7 identifier */
   id: string;
   /** The card that was reviewed (UUIDv7) */
@@ -216,7 +216,7 @@ interface SrsReview {
   applicationSpecificData?: Record<string, string>;
 }
 
-interface SrsNoteField<TName = string> {
+export interface SrsNoteField<TName = string> {
   /** 0, 1, 2, ... */
   id: number;
   /** Name of the field, e.g. "Question" or "Answer" */
@@ -225,7 +225,7 @@ interface SrsNoteField<TName = string> {
   description?: string;
 }
 
-interface SrsNoteTemplate<TId = number> {
+export interface SrsNoteTemplate<TId = number> {
   /** 0, 1, 2, ... */
   id: TId;
   /** The name of the template, e.g. "Question > Answer" */
@@ -238,7 +238,7 @@ interface SrsNoteTemplate<TId = number> {
   applicationSpecificData?: Record<string, string>;
 }
 
-interface SrsNoteType {
+export interface SrsNoteType {
   /** UUIDv7 identifier */
   id: string;
   /** Name of the note type, e.g. "Basic" */
