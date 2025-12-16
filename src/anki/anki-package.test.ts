@@ -334,7 +334,6 @@ describe("Creation", () => {
       const ankiPackage = expectSuccess(result);
 
       try {
-        expect(ankiPackage).toBeDefined();
         expect(ankiPackage.toString()).toContain("AnkiPackage");
       } finally {
         await ankiPackage.cleanup();
@@ -431,7 +430,6 @@ describe("Import / Export", () => {
       const ankiPackage = expectSuccess(result);
 
       try {
-        expect(ankiPackage).toBeDefined();
         expect(ankiPackage.toString()).toContain("AnkiPackage");
       } finally {
         await ankiPackage.cleanup();
@@ -445,7 +443,6 @@ describe("Import / Export", () => {
       const ankiPackage = expectSuccess(result);
 
       try {
-        expect(ankiPackage).toBeDefined();
         expect(ankiPackage.toString()).toContain("AnkiPackage");
       } finally {
         await ankiPackage.cleanup();
@@ -486,7 +483,7 @@ describe("Import / Export", () => {
 
       const result = await AnkiPackage.fromAnkiExport(nonExistentPath);
       expectFailure(result);
-      expect(result.issues.length).toBeGreaterThan(0);
+      expect(result.issues).toHaveLength(1);
     });
   });
 
@@ -646,7 +643,6 @@ describe("Import / Export", () => {
         try {
           // The fact that we can successfully re-import means the meta file was written correctly
           // because fromAnkiExport validates the meta file format and version
-          expect(reimportedPackage).toBeDefined();
 
           // Additionally verify the structure matches expected format
           const reimportedDecks = reimportedPackage.getDecks();
@@ -684,7 +680,6 @@ describe("Import / Export", () => {
         try {
           // The fact that we can successfully re-import means the media file was written correctly
           // Default packages have empty media mapping, so verify that's preserved
-          expect(reimportedPackage).toBeDefined();
 
           // We can't directly access mediaFiles from the package, but successful import
           // means the media file was properly formatted as JSON and readable
@@ -1362,9 +1357,9 @@ describe("Media File APIs", () => {
         expect(mediaFiles).toContain(TEST_IMAGE_NAME);
         expect(mediaFiles).toHaveLength(1);
 
-        // Verify we can retrieve it
+        // Verify we can retrieve it (test image is 21053 bytes)
         const size = await pkg.getMediaFileSize(TEST_IMAGE_NAME);
-        expect(size).toBeGreaterThan(0);
+        expect(size).toBe(21053);
       } finally {
         await pkg.cleanup();
       }
@@ -1578,9 +1573,9 @@ describe("Media File APIs", () => {
         // Add a media file
         await pkg.addMediaFile(TEST_IMAGE_NAME, TEST_IMAGE_PATH);
 
-        // Verify we can access it
+        // Verify we can access it (test image is 21053 bytes)
         const size = await pkg.getMediaFileSize(TEST_IMAGE_NAME);
-        expect(size).toBeGreaterThan(0);
+        expect(size).toBe(21053);
 
         // Remove it
         await pkg.removeMediaFile(TEST_IMAGE_NAME);
@@ -2054,7 +2049,6 @@ describe("Conversion SRS → Anki", () => {
 
       const result = await AnkiPackage.fromSrsPackage(srsPackage);
       const ankiPackage = expectSuccess(result);
-      expect(ankiPackage).toBeDefined();
 
       try {
         const ankiDeck = ankiPackage.getDecks()[0];
@@ -2120,7 +2114,6 @@ describe("Conversion SRS → Anki", () => {
 
       const ankiResult = await AnkiPackage.fromSrsPackage(srsPackage);
       const ankiPackage = expectSuccess(ankiResult);
-      expect(ankiPackage).toBeDefined();
 
       try {
         const ankiDeck = ankiPackage.getDecks()[0];
@@ -2517,15 +2510,12 @@ describe("Conversion SRS → Anki", () => {
       const srsResult = ankiPackage.toSrsPackage();
 
       expect(srsResult.status).toBe("partial");
-      expect(srsResult.issues.length).toBeGreaterThan(0);
+      expect(srsResult.issues).toHaveLength(1);
 
       // Check that the error includes information about the unknown review score
-      const reviewError = srsResult.issues.find((issue) =>
-        issue.message.includes("Unknown review score"),
-      );
-      expect(reviewError).toBeDefined();
-      expect(reviewError?.message).toContain("999");
-      expect(reviewError?.message).toContain("Skipping review");
+      expect(srsResult.issues[0]?.message).toContain("Unknown review score");
+      expect(srsResult.issues[0]?.message).toContain("999");
+      expect(srsResult.issues[0]?.message).toContain("Skipping review");
 
       await ankiPackage.cleanup();
     });
@@ -2843,11 +2833,9 @@ describe("Conversion Anki → SRS", () => {
         const convertResult = ankiPackage.toSrsPackage();
 
         // The conversion should succeed with partial status due to error handling
-        const convertedSrs = expectPartial(convertResult);
-        expect(convertedSrs).toBeDefined();
+        expectPartial(convertResult);
 
         // Verify that an error was reported
-        expect(convertResult.issues.length).toBeGreaterThan(0);
         const hasErrorIssue = convertResult.issues.some(
           (issue) => issue.severity === "error",
         );
@@ -3178,7 +3166,7 @@ describe("Conversion Anki → SRS", () => {
       const convertedSrsPackage = expectPartial(convertedSrsResult);
 
       // Verify that the invalid review was handled properly
-      expect(convertedSrsResult.issues.length).toBeGreaterThan(0);
+      expect(convertedSrsResult.issues).toHaveLength(1);
       expect(convertedSrsResult.issues[0]?.message).toMatch(
         /Unknown review score/,
       );
@@ -3217,7 +3205,7 @@ describe("Conversion Anki → SRS", () => {
       const convertedSrsPackage = expectPartial(convertedSrsResult);
 
       // Verify that the review with null ID was handled properly
-      expect(convertedSrsResult.issues.length).toBeGreaterThan(0);
+      expect(convertedSrsResult.issues).toHaveLength(1);
       expect(convertedSrsResult.issues[0]?.message).toMatch(
         /Review ID is undefined/,
       );
@@ -3286,7 +3274,7 @@ describe("Conversion Anki → SRS", () => {
       const convertedSrsPackage = expectPartial(convertedSrsResult);
 
       // Verify that the review for non-existent card was handled properly
-      expect(convertedSrsResult.issues.length).toBeGreaterThan(0);
+      expect(convertedSrsResult.issues).toHaveLength(1);
       expect(convertedSrsResult.issues[0]?.message).toMatch(
         /Card not found for Review ID/,
       );
