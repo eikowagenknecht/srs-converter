@@ -763,24 +763,12 @@ describe("Import / Export", () => {
         const exportPathToFile = join(invalidPath, "test.apkg"); // This should fail
 
         // Export should handle the error gracefully
-        let errorThrown = false;
-        try {
-          await ankiPackage.toAnkiExport(exportPathToFile);
-        } catch (error) {
-          errorThrown = true;
-          expect(error).toBeDefined();
-        }
-        expect(errorThrown).toBe(true);
+        await expect(
+          ankiPackage.toAnkiExport(exportPathToFile),
+        ).rejects.toThrow();
 
         // Test with an empty string path (invalid)
-        let emptyPathErrorThrown = false;
-        try {
-          await ankiPackage.toAnkiExport("");
-        } catch (error) {
-          emptyPathErrorThrown = true;
-          expect(error).toBeDefined();
-        }
-        expect(emptyPathErrorThrown).toBe(true);
+        await expect(ankiPackage.toAnkiExport("")).rejects.toThrow();
 
         // Test that the AnkiPackage instance is still functional after failures
         const validPath = join(tempDir, "recovery-test.apkg");
@@ -3328,7 +3316,7 @@ describe("Error Handling and Edge Cases", () => {
     });
   });
 
-  describe("Corrupted ZIP Archive Handling (Story 1.0.5.1)", () => {
+  describe("Corrupted ZIP Archive Handling", () => {
     it("should detect and report truncated ZIP files with specific message", async () => {
       // Create a truncated ZIP file (valid ZIP header but incomplete)
       const truncatedZipPath = join(tempDir, "truncated.apkg");
@@ -3434,7 +3422,7 @@ describe("Error Handling and Edge Cases", () => {
     });
   });
 
-  describe("Missing Required Files Handling (Story 1.0.5.2)", () => {
+  describe("Missing Required Files Handling", () => {
     it("should detect and report missing meta file with specific message", async () => {
       const zipPath = join(tempDir, "missing-meta.apkg");
       // Create ZIP with media and database, but no meta file
@@ -3550,7 +3538,7 @@ describe("Error Handling and Edge Cases", () => {
     });
   });
 
-  describe("Corrupted SQLite Database Handling (Story 1.0.5.3)", () => {
+  describe("Corrupted SQLite Database Handling", () => {
     it("should detect and report corrupted database file (random bytes) with specific message", async () => {
       const zipPath = join(tempDir, "corrupted-db.apkg");
       // Create database file with random bytes (not valid SQLite)
@@ -3692,7 +3680,7 @@ describe("Error Handling and Edge Cases", () => {
     });
   });
 
-  describe("Invalid JSON in Media Metadata Handling (Story 1.0.5.4)", () => {
+  describe("Invalid JSON in Media Metadata Handling", () => {
     it("should detect and report malformed JSON syntax in media file", async () => {
       const zipPath = join(tempDir, "malformed-json-media.apkg");
       const validDb = await getValidAnkiDatabaseBuffer();
@@ -3853,7 +3841,7 @@ describe("Error Handling and Edge Cases", () => {
     });
   });
 
-  describe("Partial Data Recovery (Story 1.0.5.5)", () => {
+  describe("Partial Data Recovery", () => {
     // Helper function to create a valid SQLite database for testing partial recovery
     async function createAnkiDatabaseWithData(options: {
       models?: Record<string, unknown>;
@@ -4678,16 +4666,14 @@ describe("Error Handling and Edge Cases", () => {
           expect(convertedReviews).toHaveLength(originalReviews.length);
 
           // Assert deck properties are preserved
-          expect(convertedDecks).toHaveLength(1);
-          expect(originalDecks).toHaveLength(1);
+          expect(convertedDecks).toHaveLength(originalDecks.length);
           const [convertedDeck] = convertedDecks;
           const [originalDeck] = originalDecks;
           expect(convertedDeck?.name).toBe(originalDeck?.name);
           expect(convertedDeck?.description).toBe(originalDeck?.description);
 
           // Assert note type properties are preserved
-          expect(convertedNoteTypes).toHaveLength(1);
-          expect(originalNoteTypes).toHaveLength(1);
+          expect(convertedNoteTypes).toHaveLength(originalNoteTypes.length);
           const [convertedNoteType] = convertedNoteTypes;
           const [originalNoteType] = originalNoteTypes;
           expect(convertedNoteType?.name).toBe(originalNoteType?.name);
@@ -4699,8 +4685,7 @@ describe("Error Handling and Edge Cases", () => {
           );
 
           // Assert note field values are preserved
-          expect(convertedNotes).toHaveLength(2);
-          expect(originalNotes).toHaveLength(2);
+          expect(convertedNotes).toHaveLength(originalNotes.length);
           const [convertedNote1, convertedNote2] = convertedNotes;
           const [originalNote1, originalNote2] = originalNotes;
           expect(convertedNote1?.fieldValues).toEqual(
@@ -4711,8 +4696,8 @@ describe("Error Handling and Edge Cases", () => {
           );
 
           // Assert card and review relationships are preserved
-          expect(convertedCards).toHaveLength(2);
-          expect(convertedReviews).toHaveLength(2);
+          expect(convertedCards).toHaveLength(originalCards.length);
+          expect(convertedReviews).toHaveLength(originalReviews.length);
         } finally {
           await ankiPackage.cleanup();
         }
