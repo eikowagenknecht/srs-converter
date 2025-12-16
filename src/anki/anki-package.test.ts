@@ -74,35 +74,12 @@ function expectFailure<T>(result: ConversionResult<T>): ConversionResult<T> {
 
 //#region Helpers - Basic Entities
 
-function createTestNote(
-  noteTypeId: bigint | number,
-  fields: string[],
-  tags: string[] = [],
-): NotesTable {
-  const now = Date.now();
-  const nowSeconds = Math.floor(now / 1000);
-  return {
-    id: now,
-    guid: guid64(),
-    mid: typeof noteTypeId === "bigint" ? Number(noteTypeId) : noteTypeId,
-    mod: nowSeconds,
-    usn: -1,
-    tags: tags.join(" "),
-    flds: joinAnkiFields(fields),
-    sfld: fields[0] ?? "",
-    csum: 0,
-    flags: 0,
-    data: "",
-  };
-}
-
 // Helper function to create an Anki note (NotesTable) for testing
 // Returns NotesTable with id guaranteed to be a number (not null)
-// TODO: Seems duplicate with createTestNote, refactor
 function createTestAnkiNote(
   options: {
     id?: number;
-    noteTypeId: number;
+    noteTypeId: bigint | number;
     fields: string[];
     tags?: string[];
     guid?: string;
@@ -114,8 +91,11 @@ function createTestAnkiNote(
   const id = options.id ?? (getTimestamp ? getTimestamp() : now);
   return {
     id,
-    guid: options.guid ?? `TestNote_${id.toFixed()}`,
-    mid: options.noteTypeId,
+    guid: options.guid ?? guid64(),
+    mid:
+      typeof options.noteTypeId === "bigint"
+        ? Number(options.noteTypeId)
+        : options.noteTypeId,
     mod: nowSeconds,
     usn: -1,
     tags: (options.tags ?? []).join(" "),
@@ -1772,10 +1752,13 @@ describe("Media File APIs", () => {
 
         // Add a note that references some media
         pkg.addNote(
-          createTestNote(basicModel.id, [
-            '<img src="referenced-image.png">',
-            "[sound:referenced-sound.mp3]",
-          ]),
+          createTestAnkiNote({
+            noteTypeId: basicModel.id,
+            fields: [
+              '<img src="referenced-image.png">',
+              "[sound:referenced-sound.mp3]",
+            ],
+          }),
         );
 
         // Verify all files are present
@@ -1809,22 +1792,22 @@ describe("Media File APIs", () => {
 
         // Add notes with different img tag formats
         pkg.addNote(
-          createTestNote(basicModel.id, [
-            '<img src="with-quotes.png">',
-            "Back",
-          ]),
+          createTestAnkiNote({
+            noteTypeId: basicModel.id,
+            fields: ['<img src="with-quotes.png">', "Back"],
+          }),
         );
         pkg.addNote(
-          createTestNote(basicModel.id, [
-            "<img src=without-quotes.png>",
-            "Back",
-          ]),
+          createTestAnkiNote({
+            noteTypeId: basicModel.id,
+            fields: ["<img src=without-quotes.png>", "Back"],
+          }),
         );
         pkg.addNote(
-          createTestNote(basicModel.id, [
-            "<img src='single-quotes.png'>",
-            "Back",
-          ]),
+          createTestAnkiNote({
+            noteTypeId: basicModel.id,
+            fields: ["<img src='single-quotes.png'>", "Back"],
+          }),
         );
 
         const removed = await pkg.removeUnreferencedMediaFiles();
@@ -1850,10 +1833,10 @@ describe("Media File APIs", () => {
         await pkg.addMediaFile("unreferenced.mp3", TEST_AUDIO_PATH);
 
         pkg.addNote(
-          createTestNote(basicModel.id, [
-            "Front",
-            "[sound:audio1.mp3] [sound:audio2.mp3]",
-          ]),
+          createTestAnkiNote({
+            noteTypeId: basicModel.id,
+            fields: ["Front", "[sound:audio1.mp3] [sound:audio2.mp3]"],
+          }),
         );
 
         const removed = await pkg.removeUnreferencedMediaFiles();
@@ -1879,10 +1862,10 @@ describe("Media File APIs", () => {
 
         // Anki uses [sound:] syntax for both audio and video files
         pkg.addNote(
-          createTestNote(basicModel.id, [
-            "Front",
-            "[sound:video1.mp4] [sound:video2.mp4]",
-          ]),
+          createTestAnkiNote({
+            noteTypeId: basicModel.id,
+            fields: ["Front", "[sound:video1.mp4] [sound:video2.mp4]"],
+          }),
         );
 
         const removed = await pkg.removeUnreferencedMediaFiles();
@@ -1905,7 +1888,10 @@ describe("Media File APIs", () => {
         await pkg.addMediaFile("referenced.png", TEST_IMAGE_PATH);
 
         pkg.addNote(
-          createTestNote(basicModel.id, ['<img src="referenced.png">', "Back"]),
+          createTestAnkiNote({
+            noteTypeId: basicModel.id,
+            fields: ['<img src="referenced.png">', "Back"],
+          }),
         );
 
         const removed = await pkg.removeUnreferencedMediaFiles();
@@ -1929,10 +1915,10 @@ describe("Media File APIs", () => {
         await pkg.addMediaFile("file3.png", TEST_IMAGE_PATH);
 
         pkg.addNote(
-          createTestNote(basicModel.id, [
-            "Front without media",
-            "Back without media",
-          ]),
+          createTestAnkiNote({
+            noteTypeId: basicModel.id,
+            fields: ["Front without media", "Back without media"],
+          }),
         );
 
         const removed = await pkg.removeUnreferencedMediaFiles();
@@ -1953,7 +1939,12 @@ describe("Media File APIs", () => {
       const pkg = expectSuccess(result);
 
       try {
-        pkg.addNote(createTestNote(basicModel.id, ["Front", "Back"]));
+        pkg.addNote(
+          createTestAnkiNote({
+            noteTypeId: basicModel.id,
+            fields: ["Front", "Back"],
+          }),
+        );
 
         const removed = await pkg.removeUnreferencedMediaFiles();
 
@@ -1976,10 +1967,10 @@ describe("Media File APIs", () => {
 
         // Note with media in different fields
         pkg.addNote(
-          createTestNote(basicModel.id, [
-            '<img src="in-field1.png">',
-            "[sound:in-field2.mp3]",
-          ]),
+          createTestAnkiNote({
+            noteTypeId: basicModel.id,
+            fields: ['<img src="in-field1.png">', "[sound:in-field2.mp3]"],
+          }),
         );
 
         const removed = await pkg.removeUnreferencedMediaFiles();
@@ -2005,10 +1996,13 @@ describe("Media File APIs", () => {
         await pkg.addMediaFile("unreferenced.png", TEST_IMAGE_PATH);
 
         pkg.addNote(
-          createTestNote(basicModel.id, [
-            '<div><img src="img1.png" alt="test"><img src="img2.png"></div>',
-            "Text before [sound:sound1.mp3] text after",
-          ]),
+          createTestAnkiNote({
+            noteTypeId: basicModel.id,
+            fields: [
+              '<div><img src="img1.png" alt="test"><img src="img2.png"></div>',
+              "Text before [sound:sound1.mp3] text after",
+            ],
+          }),
         );
 
         const removed = await pkg.removeUnreferencedMediaFiles();
