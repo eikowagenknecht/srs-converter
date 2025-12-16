@@ -297,32 +297,64 @@ Stories 1-4 can be done independently; Story 5 builds on top of them.
 
 ### Story 1.0.5.5: Support Partial Data Recovery
 
-**Status:** ⏳ Pending
+**Status:** ✅ Completed
 
 **Story:** As a developer, I want the library to support partial data recovery when some data is recoverable so users can extract what's possible from partially corrupted packages.
 
 **Acceptance Criteria:**
 
-- [ ] Return `partial` status when non-critical errors occur
-- [ ] Continue reading valid decks even if some are malformed
-- [ ] Continue reading valid notes even if some have issues
-- [ ] Report all issues in `ConversionIssue[]` array
-- [ ] Respect `errorHandling: "strict" | "best-effort"` option
-- [ ] Document which errors are recoverable vs critical
+- [x] Return `partial` status when non-critical errors occur
+- [x] Continue reading valid decks even if some are malformed
+- [x] Continue reading valid notes even if some have issues
+- [x] Report all issues in `ConversionIssue[]` array
+- [x] Respect `errorHandling: "strict" | "best-effort"` option
+- [x] Document which errors are recoverable vs critical (see below)
 
 **Implementation Notes:**
 
-- Critical (unrecoverable): corrupted ZIP, missing database, corrupted database
-- Recoverable: individual malformed notes, missing media files, invalid deck configs
-- Use `IssueCollector` to accumulate warnings/errors during parsing
-- In `best-effort` mode, skip problematic items and continue
+Critical (unrecoverable) errors:
+
+- Corrupted/invalid ZIP archive
+- Missing required files (database, media mapping, meta)
+- Corrupted SQLite database (header invalid, too small)
+- Missing required database tables
+- Malformed collection JSON structure (outer object broken)
+
+Recoverable errors (skip and continue in best-effort mode):
+
+- Individual deck entries with invalid structure/types
+- Individual note type entries with invalid structure/types
+- Notes referencing non-existent note types
+- Cards referencing non-existent notes or decks
+- Reviews referencing non-existent cards
+- Missing media files (warning only - files listed but not in archive)
+
+Implementation:
+
+- `AnkiDatabase.toObject()` now validates all items and returns `DatabaseResult<DatabaseDump>` with issues
+- `AnkiDatabase.getCollectionWithValidation()` validates decks and note types
+- Validation functions: `validateDeckEntry()`, `validateNoteTypeEntry()`, `validateNote()`, `validateCard()`, `validateReview()`
+- Validation cascade: invalid notes → orphaned cards → orphaned reviews
+- Media file existence validated in `AnkiPackage.fromAnkiExport()`
+- `IssueCollector` handles strict/best-effort logic via `createResult()`
 
 **Testing:**
 
-- [ ] Automated: Test recovery with some valid and some invalid notes
-- [ ] Automated: Test `strict` mode fails on recoverable errors
-- [ ] Automated: Test `best-effort` mode returns partial results
-- [ ] Automated: Verify all issues are reported in result
+- [x] Automated: Test recovery with some valid and some invalid notes
+- [x] Automated: Test `strict` mode fails on recoverable errors
+- [x] Automated: Test `best-effort` mode returns partial results
+- [x] Automated: Verify all issues are reported in result
+- [x] Automated: Test missing media file warnings
+- [x] Automated: Test cards with non-existent deck references
+- [x] Automated: Test reviews with non-existent card references
+
+**Files Modified:**
+
+- `src/anki/database.ts` - Added `DatabaseResult`, validation functions, `getCollectionWithValidation()`, updated `toObject()`
+- `src/anki/anki-package.ts` - Added media file validation in `fromAnkiExport()`
+- `src/error-handling.ts` - Added `noteType` and `media` to item types
+- `src/anki/database.test.ts` - Updated tests for new `toObject()` return type
+- `src/anki/anki-package.test.ts` - Added 8 tests for partial recovery scenarios
 
 **Dependencies:** Stories 1.0.5.1, 1.0.5.2, 1.0.5.3, 1.0.5.4
 
