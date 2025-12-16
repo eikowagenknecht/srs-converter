@@ -25,10 +25,26 @@ import {
   defaultConfig,
   defaultDeck,
 } from "./constants";
-import { type Ease, type NotesTable, NoteTypeKind } from "./types";
+import {
+  type CardsTable,
+  type Ease,
+  type NotesTable,
+  NoteTypeKind,
+  type RevlogTable,
+} from "./types";
 import { extractTimestampFromUuid, guid64, joinAnkiFields } from "./util";
 
-// Helper function to unwrap ConversionResult for tests that expect success
+// #region Helpers - Constants
+
+// Valid meta file for version 2 (Legacy_V2)
+// Protobuf encoding: field 1 (varint) with value 2 = [0x08, 0x02]
+// TODO: Use this everywhere instead of redefining
+const validMetaV2 = Buffer.from([0x08, 0x02]);
+
+// #endregion Helpers - Constants
+
+//#region Helpers - Test Results
+
 function expectSuccess<T>(result: ConversionResult<T>): T {
   expect(result.status).toBe("success");
   expect(result.data).toBeDefined();
@@ -38,7 +54,7 @@ function expectSuccess<T>(result: ConversionResult<T>): T {
   return result.data;
 }
 
-// Helper function to unwrap ConversionResult for tests that expect success or partial
+// TODO: We never expect ... OR ..., refactor to expectPartial
 function expectSuccessOrPartial<T>(result: ConversionResult<T>): T {
   expect(["success", "partial"]).toContain(result.status);
   expect(result.data).toBeDefined();
@@ -48,7 +64,17 @@ function expectSuccessOrPartial<T>(result: ConversionResult<T>): T {
   return result.data;
 }
 
-// Helper function to create a NotesTable object for testing
+function expectFailure<T>(result: ConversionResult<T>): ConversionResult<T> {
+  expect(result.status).toBe("failure");
+  expect(result.data).toBeUndefined();
+  expect(result.issues.length).toBeGreaterThan(0);
+  return result;
+}
+
+//#endregion Helpers - Test Results
+
+//#region Helpers - Basic Entities
+
 function createTestNote(
   noteTypeId: bigint | number,
   fields: string[],
@@ -71,15 +97,109 @@ function createTestNote(
   };
 }
 
-// Helper function to check for failure and extract error info
-function expectFailure<T>(result: ConversionResult<T>): ConversionResult<T> {
-  expect(result.status).toBe("failure");
-  expect(result.data).toBeUndefined();
-  expect(result.issues.length).toBeGreaterThan(0);
-  return result;
+// Helper function to create an Anki note (NotesTable) for testing
+// Returns NotesTable with id guaranteed to be a number (not null)
+// TODO: Seems duplicate with createTestNote, refactor
+function createTestAnkiNote(
+  options: {
+    id?: number;
+    noteTypeId: number;
+    fields: string[];
+    tags?: string[];
+    guid?: string;
+  },
+  getTimestamp?: () => number,
+): NotesTable & { id: number } {
+  const now = Date.now();
+  const nowSeconds = Math.floor(now / 1000);
+  const id = options.id ?? (getTimestamp ? getTimestamp() : now);
+  return {
+    id,
+    guid: options.guid ?? `TestNote_${id.toFixed()}`,
+    mid: options.noteTypeId,
+    mod: nowSeconds,
+    usn: -1,
+    tags: (options.tags ?? []).join(" "),
+    flds: joinAnkiFields(options.fields),
+    sfld: options.fields[0] ?? "",
+    csum: 0,
+    flags: 0,
+    data: "",
+  };
 }
 
-// Test helpers for DRY code
+// Helper function to create an Anki card (CardsTable) for testing
+// Returns CardsTable with id guaranteed to be a number (not null)
+function createTestAnkiCard(
+  options: {
+    id?: number;
+    noteId: number;
+    deckId: number;
+    templateIndex?: number;
+    type?: number;
+    queue?: number;
+    due?: number;
+    interval?: number;
+    factor?: number;
+    reps?: number;
+    lapses?: number;
+  },
+  getTimestamp?: () => number,
+): CardsTable & { id: number } {
+  const now = Date.now();
+  const nowSeconds = Math.floor(now / 1000);
+  return {
+    id: options.id ?? (getTimestamp ? getTimestamp() : now),
+    nid: options.noteId,
+    did: options.deckId,
+    ord: options.templateIndex ?? 0,
+    mod: nowSeconds,
+    usn: -1,
+    type: options.type ?? 0,
+    queue: options.queue ?? 0,
+    due: options.due ?? 1,
+    ivl: options.interval ?? 0,
+    factor: options.factor ?? 2500,
+    reps: options.reps ?? 0,
+    lapses: options.lapses ?? 0,
+    left: 1001,
+    odue: 0,
+    odid: 0,
+    flags: 0,
+    data: "",
+  };
+}
+
+// Helper function to create an Anki review (RevlogTable) for testing
+// Returns RevlogTable with id guaranteed to be a number (not null)
+function createTestAnkiReview(
+  options: {
+    id?: number;
+    cardId: number;
+    ease: Ease;
+    interval?: number;
+    lastInterval?: number;
+    factor?: number;
+    time?: number;
+    type?: number;
+  },
+  getTimestamp?: () => number,
+): RevlogTable & { id: number } {
+  const now = Date.now();
+  return {
+    id: options.id ?? (getTimestamp ? getTimestamp() : now),
+    cid: options.cardId,
+    usn: -1,
+    ease: options.ease,
+    ivl: options.interval ?? 0,
+    lastIvl: options.lastInterval ?? 0,
+    factor: options.factor ?? 2500,
+    time: options.time ?? 5000,
+    type: options.type ?? 0,
+  };
+}
+
+// TODO: Use proper return type
 function createBasicTemplate(id = 0, name = "Card 1") {
   return {
     id,
@@ -89,6 +209,7 @@ function createBasicTemplate(id = 0, name = "Card 1") {
   };
 }
 
+// TODO: Use proper return type
 function createBasicNoteType(name = "Basic") {
   return createNoteType({
     name,
@@ -100,6 +221,7 @@ function createBasicNoteType(name = "Basic") {
   });
 }
 
+// TODO: Use proper return type
 function createBasicSrsPackage(
   options: {
     deckName?: string;
@@ -144,6 +266,7 @@ function createBasicSrsPackage(
   return { srsPackage, deck, noteType, note, card };
 }
 
+// TODO: Use proper return type
 function createMultiCardPackage(noteCount = 10) {
   const { srsPackage, deck, noteType } = createBasicSrsPackage();
 
@@ -171,6 +294,45 @@ function createMultiCardPackage(noteCount = 10) {
 
   return srsPackage;
 }
+
+// #endregion Helpers - Basic Entities
+
+// #region Helpers - Utilities
+
+// Helper function to create a ZIP file with specific contents for testing
+async function createTestZip(
+  zipPath: string,
+  files: { name: string; content: string | Buffer }[],
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const output = createWriteStream(zipPath);
+    const archive = archiver("zip");
+
+    output.on("close", () => {
+      resolve();
+    });
+    archive.on("error", (err) => {
+      reject(err);
+    });
+
+    archive.pipe(output);
+    for (const file of files) {
+      archive.append(file.content, { name: file.name });
+    }
+    void archive.finalize();
+  });
+}
+
+// Helper for creating unique timestamps in tests (Anki uses timestamps as IDs)
+function createTimestampGenerator() {
+  let nextTimestamp = Date.now();
+  return (hoursAgo?: number) => {
+    nextTimestamp += 1;
+    return nextTimestamp - (hoursAgo ? hoursAgo * 3600000 : 0);
+  };
+}
+
+// #endregion Helpers - Utilities
 
 let tempDir: string;
 
@@ -660,22 +822,11 @@ describe("Create Deck", () => {
       "direct-anki-creation.apkg",
     );
 
-    // Create a base timestamp to avoid ID collisions
-    const baseTime = Date.now();
-
-    let nextTimestamp = baseTime;
-    const getUniqueTimestamp = (hoursAgo?: number) => {
-      nextTimestamp += 1;
-      return nextTimestamp - (hoursAgo ? hoursAgo * 3600000 : 0);
-    };
+    const getTimestamp = createTimestampGenerator();
 
     // Start with a fresh Anki package
     const ankiResult = await AnkiPackage.fromDefault();
-    expect(ankiResult.status).toBe("success");
-    if (!ankiResult.data) {
-      throw new Error("Expected ankiResult.data to be defined");
-    }
-    const ankiPackage = ankiResult.data;
+    const ankiPackage = expectSuccess(ankiResult);
 
     try {
       // Add note types to the Anki package
@@ -691,269 +842,205 @@ describe("Create Deck", () => {
       };
       ankiPackage.addDeck(customDeck);
 
-      // Create Basic note 1
-      const basicNote1 = {
-        id: getUniqueTimestamp(),
-        guid: `AnkiNote1_${Date.now().toString()}`,
-        mid: basicModel.id,
-        mod: Math.floor(Date.now() / 1000),
-        usn: -1,
-        tags: "",
-        flds: "What is the largest planet in our solar system?\x1fJupiter",
-        sfld: "What is the largest planet in our solar system?",
-        csum: 0,
-        flags: 0,
-        data: "",
-      };
+      // Create Basic note 1 with its card (new card)
+      const basicNote1 = createTestAnkiNote(
+        {
+          noteTypeId: basicModel.id,
+          fields: [
+            "What is the largest planet in our solar system?",
+            "Jupiter",
+          ],
+        },
+        getTimestamp,
+      );
       ankiPackage.addNote(basicNote1);
 
-      // Card for basic note 1
-      const basicCard1 = {
-        id: getUniqueTimestamp(),
-        nid: basicNote1.id,
-        did: customDeck.id,
-        ord: 0,
-        mod: Math.floor(Date.now() / 1000),
-        usn: -1,
-        type: 0, // New card
-        queue: 0, // New queue
-        due: 1,
-        ivl: 0,
-        factor: 2500,
-        reps: 0,
-        lapses: 0,
-        left: 1001,
-        odue: 0,
-        odid: 0,
-        flags: 0,
-        data: "",
-      };
+      const basicCard1 = createTestAnkiCard(
+        { noteId: basicNote1.id, deckId: customDeck.id },
+        getTimestamp,
+      );
       ankiPackage.addCard(basicCard1);
 
-      // Create Basic note 2
-      const basicNote2 = {
-        id: getUniqueTimestamp(),
-        guid: `AnkiNote2_${Date.now().toString()}`,
-        mid: basicModel.id,
-        mod: Math.floor(Date.now() / 1000),
-        usn: -1,
-        tags: "",
-        flds: "Who wrote '1984'?\x1fGeorge Orwell",
-        sfld: "Who wrote '1984'?",
-        csum: 0,
-        flags: 0,
-        data: "",
-      };
+      // Create Basic note 2 with learning card and review
+      const basicNote2 = createTestAnkiNote(
+        {
+          noteTypeId: basicModel.id,
+          fields: ["Who wrote '1984'?", "George Orwell"],
+        },
+        getTimestamp,
+      );
       ankiPackage.addNote(basicNote2);
 
-      // Card for basic note 2
-      const basicCard2 = {
-        id: getUniqueTimestamp(),
-        nid: basicNote2.id,
-        did: customDeck.id,
-        ord: 0,
-        mod: Math.floor(Date.now() / 1000),
-        usn: -1,
-        type: 1, // Learning card
-        queue: 1, // Learning queue
-        due: Math.floor(Date.now() / 1000) + 600, // Due in 10 minutes
-        ivl: 0,
-        factor: 2500,
-        reps: 1,
-        lapses: 0,
-        left: 1001,
-        odue: 0,
-        odid: 0,
-        flags: 0,
-        data: "",
-      };
+      const basicCard2 = createTestAnkiCard(
+        {
+          noteId: basicNote2.id,
+          deckId: customDeck.id,
+          type: 1, // Learning card
+          queue: 1, // Learning queue
+          due: Math.floor(Date.now() / 1000) + 600, // Due in 10 minutes
+          reps: 1,
+        },
+        getTimestamp,
+      );
       ankiPackage.addCard(basicCard2);
 
-      const review1 = {
-        id: getUniqueTimestamp(12), // 12 hours ago - use timestamp as id
-        cid: basicCard2.id,
-        usn: -1,
-        ease: 2, // Hard
-        ivl: -600, // 10 minutes (negative for learning interval)
-        lastIvl: 0,
-        factor: 2500,
-        time: 8000, // 8 seconds to answer
-        type: 0, // Learning
-      };
-      ankiPackage.addReview(review1);
+      ankiPackage.addReview(
+        createTestAnkiReview(
+          {
+            id: getTimestamp(12), // 12 hours ago
+            cardId: basicCard2.id,
+            ease: 2 as Ease, // Hard
+            interval: -600, // 10 minutes (negative for learning interval)
+            time: 8000, // 8 seconds to answer
+            type: 0, // Learning
+          },
+          getTimestamp,
+        ),
+      );
 
-      // Create Bidirectional note
-      const bidirectionalNote = {
-        id: getUniqueTimestamp(),
-        guid: `AnkiNote3_${Date.now().toString()}`,
-        mid: basicAndReversedCardModel.id,
-        mod: Math.floor(Date.now() / 1000),
-        usn: -1,
-        tags: "",
-        flds: "Photosynthesis\x1fThe process by which plants convert sunlight into energy",
-        sfld: "Photosynthesis",
-        csum: 0,
-        flags: 0,
-        data: "",
-      };
+      // Create Bidirectional note with 2 cards and reviews
+      const bidirectionalNote = createTestAnkiNote(
+        {
+          noteTypeId: basicAndReversedCardModel.id,
+          fields: [
+            "Photosynthesis",
+            "The process by which plants convert sunlight into energy",
+          ],
+        },
+        getTimestamp,
+      );
       ankiPackage.addNote(bidirectionalNote);
 
-      // Cards for bidirectional note (2 cards - front to back and back to front)
-      const bidirectionalCard1 = {
-        id: getUniqueTimestamp(),
-        nid: bidirectionalNote.id,
-        did: customDeck.id,
-        ord: 0, // Front to back
-        mod: Math.floor(Date.now() / 1000),
-        usn: -1,
-        type: 2, // Review card
-        queue: 2, // Review queue
-        due: Math.floor(Date.now() / 1000 / 86400) + 3, // Due in 3 days
-        ivl: 7,
-        factor: 2500,
-        reps: 2,
-        lapses: 0,
-        left: 0,
-        odue: 0,
-        odid: 0,
-        flags: 0,
-        data: "",
-      };
+      // Card 1: Front to back (review card)
+      const bidirectionalCard1 = createTestAnkiCard(
+        {
+          noteId: bidirectionalNote.id,
+          deckId: customDeck.id,
+          templateIndex: 0,
+          type: 2, // Review card
+          queue: 2, // Review queue
+          due: Math.floor(Date.now() / 1000 / 86400) + 3, // Due in 3 days
+          interval: 7,
+          reps: 2,
+        },
+        getTimestamp,
+      );
       ankiPackage.addCard(bidirectionalCard1);
 
-      const review2 = {
-        id: getUniqueTimestamp(72), // 3 days ago
-        cid: bidirectionalCard1.id,
-        usn: -1,
-        ease: 3, // Good
-        ivl: 1,
-        lastIvl: 0,
-        factor: 2500,
-        time: 5500, // 5.5 seconds to answer
-        type: 1, // Review
-      };
-      ankiPackage.addReview(review2);
+      ankiPackage.addReview(
+        createTestAnkiReview(
+          {
+            id: getTimestamp(72), // 3 days ago
+            cardId: bidirectionalCard1.id,
+            ease: 3 as Ease, // Good
+            interval: 1,
+            time: 5500,
+            type: 1, // Review
+          },
+          getTimestamp,
+        ),
+      );
 
-      const review3 = {
-        id: getUniqueTimestamp(48), // 2 days ago
-        cid: bidirectionalCard1.id,
-        usn: -1,
-        ease: 3, // Good
-        ivl: 7,
-        lastIvl: 1,
-        factor: 2500,
-        time: 4200, // 4.2 seconds to answer
-        type: 1, // Review
-      };
-      ankiPackage.addReview(review3);
+      ankiPackage.addReview(
+        createTestAnkiReview(
+          {
+            id: getTimestamp(48), // 2 days ago
+            cardId: bidirectionalCard1.id,
+            ease: 3 as Ease, // Good
+            interval: 7,
+            lastInterval: 1,
+            time: 4200,
+            type: 1, // Review
+          },
+          getTimestamp,
+        ),
+      );
 
-      const bidirectionalCard2 = {
-        id: getUniqueTimestamp(),
-        nid: bidirectionalNote.id,
-        did: customDeck.id,
-        ord: 1, // Back to front
-        mod: Math.floor(Date.now() / 1000),
-        usn: -1,
-        type: 2, // Review card
-        queue: 2, // Review queue
-        due: Math.floor(Date.now() / 1000 / 86400) + 5, // Due in 5 days
-        ivl: 14,
-        factor: 2600,
-        reps: 3,
-        lapses: 0,
-        left: 0,
-        odue: 0,
-        odid: 0,
-        flags: 0,
-        data: "",
-      };
+      // Card 2: Back to front (review card)
+      const bidirectionalCard2 = createTestAnkiCard(
+        {
+          noteId: bidirectionalNote.id,
+          deckId: customDeck.id,
+          templateIndex: 1,
+          type: 2, // Review card
+          queue: 2, // Review queue
+          due: Math.floor(Date.now() / 1000 / 86400) + 5, // Due in 5 days
+          interval: 14,
+          factor: 2600,
+          reps: 3,
+        },
+        getTimestamp,
+      );
       ankiPackage.addCard(bidirectionalCard2);
 
-      const review4 = {
-        id: getUniqueTimestamp(36), // 1.5 days ago
-        cid: bidirectionalCard2.id,
-        usn: -1,
-        ease: 1, // Again
-        ivl: -600, // Back to learning
-        lastIvl: 0,
-        factor: 2300, // Factor decreased due to lapse
-        time: 12000, // 12 seconds (struggled)
-        type: 1, // Review
-      };
-      ankiPackage.addReview(review4);
+      ankiPackage.addReview(
+        createTestAnkiReview(
+          {
+            id: getTimestamp(36), // 1.5 days ago
+            cardId: bidirectionalCard2.id,
+            ease: 1 as Ease, // Again
+            interval: -600, // Back to learning
+            factor: 2300, // Factor decreased due to lapse
+            time: 12000, // 12 seconds (struggled)
+            type: 1, // Review
+          },
+          getTimestamp,
+        ),
+      );
 
-      // Create Cloze note
-      const clozeNote = {
-        id: getUniqueTimestamp(),
-        guid: `AnkiNote4_${Date.now().toString()}`,
-        mid: clozeModel.id,
-        mod: Math.floor(Date.now() / 1000),
-        usn: -1,
-        tags: "",
-        flds: "The {{c1::speed of light}} in vacuum is approximately {{c2::299,792,458}} meters per second.\x1f",
-        sfld: "The {{c1::speed of light}} in vacuum is approximately {{c2::299,792,458}} meters per second.",
-        csum: 0,
-        flags: 0,
-        data: "",
-      };
+      // Create Cloze note with 2 cards
+      const clozeNote = createTestAnkiNote(
+        {
+          noteTypeId: clozeModel.id,
+          fields: [
+            "The {{c1::speed of light}} in vacuum is approximately {{c2::299,792,458}} meters per second.",
+            "", // Second field for cloze notes
+          ],
+        },
+        getTimestamp,
+      );
       ankiPackage.addNote(clozeNote);
 
-      // Cards for cloze note (2 cards for the 2 cloze deletions)
-      const clozeCard1 = {
-        id: getUniqueTimestamp(),
-        nid: clozeNote.id,
-        did: customDeck.id,
-        ord: 0, // c1: speed of light
-        mod: Math.floor(Date.now() / 1000),
-        usn: -1,
-        type: 1, // Learning
-        queue: 1, // Learning queue
-        due: Math.floor(Date.now() / 1000) + 1200, // Due in 20 minutes
-        ivl: 0,
-        factor: 2500,
-        reps: 1,
-        lapses: 0,
-        left: 1002,
-        odue: 0,
-        odid: 0,
-        flags: 0,
-        data: "",
-      };
+      // Cloze card 1: Learning card
+      const clozeCard1 = createTestAnkiCard(
+        {
+          noteId: clozeNote.id,
+          deckId: customDeck.id,
+          templateIndex: 0, // c1: speed of light
+          type: 1, // Learning
+          queue: 1, // Learning queue
+          due: Math.floor(Date.now() / 1000) + 1200, // Due in 20 minutes
+          reps: 1,
+        },
+        getTimestamp,
+      );
       ankiPackage.addCard(clozeCard1);
 
-      const review5 = {
-        id: getUniqueTimestamp(1), // 1 hour ago
-        cid: clozeCard1.id,
-        usn: -1,
-        ease: 2, // Hard
-        ivl: -1200, // 20 minutes (learning)
-        lastIvl: -600,
-        factor: 2500,
-        time: 6800, // 6.8 seconds
-        type: 0, // Learning
-      };
-      ankiPackage.addReview(review5);
+      ankiPackage.addReview(
+        createTestAnkiReview(
+          {
+            id: getTimestamp(1), // 1 hour ago
+            cardId: clozeCard1.id,
+            ease: 2 as Ease, // Hard
+            interval: -1200, // 20 minutes (learning)
+            lastInterval: -600,
+            time: 6800,
+            type: 0, // Learning
+          },
+          getTimestamp,
+        ),
+      );
 
-      const clozeCard2 = {
-        id: getUniqueTimestamp(),
-        nid: clozeNote.id,
-        did: customDeck.id,
-        ord: 1, // c2: 299,792,458
-        mod: Math.floor(Date.now() / 1000),
-        usn: -1,
-        type: 0, // New card
-        queue: 0, // New queue
-        due: 2,
-        ivl: 0,
-        factor: 2500,
-        reps: 0,
-        lapses: 0,
-        left: 1001,
-        odue: 0,
-        odid: 0,
-        flags: 0,
-        data: "",
-      };
+      // Cloze card 2: New card
+      const clozeCard2 = createTestAnkiCard(
+        {
+          noteId: clozeNote.id,
+          deckId: customDeck.id,
+          templateIndex: 1, // c2: 299,792,458
+          due: 2,
+        },
+        getTimestamp,
+      );
       ankiPackage.addCard(clozeCard2);
 
       // Verify the Anki package structure
@@ -3351,34 +3438,6 @@ describe("Error Handling and Edge Cases", () => {
   });
 
   describe("Missing Required Files Handling (Story 1.0.5.2)", () => {
-    // Valid meta file for version 2 (Legacy_V2)
-    // Protobuf encoding: field 1 (varint) with value 2 = [0x08, 0x02]
-    const validMetaV2 = Buffer.from([0x08, 0x02]);
-
-    // Helper function to create a ZIP file with specific contents
-    async function createTestZip(
-      zipPath: string,
-      files: { name: string; content: string | Buffer }[],
-    ): Promise<void> {
-      return new Promise((resolve, reject) => {
-        const output = createWriteStream(zipPath);
-        const archive = archiver("zip");
-
-        output.on("close", () => {
-          resolve();
-        });
-        archive.on("error", (err) => {
-          reject(err);
-        });
-
-        archive.pipe(output);
-        for (const file of files) {
-          archive.append(file.content, { name: file.name });
-        }
-        void archive.finalize();
-      });
-    }
-
     it("should detect and report missing meta file with specific message", async () => {
       const zipPath = join(tempDir, "missing-meta.apkg");
       // Create ZIP with media and database, but no meta file
@@ -3495,34 +3554,6 @@ describe("Error Handling and Edge Cases", () => {
   });
 
   describe("Corrupted SQLite Database Handling (Story 1.0.5.3)", () => {
-    // Valid meta file for version 2 (Legacy_V2)
-    // Protobuf encoding: field 1 (varint) with value 2 = [0x08, 0x02]
-    const validMetaV2 = Buffer.from([0x08, 0x02]);
-
-    // Helper function to create a ZIP file with specific contents
-    async function createTestZip(
-      zipPath: string,
-      files: { name: string; content: string | Buffer }[],
-    ): Promise<void> {
-      return new Promise((resolve, reject) => {
-        const output = createWriteStream(zipPath);
-        const archive = archiver("zip");
-
-        output.on("close", () => {
-          resolve();
-        });
-        archive.on("error", (err) => {
-          reject(err);
-        });
-
-        archive.pipe(output);
-        for (const file of files) {
-          archive.append(file.content, { name: file.name });
-        }
-        void archive.finalize();
-      });
-    }
-
     it("should detect and report corrupted database file (random bytes) with specific message", async () => {
       const zipPath = join(tempDir, "corrupted-db.apkg");
       // Create database file with random bytes (not valid SQLite)
