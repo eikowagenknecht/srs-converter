@@ -38,7 +38,6 @@ import { extractTimestampFromUuid, guid64, joinAnkiFields } from "./util";
 
 // Valid meta file for version 2 (Legacy_V2)
 // Protobuf encoding: field 1 (varint) with value 2 = [0x08, 0x02]
-// TODO: Use this everywhere instead of redefining
 const validMetaV2 = Buffer.from([0x08, 0x02]);
 
 // #endregion Helpers - Constants
@@ -3696,10 +3695,6 @@ describe("Error Handling and Edge Cases", () => {
   });
 
   describe("Invalid JSON in Media Metadata Handling (Story 1.0.5.4)", () => {
-    // Valid meta file for version 2 (Legacy_V2)
-    // Protobuf encoding: field 1 (varint) with value 2 = [0x08, 0x02]
-    const validMetaV2 = Buffer.from([0x08, 0x02]);
-
     // Helper function to create a valid SQLite database for testing
     async function createValidAnkiDatabase(): Promise<Buffer> {
       const InitSqlJs = (await import("sql.js")).default;
@@ -4117,9 +4112,6 @@ describe("Error Handling and Edge Cases", () => {
   });
 
   describe("Partial Data Recovery (Story 1.0.5.5)", () => {
-    // Valid meta file for version 2 (Legacy_V2)
-    const validMetaV2 = Buffer.from([0x08, 0x02]);
-
     // Helper function to create a valid SQLite database for testing partial recovery
     async function createAnkiDatabaseWithData(options: {
       models?: Record<string, unknown>;
