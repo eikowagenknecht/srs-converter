@@ -29,6 +29,7 @@ Required tests (must be run in order):
 - Test both successful and failure scenarios
 - ALWAYS use exact equality checks (`toBe`, `toEqual`) that check the exact expected output. If you need, run the test to see the exact output and copy-paste it into the test if it is correct.
 - NEVER use unprecise equality checks (">=", "<=", ">0", "<", multiple possible Regex outcomes etc.)
+- Make sure to use helpers to reduce code duplication in tests.
 
 When writing a test and you're not 100% sure if the test is correct or if the code is correct:
 
