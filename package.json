@@ -101,13 +101,13 @@
     "eslint-plugin-jsdoc": "61.5.0",
     "globals": "16.5.0",
     "jscpd": "4.0.5",
-    "knip": "5.76.3",
-    "lefthook": "2.0.12",
+    "knip": "5.78.0",
+    "lefthook": "2.0.13",
     "prettier": "3.7.4",
     "semantic-release": "25.0.2",
-    "tsdown": "0.18.2",
+    "tsdown": "0.18.3",
     "typescript": "5.9.3",
-    "typescript-eslint": "8.50.1",
+    "typescript-eslint": "8.51.0",
     "vitest": "3.2.4"
   }
 }
