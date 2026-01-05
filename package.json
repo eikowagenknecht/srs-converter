@@ -83,9 +83,9 @@
     "uuid": "13.0.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.3.10",
-    "@commitlint/cli": "20.2.0",
-    "@commitlint/config-conventional": "20.2.0",
+    "@biomejs/biome": "2.3.11",
+    "@commitlint/cli": "20.3.0",
+    "@commitlint/config-conventional": "20.3.0",
     "@commitlint/types": "20.2.0",
     "@eslint/js": "9.39.2",
     "@semantic-release/changelog": "6.0.3",
@@ -101,13 +101,13 @@
     "eslint-plugin-jsdoc": "61.5.0",
     "globals": "16.5.0",
     "jscpd": "4.0.5",
-    "knip": "5.78.0",
+    "knip": "5.80.0",
     "lefthook": "2.0.13",
     "prettier": "3.7.4",
     "semantic-release": "25.0.2",
-    "tsdown": "0.18.3",
+    "tsdown": "0.18.4",
     "typescript": "5.9.3",
-    "typescript-eslint": "8.51.0",
+    "typescript-eslint": "8.52.0",
     "vitest": "3.2.4"
   }
 }
