@@ -70,9 +70,7 @@ function validateDeckEntry(deckId: string, data: unknown): ValidationResult {
   }
 
   const deck = data as Record<string, unknown>;
-  // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
   const deckIdValue = deck["id"];
-  // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
   const deckNameValue = deck["name"];
 
   if (typeof deckIdValue !== "number" || Number.isNaN(deckIdValue)) {
@@ -105,13 +103,9 @@ function validateNoteTypeEntry(noteTypeId: string, data: unknown): ValidationRes
   }
 
   const noteType = data as Record<string, unknown>;
-  // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
   const noteTypeIdValue = noteType["id"];
-  // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
   const noteTypeNameValue = noteType["name"];
-  // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
   const noteTypeFldsValue = noteType["flds"];
-  // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation
   const noteTypeTmplsValue = noteType["tmpls"];
 
   if (typeof noteTypeIdValue !== "number" || Number.isNaN(noteTypeIdValue)) {
@@ -379,12 +373,8 @@ function resolveAnkiId(
   fallbackValue: number,
 ): number {
   // Check for preserved Anki ID first
-  // biome-ignore lint/complexity/useLiteralKeys: Required for TS index signature
   if (applicationSpecificData?.["originalAnkiId"]) {
-    const originalId = Number(
-      // biome-ignore lint/complexity/useLiteralKeys: Required for TS index signature
-      applicationSpecificData["originalAnkiId"],
-    );
+    const originalId = Number(applicationSpecificData["originalAnkiId"]);
     if (!Number.isNaN(originalId)) {
       return originalId;
     }
@@ -939,7 +929,6 @@ export class AnkiPackage {
         sfld: note.fieldValues[0]?.[1] ?? "", // Sort field defaults to the first field value
         csum: 0, // TODO: Find out how Anki calculates this and do it that way as well. Not sure if needed or if Anki accepts notes without it.
         flags: 0,
-        // biome-ignore lint/complexity/useLiteralKeys: Required for TS index signature
         data: note.applicationSpecificData?.["ankiData"] ?? "",
       };
       ankiPackage.addNote(ankiNotes);
@@ -1003,10 +992,8 @@ export class AnkiPackage {
       // Find the corresponding Anki deck ID
       const srsDeck = srsPackage.getDecks().find((d) => d.id === note.deckId);
       // TODO: Check if this is needed and if so, if it needs to also be applied to the deck somewhere above
-      // biome-ignore lint/complexity/useLiteralKeys: <Conflict with TS noUncheckedIndexedAccess>
       const ankiDeckId = srsDeck?.applicationSpecificData?.["originalAnkiId"]
-        ? // biome-ignore lint/complexity/useLiteralKeys: <Conflict with TS noUncheckedIndexedAccess>
-          Number(srsDeck.applicationSpecificData["originalAnkiId"])
+        ? Number(srsDeck.applicationSpecificData["originalAnkiId"])
         : deckId; // fallback to timestamp-based ID
 
       // Find the note type for this note
@@ -1081,7 +1068,6 @@ export class AnkiPackage {
           odue: 0,
           odid: 0,
           flags: 0,
-          // biome-ignore lint/complexity/useLiteralKeys: Required for TS index signature
           data: srsCard.applicationSpecificData?.["ankiData"] ?? "{}",
         };
         ankiPackage.addCard(ankiCard);

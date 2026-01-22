@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/complexity/useLiteralKeys: <It's a test> */
 import { access } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";

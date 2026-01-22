@@ -215,7 +215,7 @@ This project is built with **TypeScript** and follows modern Node.js development
 - **Language**: TypeScript with strict type checking
 - **Package Manager**: pnpm (performant, space-efficient)
 - **Testing Framework**: Vitest (fast, modern testing)
-- **Code Quality**: ESLint, Biome, and Prettier
+- **Code Quality**: ESLint, oxfmt for linting and formatting
 - **Git Hooks**: lefthook for automated quality checks
 - **Build System**: TypeScript compiler (tsc)
 
@@ -239,7 +239,7 @@ Key development tools for maintaining code quality:
 
 - **`vitest`**: Fast unit testing with TypeScript support
 - **`typescript`**: Type checking and compilation
-- **`@biomejs/biome`**: Fast linting and code formatting
+- **`oxfmt`**: Fast code formatting
 - **`eslint`**: Additional linting rules and plugin support
 - **`prettier`**: Code formatting standardization
 - **`lefthook`**: Git hooks management for automated quality checks

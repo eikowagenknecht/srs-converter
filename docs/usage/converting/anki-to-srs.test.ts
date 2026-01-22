@@ -3,7 +3,6 @@
  * Covers all code samples from anki-to-srs.md
  */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-/* biome-ignore-all lint/correctness/noUnusedFunctionParameters: Keep example simple. */
 
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -249,21 +248,17 @@ describe("Anki to SRS Conversion Documentation Examples", () => {
       const notes = srsPackage.getNotes();
       expect(notes.length).toBeGreaterThan(0);
       const noteWithPlugin = notes.find(
-        // biome-ignore lint/complexity/useLiteralKeys: Required for TS index signature
         (n) => n.applicationSpecificData?.["ankiData"] === pluginData,
       );
       expect(noteWithPlugin).toBeDefined();
-      // biome-ignore lint/complexity/useLiteralKeys: Required for TS index signature
       expect(noteWithPlugin?.applicationSpecificData?.["ankiData"]).toBe(pluginData);
 
       const cards = srsPackage.getCards();
       expect(cards.length).toBeGreaterThan(0);
       const cardWithPlugin = cards.find(
-        // biome-ignore lint/complexity/useLiteralKeys: Required for TS index signature
         (c) => c.applicationSpecificData?.["ankiData"] === cardPluginData,
       );
       expect(cardWithPlugin).toBeDefined();
-      // biome-ignore lint/complexity/useLiteralKeys: Required for TS index signature
       expect(cardWithPlugin?.applicationSpecificData?.["ankiData"]).toBe(cardPluginData);
 
       // Convert SRS -> Anki

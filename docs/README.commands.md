@@ -17,10 +17,10 @@
 
 - `pnpm test` - Run tests with Vitest
 - `pnpm test:coverage` - Run tests with coverage report
-- `pnpm lint` - Full lint and fix run (type-check + eslint + prettier + biome)
-- `pnpm lint:biome` - Run biome linter (fast, catches most issues)
+- `pnpm lint` - Full lint and fix run (type-check + eslint + oxfmt)
+- `pnpm lint:oxfmt` - Run oxfmt formatter
 - `pnpm type-check` - TypeScript type checking only
-- `pnpm format` - Format code with prettier and biome
+- `pnpm format` - Format code with oxfmt
 
 ### Additional Development Tools
 

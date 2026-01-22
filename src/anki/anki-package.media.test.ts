@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/complexity/useLiteralKeys: <It's a test> */
 import { Buffer } from "node:buffer";
 import { describe, expect, it } from "vitest";
 

@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/complexity/useLiteralKeys: <It's a test> */
 import { describe, expect, it } from "vitest";
 
 import {

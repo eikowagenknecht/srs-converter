@@ -1,5 +1,4 @@
 import archiver from "archiver";
-/** biome-ignore-all lint/complexity/useLiteralKeys: <It's a test> */
 import { Buffer } from "node:buffer";
 import { createWriteStream } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
