@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import {
   createSelectiveZip,
   extractTimestampFromUuid,
@@ -51,14 +52,12 @@ describe("guid64", () => {
 
   it("should handle maximum uint64 value", () => {
     const mockGetRandomValues = vi.spyOn(crypto, "getRandomValues");
-    mockGetRandomValues.mockImplementation(
-      <T extends ArrayBufferView | null>(array: T): T => {
-        if (array instanceof Uint8Array) {
-          array.set(new Uint8Array(8).fill(255)); // All bits set to 1
-        }
-        return array;
-      },
-    );
+    mockGetRandomValues.mockImplementation(<T extends ArrayBufferView | null>(array: T): T => {
+      if (array instanceof Uint8Array) {
+        array.set(new Uint8Array(8).fill(255)); // All bits set to 1
+      }
+      return array;
+    });
     const result = guid64();
     expect(result).toBe("Rj&Z5m[>Zp");
     mockGetRandomValues.mockRestore();
@@ -73,22 +72,16 @@ describe("guid64", () => {
       [new Uint8Array([0, 0, 0, 0, 0, 0, 0, 2]), "c", "two"],
       [new Uint8Array([0, 0, 0, 0, 0, 0, 0, 90]), "~", "last"],
       [new Uint8Array([0, 0, 0, 0, 0, 0, 0, 91]), "ba", "first overflow"],
-      [
-        new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255]),
-        "Rj&Z5m[>Zp",
-        "max uint64",
-      ],
+      [new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255]), "Rj&Z5m[>Zp", "max uint64"],
     ];
 
     for (const [input, expected, description] of testCases) {
-      mockGetRandomValues.mockImplementation(
-        <T extends ArrayBufferView | null>(array: T): T => {
-          if (array instanceof Uint8Array) {
-            array.set(input);
-          }
-          return array;
-        },
-      );
+      mockGetRandomValues.mockImplementation(<T extends ArrayBufferView | null>(array: T): T => {
+        if (array instanceof Uint8Array) {
+          array.set(input);
+        }
+        return array;
+      });
       const result = guid64();
       expect(result, `Failed for case: ${description}`).toBe(expected);
     }
@@ -100,9 +93,7 @@ describe("guid64", () => {
 describe("generateUuid", () => {
   it("should generate a valid UUID", () => {
     const uuid = generateUuid();
-    expect(uuid).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
-    );
+    expect(uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
   });
 
   it("should generate unique UUIDs on multiple rapid calls", () => {
@@ -200,9 +191,7 @@ describe("createSelectiveZip archiver warning handling", () => {
     const nonExistentFile = path.join(tempDir, "nonexistent.txt");
 
     try {
-      await createSelectiveZip(outputPath, [
-        { path: nonExistentFile, compress: true },
-      ]);
+      await createSelectiveZip(outputPath, [{ path: nonExistentFile, compress: true }]);
     } catch {
       // Expected to fail, but we want to test the warning handling
     }
@@ -220,9 +209,7 @@ describe("createSelectiveZip archiver warning handling", () => {
 
     let error: unknown;
     try {
-      await createSelectiveZip(invalidOutputPath, [
-        { path: testFile, compress: true },
-      ]);
+      await createSelectiveZip(invalidOutputPath, [{ path: testFile, compress: true }]);
     } catch (err) {
       error = err;
     }
@@ -445,10 +432,7 @@ describe("parseWithBigInts", () => {
   it("should handle nested objects with dot notation field paths", () => {
     const jsonString =
       '{"user":{"id":123456,"profile":{"timestamp":1699123456789}},"metadata":{"version":1}}';
-    const result = parseWithBigInts(jsonString, [
-      "user.id",
-      "user.profile.timestamp",
-    ]);
+    const result = parseWithBigInts(jsonString, ["user.id", "user.profile.timestamp"]);
 
     expect(result).toEqual({
       user: {
@@ -464,8 +448,7 @@ describe("parseWithBigInts", () => {
   });
 
   it("should handle arrays with field paths using bracket notation", () => {
-    const jsonString =
-      '{"users":[{"id":123,"name":"Alice"},{"id":456,"name":"Bob"}],"count":2}';
+    const jsonString = '{"users":[{"id":123,"name":"Alice"},{"id":456,"name":"Bob"}],"count":2}';
     const result = parseWithBigInts(jsonString, ["users[].id"]);
 
     expect(result).toEqual({
@@ -538,10 +521,7 @@ describe("parseWithBigInts", () => {
       "meta": {"totalCount": 2}
     }`;
 
-    const result = parseWithBigInts(jsonString, [
-      "records[].id",
-      "records[].data.timestamp",
-    ]);
+    const result = parseWithBigInts(jsonString, ["records[].id", "records[].data.timestamp"]);
 
     // All matching fields in array should be converted consistently
     expect(result).toEqual({
@@ -657,9 +637,7 @@ describe("parseWithBigInts", () => {
     }`;
 
     // Only convert employee IDs, not department IDs or manager IDs
-    const result = parseWithBigInts(jsonString, [
-      "departments[].employees[].id",
-    ]);
+    const result = parseWithBigInts(jsonString, ["departments[].employees[].id"]);
 
     expect(result).toEqual({
       departments: [
@@ -682,8 +660,7 @@ describe("parseWithBigInts", () => {
   });
 
   it("should reject fields that are already string-quoted numbers", () => {
-    const jsonString =
-      '{"id":"123","balance":"9007199254740993","name":"test","code":"456"}';
+    const jsonString = '{"id":"123","balance":"9007199254740993","name":"test","code":"456"}';
 
     // Should throw an error when target fields contain pre-quoted numeric strings
     expect(() => parseWithBigInts(jsonString, ["id", "balance"])).toThrow(
@@ -692,8 +669,7 @@ describe("parseWithBigInts", () => {
   });
 
   it("should reject non-numeric string values in target fields", () => {
-    const jsonString =
-      '{"id":"five","timestamp":"not-a-number","score":100,"message":"hello"}';
+    const jsonString = '{"id":"five","timestamp":"not-a-number","score":100,"message":"hello"}';
 
     // Should throw an error when target fields contain non-numeric strings
     expect(() => parseWithBigInts(jsonString, ["id", "timestamp"])).toThrow(
@@ -705,9 +681,7 @@ describe("parseWithBigInts", () => {
     const jsonString = '{"id":123,"isActive":true,"count":false,"score":456}';
 
     // Should throw an error when target fields contain boolean values
-    expect(() =>
-      parseWithBigInts(jsonString, ["id", "isActive", "count"]),
-    ).toThrow(
+    expect(() => parseWithBigInts(jsonString, ["id", "isActive", "count"])).toThrow(
       "Field 'isActive' (from path 'isActive') contains non-numeric value true",
     );
   });

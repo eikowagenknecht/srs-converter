@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { IssueCollector } from "./error-handling";
 
 describe("Error Handling", () => {

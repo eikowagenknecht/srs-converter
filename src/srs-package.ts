@@ -43,9 +43,7 @@ export class SrsPackage {
   }
 
   public removeNoteType(noteTypeId: string) {
-    this.noteTypes = this.noteTypes.filter(
-      (noteType) => noteType.id !== noteTypeId,
-    );
+    this.noteTypes = this.noteTypes.filter((noteType) => noteType.id !== noteTypeId);
   }
 
   public getNotes(): readonly SrsNote[] {
@@ -53,9 +51,7 @@ export class SrsPackage {
   }
 
   public addNote(note: SrsNote) {
-    const noteTypeExists = this.noteTypes.some(
-      (nt) => nt.id === note.noteTypeId,
-    );
+    const noteTypeExists = this.noteTypes.some((nt) => nt.id === note.noteTypeId);
     if (!noteTypeExists) {
       throw new Error(`Note type ${note.noteTypeId} does not exist.`);
     }
@@ -98,9 +94,7 @@ export class SrsPackage {
     const note = this.notes.find((n) => n.id === card.noteId);
     const noteType = this.noteTypes.find((nt) => nt.id === note?.noteTypeId);
     if (!noteType) {
-      throw new Error(
-        `Note type not found for template ID ${card.templateId.toFixed()}.`,
-      );
+      throw new Error(`Note type not found for template ID ${card.templateId.toFixed()}.`);
     }
 
     // Check if this is a cloze note type by looking at template content
@@ -149,9 +143,7 @@ export class SrsPackage {
 
     // Note types are used if they are referenced by any notes
     const usedNoteTypeIds = new Set(this.notes.map((note) => note.noteTypeId));
-    this.noteTypes = this.noteTypes.filter((noteType) =>
-      usedNoteTypeIds.has(noteType.id),
-    );
+    this.noteTypes = this.noteTypes.filter((noteType) => usedNoteTypeIds.has(noteType.id));
 
     // Notes are used if they are referenced by any cards
     const usedNoteIds = new Set(this.cards.map((card) => card.noteId));
@@ -364,9 +356,7 @@ export function createCard<T extends SrsNoteType>(
   return { ...input, id } as SrsCard<T>;
 }
 
-export function createReview(
-  input: Omit<SrsReview, "id"> & { id?: string },
-): SrsReview {
+export function createReview(input: Omit<SrsReview, "id"> & { id?: string }): SrsReview {
   const id = input.id ?? generateUuid();
 
   return { ...input, id } as SrsReview;

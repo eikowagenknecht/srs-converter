@@ -1,10 +1,8 @@
 /** biome-ignore-all lint/complexity/useLiteralKeys: <It's a test> */
 import { describe, expect, it } from "vitest";
-import {
-  createCompleteDeckStructure,
-  createNoteType,
-  SrsReviewScore,
-} from "@/srs-package";
+
+import { createCompleteDeckStructure, createNoteType, SrsReviewScore } from "@/srs-package";
+
 import { AnkiPackage } from "./anki-package";
 import { expectSuccess, setupTempDir } from "./anki-package.fixtures";
 import { NoteTypeKind } from "./types";
@@ -115,9 +113,7 @@ describe("Utilities and Helper Functions", () => {
 
   describe("Mixed Note Type Support", () => {
     it("should detect multiple note types including cloze types", async () => {
-      const result = await AnkiPackage.fromAnkiExport(
-        "./tests/fixtures/anki/mixed-legacy-2.apkg",
-      );
+      const result = await AnkiPackage.fromAnkiExport("./tests/fixtures/anki/mixed-legacy-2.apkg");
       const ankiPackage = expectSuccess(result);
 
       try {
@@ -127,9 +123,7 @@ describe("Utilities and Helper Functions", () => {
         // Find cloze note types
         // - "Cloze"
         // - "Image Occlusion"
-        const clozeNoteTypes = noteTypes.filter(
-          (nt) => nt.type === NoteTypeKind.CLOZE,
-        );
+        const clozeNoteTypes = noteTypes.filter((nt) => nt.type === NoteTypeKind.CLOZE);
         expect(clozeNoteTypes).toHaveLength(2);
         const clozeTypeNames = clozeNoteTypes.map((nt) => nt.name).sort();
         expect(clozeTypeNames).toEqual(["Cloze", "Image Occlusion"]);
@@ -139,9 +133,7 @@ describe("Utilities and Helper Functions", () => {
         // - "Basic (and reversed card)"
         // - "Basic (optional reversed card)"
         // - "Basic (type in the answer)"
-        const standardNoteTypes = noteTypes.filter(
-          (nt) => nt.type === NoteTypeKind.STANDARD,
-        );
+        const standardNoteTypes = noteTypes.filter((nt) => nt.type === NoteTypeKind.STANDARD);
         expect(standardNoteTypes).toHaveLength(4); // 4 Basic variants
         const standardNoteNames = standardNoteTypes.map((nt) => nt.name).sort();
         expect(standardNoteNames).toEqual([
@@ -156,9 +148,7 @@ describe("Utilities and Helper Functions", () => {
     });
 
     it("should preserve cloze content in field values during SRS conversion", async () => {
-      const result = await AnkiPackage.fromAnkiExport(
-        "./tests/fixtures/anki/mixed-legacy-2.apkg",
-      );
+      const result = await AnkiPackage.fromAnkiExport("./tests/fixtures/anki/mixed-legacy-2.apkg");
       const ankiPackage = expectSuccess(result);
 
       try {
@@ -169,9 +159,7 @@ describe("Utilities and Helper Functions", () => {
         // Find test cloze notes
         const multiClozeNote = srsNotes.find((note) =>
           note.fieldValues.some(
-            ([, value]) =>
-              value.includes("{{c1::fields}}") &&
-              value.includes("{{c2::hidden}}"),
+            ([, value]) => value.includes("{{c1::fields}}") && value.includes("{{c2::hidden}}"),
           ),
         );
         const hintNote = srsNotes.find((note) =>
@@ -213,12 +201,8 @@ describe("Utilities and Helper Functions", () => {
           expect(noteTypes).toHaveLength(6); // Should maintain all 6 note types
 
           // Check that both cloze and regular note types are preserved
-          const clozeTypes = noteTypes.filter(
-            (nt) => nt.type === NoteTypeKind.CLOZE,
-          );
-          const standardTypes = noteTypes.filter(
-            (nt) => nt.type === NoteTypeKind.STANDARD,
-          );
+          const clozeTypes = noteTypes.filter((nt) => nt.type === NoteTypeKind.CLOZE);
+          const standardTypes = noteTypes.filter((nt) => nt.type === NoteTypeKind.STANDARD);
           expect(clozeTypes).toHaveLength(2); // "Cloze" and "Image Occlusion"
           expect(standardTypes).toHaveLength(4); // 4 Basic variants
 
@@ -238,9 +222,7 @@ describe("Utilities and Helper Functions", () => {
     });
 
     it("should generate correct number of cloze cards", async () => {
-      const result = await AnkiPackage.fromAnkiExport(
-        "./tests/fixtures/anki/mixed-legacy-2.apkg",
-      );
+      const result = await AnkiPackage.fromAnkiExport("./tests/fixtures/anki/mixed-legacy-2.apkg");
       const ankiPackage = expectSuccess(result);
 
       try {
@@ -251,17 +233,13 @@ describe("Utilities and Helper Functions", () => {
         // Test cloze card generation specifically
         // Find the note with multiple cloze deletions (c1 and c2)
         const multiClozeNote = notes.find(
-          (note) =>
-            note.flds.includes("{{c1::fields}}") &&
-            note.flds.includes("{{c2::hidden}}"),
+          (note) => note.flds.includes("{{c1::fields}}") && note.flds.includes("{{c2::hidden}}"),
         );
 
         expect(multiClozeNote).toBeDefined();
 
         if (multiClozeNote) {
-          const noteCards = cards.filter(
-            (card) => card.nid === multiClozeNote.id,
-          );
+          const noteCards = cards.filter((card) => card.nid === multiClozeNote.id);
           expect(noteCards).toHaveLength(2); // Should generate 2 cards for 2 cloze deletions
 
           const ordinals = noteCards.map((card) => card.ord).sort();
@@ -270,9 +248,7 @@ describe("Utilities and Helper Functions", () => {
 
         // Test that regular cards are also generated correctly
         const noteTypes = ankiPackage.getNoteTypes();
-        const regularNoteTypes = noteTypes.filter(
-          (nt) => nt.type === NoteTypeKind.STANDARD,
-        );
+        const regularNoteTypes = noteTypes.filter((nt) => nt.type === NoteTypeKind.STANDARD);
         expect(regularNoteTypes).toHaveLength(4);
       } finally {
         await ankiPackage.cleanup();
@@ -320,9 +296,7 @@ describe("Utilities and Helper Functions", () => {
       // Extract review IDs
       const reviews = ankiPackage.getReviews();
       const reviewIds = new Set<number>(
-        reviews
-          .map((review) => review.id)
-          .filter((id): id is number => id !== null),
+        reviews.map((review) => review.id).filter((id): id is number => id !== null),
       );
 
       return { deckIds, noteTypeIds, noteIds, cardIds, reviewIds };
@@ -395,54 +369,26 @@ describe("Utilities and Helper Functions", () => {
               idsAfterCycle1.noteTypeIds,
               "Note Type (cycle 1)",
             );
-            compareIdSets(
-              originalIds.noteIds,
-              idsAfterCycle1.noteIds,
-              "Note (cycle 1)",
-            );
-            compareIdSets(
-              originalIds.cardIds,
-              idsAfterCycle1.cardIds,
-              "Card (cycle 1)",
-            );
+            compareIdSets(originalIds.noteIds, idsAfterCycle1.noteIds, "Note (cycle 1)");
+            compareIdSets(originalIds.cardIds, idsAfterCycle1.cardIds, "Card (cycle 1)");
 
             compareIdSets(
               originalIds.noteTypeIds,
               idsAfterCycle2.noteTypeIds,
               "Note Type (cycle 2)",
             );
-            compareIdSets(
-              originalIds.noteIds,
-              idsAfterCycle2.noteIds,
-              "Note (cycle 2)",
-            );
-            compareIdSets(
-              originalIds.cardIds,
-              idsAfterCycle2.cardIds,
-              "Card (cycle 2)",
-            );
+            compareIdSets(originalIds.noteIds, idsAfterCycle2.noteIds, "Note (cycle 2)");
+            compareIdSets(originalIds.cardIds, idsAfterCycle2.cardIds, "Card (cycle 2)");
 
             // Verify stability between cycles for all entity types
-            compareIdSets(
-              cycle1NonDefault,
-              cycle2NonDefault,
-              "Deck (cycle 1 vs 2)",
-            );
+            compareIdSets(cycle1NonDefault, cycle2NonDefault, "Deck (cycle 1 vs 2)");
             compareIdSets(
               idsAfterCycle1.noteTypeIds,
               idsAfterCycle2.noteTypeIds,
               "Note Type (cycle 1 vs 2)",
             );
-            compareIdSets(
-              idsAfterCycle1.noteIds,
-              idsAfterCycle2.noteIds,
-              "Note (cycle 1 vs 2)",
-            );
-            compareIdSets(
-              idsAfterCycle1.cardIds,
-              idsAfterCycle2.cardIds,
-              "Card (cycle 1 vs 2)",
-            );
+            compareIdSets(idsAfterCycle1.noteIds, idsAfterCycle2.noteIds, "Note (cycle 1 vs 2)");
+            compareIdSets(idsAfterCycle1.cardIds, idsAfterCycle2.cardIds, "Card (cycle 1 vs 2)");
           } finally {
             await convertedAnki2.cleanup();
           }
@@ -565,9 +511,7 @@ describe("Utilities and Helper Functions", () => {
           const [convertedNoteType] = convertedNoteTypes;
           const [originalNoteType] = originalNoteTypes;
           expect(convertedNoteType?.name).toBe(originalNoteType?.name);
-          expect(convertedNoteType?.fields).toHaveLength(
-            originalNoteType?.fields.length ?? 0,
-          );
+          expect(convertedNoteType?.fields).toHaveLength(originalNoteType?.fields.length ?? 0);
           expect(convertedNoteType?.templates).toHaveLength(
             originalNoteType?.templates.length ?? 0,
           );
@@ -576,12 +520,8 @@ describe("Utilities and Helper Functions", () => {
           expect(convertedNotes).toHaveLength(originalNotes.length);
           const [convertedNote1, convertedNote2] = convertedNotes;
           const [originalNote1, originalNote2] = originalNotes;
-          expect(convertedNote1?.fieldValues).toEqual(
-            originalNote1?.fieldValues,
-          );
-          expect(convertedNote2?.fieldValues).toEqual(
-            originalNote2?.fieldValues,
-          );
+          expect(convertedNote1?.fieldValues).toEqual(originalNote1?.fieldValues);
+          expect(convertedNote2?.fieldValues).toEqual(originalNote2?.fieldValues);
 
           // Assert card and review relationships are preserved
           expect(convertedCards).toHaveLength(originalCards.length);

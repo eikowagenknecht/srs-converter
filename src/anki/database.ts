@@ -1,7 +1,9 @@
+import type { Database } from "sql.js";
+
 import { CompiledQuery, Kysely } from "kysely";
 import { SqlJsDialect } from "kysely-wasm";
-import type { Database } from "sql.js";
 import InitSqlJs from "sql.js";
+
 import type { ConversionIssue } from "@/error-handling";
 
 /**
@@ -21,11 +23,7 @@ export class AnkiDatabaseError extends Error {
   readonly type: AnkiDatabaseErrorType;
   readonly missingTables: string[] | undefined;
 
-  constructor(
-    type: AnkiDatabaseErrorType,
-    message: string,
-    missingTables?: string[],
-  ) {
+  constructor(type: AnkiDatabaseErrorType, message: string, missingTables?: string[]) {
     super(message);
     this.name = "AnkiDatabaseError";
     this.type = type;
@@ -33,7 +31,6 @@ export class AnkiDatabaseError extends Error {
   }
 }
 
-import { ankiDbSchema, ankiDefaultCollectionInsert } from "./constants";
 import type {
   CardsTable,
   ColTable,
@@ -47,6 +44,8 @@ import type {
   NoteTypes,
   RevlogTable,
 } from "./types";
+
+import { ankiDbSchema, ankiDefaultCollectionInsert } from "./constants";
 import { parseWithBigInts, serializeWithBigInts } from "./util";
 
 export class AnkiDatabase {
@@ -81,20 +80,13 @@ export class AnkiDatabase {
    * SQLite magic bytes: "SQLite format 3\0" (16 bytes)
    */
   private static readonly SQLITE_MAGIC = new Uint8Array([
-    0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61,
-    0x74, 0x20, 0x33, 0x00,
+    0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x20, 0x33, 0x00,
   ]);
 
   /**
    * Required tables for a valid Anki database
    */
-  static readonly REQUIRED_TABLES = [
-    "col",
-    "notes",
-    "cards",
-    "revlog",
-    "graves",
-  ] as const;
+  static readonly REQUIRED_TABLES = ["col", "notes", "cards", "revlog", "graves"] as const;
 
   /**
    * Creates an AnkiDatabase from a buffer containing SQLite data.
@@ -105,10 +97,7 @@ export class AnkiDatabase {
   static async fromBuffer(buffer: Uint8Array): Promise<AnkiDatabase> {
     // Check for empty buffer
     if (buffer.length === 0) {
-      throw new AnkiDatabaseError(
-        "empty",
-        "The database file is empty (0 bytes).",
-      );
+      throw new AnkiDatabaseError("empty", "The database file is empty (0 bytes).");
     }
 
     // Check for SQLite magic bytes (first 16 bytes should be "SQLite format 3\0")
@@ -119,9 +108,7 @@ export class AnkiDatabase {
       );
     }
 
-    const hasSqliteMagic = AnkiDatabase.SQLITE_MAGIC.every(
-      (byte, index) => buffer[index] === byte,
-    );
+    const hasSqliteMagic = AnkiDatabase.SQLITE_MAGIC.every((byte, index) => buffer[index] === byte);
 
     if (!hasSqliteMagic) {
       throw new AnkiDatabaseError(
@@ -137,8 +124,7 @@ export class AnkiDatabase {
       sqlJsInstance = new SQL.Database(buffer);
     } catch (error) {
       // sql.js throws various errors for corrupted databases
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       throw new AnkiDatabaseError(
         "corrupted",
         `The database file is corrupted and cannot be opened: ${errorMessage}`,
@@ -170,13 +156,10 @@ export class AnkiDatabase {
     // Query sqlite_master to get list of tables
     let result: ReturnType<Database["exec"]>;
     try {
-      result = this.sqlJsInstance.exec(
-        "SELECT name FROM sqlite_master WHERE type='table'",
-      );
+      result = this.sqlJsInstance.exec("SELECT name FROM sqlite_master WHERE type='table'");
     } catch (error) {
       // sql.js throws for corrupted/truncated databases when queried
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       throw new AnkiDatabaseError(
         "corrupted",
         `The database is corrupted and cannot be read: ${errorMessage}`,
@@ -279,9 +262,7 @@ export class AnkiDatabase {
         .map((s) => s.trim())
         .filter((s) => s.length > 0);
 
-    const statements = Array.isArray(sql)
-      ? sql.flatMap(prepareStatements)
-      : prepareStatements(sql);
+    const statements = Array.isArray(sql) ? sql.flatMap(prepareStatements) : prepareStatements(sql);
 
     for (const statement of statements) {
       try {
@@ -306,10 +287,7 @@ export class AnkiDatabase {
   }
 
   async getCollection(): Promise<ColTable> {
-    const collectionRaw = await this.db
-      .selectFrom("col")
-      .selectAll()
-      .executeTakeFirstOrThrow();
+    const collectionRaw = await this.db.selectFrom("col").selectAll().executeTakeFirstOrThrow();
 
     // Parse the JSON fields in the database.
     // TODO: Handle the case where the fields do not comply with the expected types.
@@ -318,10 +296,7 @@ export class AnkiDatabase {
       conf: JSON.parse(collectionRaw.conf) as Config,
       decks: JSON.parse(collectionRaw.decks) as Decks,
       dconf: JSON.parse(collectionRaw.dconf) as DeckConfigs,
-      models: parseWithBigInts(collectionRaw.models, [
-        "tmpls[].id",
-        "flds[].id",
-      ]) as NoteTypes,
+      models: parseWithBigInts(collectionRaw.models, ["tmpls[].id", "flds[].id"]) as NoteTypes,
       tags: JSON.parse(collectionRaw.tags) as Record<string, never>,
     };
 
@@ -356,26 +331,14 @@ export class AnkiDatabase {
   }
 
   async addNote(note: NotesTable): Promise<NotesTable> {
-    return this.db
-      .insertInto("notes")
-      .values(note)
-      .returningAll()
-      .executeTakeFirstOrThrow();
+    return this.db.insertInto("notes").values(note).returningAll().executeTakeFirstOrThrow();
   }
 
   async addCard(card: CardsTable): Promise<CardsTable> {
-    return this.db
-      .insertInto("cards")
-      .values(card)
-      .returningAll()
-      .executeTakeFirstOrThrow();
+    return this.db.insertInto("cards").values(card).returningAll().executeTakeFirstOrThrow();
   }
 
   async addRevlog(revlog: RevlogTable): Promise<RevlogTable> {
-    return this.db
-      .insertInto("revlog")
-      .values(revlog)
-      .returningAll()
-      .executeTakeFirstOrThrow();
+    return this.db.insertInto("revlog").values(revlog).returningAll().executeTakeFirstOrThrow();
   }
 }

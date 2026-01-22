@@ -1,20 +1,16 @@
 /** biome-ignore-all lint/complexity/useLiteralKeys: <It's a test> */
 import { Buffer } from "node:buffer";
 import { describe, expect, it } from "vitest";
+
 import { AnkiPackage } from "./anki-package";
-import {
-  createTestAnkiNote,
-  expectSuccess,
-  setupTempDir,
-} from "./anki-package.fixtures";
+import { createTestAnkiNote, expectSuccess, setupTempDir } from "./anki-package.fixtures";
 import { basicModel } from "./constants";
 
 setupTempDir();
 
 describe("Media File APIs", () => {
   const MEDIA_PACKAGE_PATH = "tests/fixtures/anki/mixed-legacy-2.apkg";
-  const EXPECTED_FILENAME =
-    "paste-ab21b25dd3e4ba4af2a1d8bdfa4c47455e53abac.jpg";
+  const EXPECTED_FILENAME = "paste-ab21b25dd3e4ba4af2a1d8bdfa4c47455e53abac.jpg";
 
   describe("listMediaFiles()", () => {
     it("should return list of media filenames", async () => {
@@ -66,9 +62,7 @@ describe("Media File APIs", () => {
       const pkg = expectSuccess(result);
 
       try {
-        await expect(
-          pkg.getMediaFileSize("non-existent-file.jpg"),
-        ).rejects.toThrow(
+        await expect(pkg.getMediaFileSize("non-existent-file.jpg")).rejects.toThrow(
           "Media file 'non-existent-file.jpg' not found in package",
         );
       } finally {
@@ -212,9 +206,9 @@ describe("Media File APIs", () => {
       const pkg = expectSuccess(result);
 
       try {
-        await expect(
-          pkg.addMediaFile("test.txt", "/non/existent/path.txt"),
-        ).rejects.toThrow("Failed to add media file 'test.txt'");
+        await expect(pkg.addMediaFile("test.txt", "/non/existent/path.txt")).rejects.toThrow(
+          "Failed to add media file 'test.txt'",
+        );
       } finally {
         await pkg.cleanup();
       }
@@ -263,11 +257,8 @@ describe("Media File APIs", () => {
           expect(mediaFiles).toContain(TEST_IMAGE_NAME);
 
           // Verify content matches
-          const originalStats = await (await import("node:fs/promises")).stat(
-            TEST_IMAGE_PATH,
-          );
-          const reimportedSize =
-            await reimportedPkg.getMediaFileSize(TEST_IMAGE_NAME);
+          const originalStats = await (await import("node:fs/promises")).stat(TEST_IMAGE_PATH);
+          const reimportedSize = await reimportedPkg.getMediaFileSize(TEST_IMAGE_NAME);
           expect(reimportedSize).toBe(originalStats.size);
         } finally {
           await reimportedPkg.cleanup();
@@ -373,10 +364,7 @@ describe("Media File APIs", () => {
       try {
         // Add two media files
         await pkg.addMediaFile(TEST_IMAGE_NAME, TEST_IMAGE_PATH);
-        await pkg.addMediaFile(
-          "keep-this.txt",
-          Buffer.from("keep this content"),
-        );
+        await pkg.addMediaFile("keep-this.txt", Buffer.from("keep this content"));
 
         // Remove one
         await pkg.removeMediaFile(TEST_IMAGE_NAME);
@@ -530,10 +518,7 @@ describe("Media File APIs", () => {
         pkg.addNote(
           createTestAnkiNote({
             noteTypeId: basicModel.id,
-            fields: [
-              '<img src="referenced-image.png">',
-              "[sound:referenced-sound.mp3]",
-            ],
+            fields: ['<img src="referenced-image.png">', "[sound:referenced-sound.mp3]"],
           }),
         );
 
@@ -798,8 +783,7 @@ describe("Media File APIs", () => {
       try {
         // Clear the database contents to simulate unavailable database
 
-        (pkg as unknown as { databaseContents: undefined }).databaseContents =
-          undefined;
+        (pkg as unknown as { databaseContents: undefined }).databaseContents = undefined;
 
         await expect(pkg.removeUnreferencedMediaFiles()).rejects.toThrow(
           "Database contents not available",

@@ -1,6 +1,6 @@
+import archiver, { type ZipEntryData } from "archiver";
 import fs from "node:fs";
 import path from "node:path";
-import archiver, { type ZipEntryData } from "archiver";
 import { v7 as uuidv7 } from "uuid";
 
 const NUMERIC_STRING_PATTERN = /^\d+$/;
@@ -62,10 +62,7 @@ export function sanitizeFilename(filename: string): string {
   return filename.replace(/[^a-z0-9.-]/gi, "_");
 }
 
-export function omitFields<T extends object, K extends keyof T>(
-  obj: T,
-  ...keys: K[]
-): Omit<T, K> {
+export function omitFields<T extends object, K extends keyof T>(obj: T, ...keys: K[]): Omit<T, K> {
   const result = Object.fromEntries(
     Object.entries(obj).filter(([key]) => !keys.includes(key as K)),
   ) as Omit<T, K>;
@@ -131,10 +128,7 @@ interface FileConfig {
  * @returns Promise that resolves when ZIP creation is complete
  * @throws {Error} if file operations fail or archive creation encounters errors
  */
-export async function createSelectiveZip(
-  outputPath: string,
-  files: FileConfig[],
-): Promise<void> {
+export async function createSelectiveZip(outputPath: string, files: FileConfig[]): Promise<void> {
   // Create the output directory if it doesn't exist
   await fs.promises.mkdir(path.dirname(outputPath), { recursive: true });
 
@@ -205,16 +199,11 @@ export function splitAnkiFields(fieldString: string): string[] {
  * const json = serializeWithBigInts(data);
  * // Result: '{"id":123,"balance":9007199254740993}'
  */
-export function serializeWithBigInts(
-  obj: unknown,
-  space?: string | number,
-): string {
+export function serializeWithBigInts(obj: unknown, space?: string | number): string {
   return JSON.stringify(
     obj,
     (_key, value: unknown) =>
-      typeof value === "bigint"
-        ? `__BIGINT__${String(value)}__BIGINT__`
-        : value,
+      typeof value === "bigint" ? `__BIGINT__${String(value)}__BIGINT__` : value,
     space,
   ).replace(/"__BIGINT__(\d+)__BIGINT__"/g, "$1");
 }
@@ -256,10 +245,7 @@ export function serializeWithBigInts(
  * //   users: [{ id: 456n }]       // BigInt (targeted by "users[].id")
  * // }
  */
-export function parseWithBigInts(
-  jsonString: string,
-  bigintFieldPaths: string[],
-): unknown {
+export function parseWithBigInts(jsonString: string, bigintFieldPaths: string[]): unknown {
   // Phase 1: Validation - Parse JSON and validate target fields are numeric
   const parsedForValidation = JSON.parse(jsonString) as unknown;
   validateTargetFieldsAreNumeric(parsedForValidation, bigintFieldPaths);
@@ -288,18 +274,14 @@ export function parseWithBigInts(
  * @param targetPaths - Array of field paths that should contain numeric values (may include [] notation)
  * @throws {Error} When target fields contain any non-numeric values
  */
-function validateTargetFieldsAreNumeric(
-  parsedValue: unknown,
-  targetPaths: string[],
-): void {
+function validateTargetFieldsAreNumeric(parsedValue: unknown, targetPaths: string[]): void {
   for (const path of targetPaths) {
     const values = getValuesAtPath(parsedValue, path);
     for (const value of values) {
       if (typeof value !== "number") {
         const pathParts = path.replace(/\[\]/g, "").split(".");
         const fieldName = pathParts[pathParts.length - 1] ?? "unknown";
-        const valueStr =
-          typeof value === "string" ? `"${value}"` : String(value);
+        const valueStr = typeof value === "string" ? `"${value}"` : String(value);
         throw new Error(
           `Field '${fieldName}' (from path '${path}') contains non-numeric value ${valueStr}. Expected unquoted numeric value.`,
         );
@@ -406,25 +388,15 @@ function processValueWithPrecisePaths(
   }
 
   // Check if current path matches any target path
-  const shouldConvert = targetPaths.some(
-    (targetPath) => currentPath === targetPath,
-  );
+  const shouldConvert = targetPaths.some((targetPath) => currentPath === targetPath);
 
   // Check for string values that should be converted to BigInt (quoted numbers)
-  if (
-    typeof value === "string" &&
-    NUMERIC_STRING_PATTERN.test(value) &&
-    shouldConvert
-  ) {
+  if (typeof value === "string" && NUMERIC_STRING_PATTERN.test(value) && shouldConvert) {
     return BigInt(value);
   }
 
   // Convert quoted numeric strings back to regular numbers if they're NOT target paths
-  if (
-    typeof value === "string" &&
-    NUMERIC_STRING_PATTERN.test(value) &&
-    !shouldConvert
-  ) {
+  if (typeof value === "string" && NUMERIC_STRING_PATTERN.test(value) && !shouldConvert) {
     return Number(value);
   }
 
@@ -441,11 +413,7 @@ function processValueWithPrecisePaths(
     const result: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(value)) {
       const newPath = currentPath ? `${currentPath}.${key}` : key;
-      const processedValue = processValueWithPrecisePaths(
-        val,
-        newPath,
-        targetPaths,
-      );
+      const processedValue = processValueWithPrecisePaths(val, newPath, targetPaths);
       result[key] = processedValue;
     }
     return result;

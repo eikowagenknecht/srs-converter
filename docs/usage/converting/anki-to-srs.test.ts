@@ -9,6 +9,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
 import { AnkiPackage } from "@/anki/anki-package";
 import { basicModel, defaultDeck } from "@/anki/constants";
 
@@ -18,9 +19,7 @@ import { basicModel, defaultDeck } from "@/anki/constants";
  * @param namePrefix - Prefix for naming test entities (default: "Test")
  * @returns Promise<AnkiPackage> - A configured AnkiPackage with test data
  */
-async function createTestAnkiPackage(
-  namePrefix = "Test",
-): Promise<AnkiPackage> {
+async function createTestAnkiPackage(namePrefix = "Test"): Promise<AnkiPackage> {
   const result = await AnkiPackage.fromDefault();
   expect(result.status).toBe("success");
   if (result.status !== "success") {
@@ -138,13 +137,9 @@ describe("Anki to SRS Conversion Documentation Examples", () => {
     expect(srsResult.data).toBeDefined();
   });
 
-  it.todo(
-    "should handle partial conversion with data corruption or missing fields",
-  );
+  it.todo("should handle partial conversion with data corruption or missing fields");
 
-  it.todo(
-    "should handle failure conversion when package is invalid or corrupted",
-  );
+  it.todo("should handle failure conversion when package is invalid or corrupted");
 
   // Code Sample 1.2: Strict Mode
   it("should convert Anki package to SRS with strict mode error handling", async () => {
@@ -177,9 +172,7 @@ describe("Anki to SRS Conversion Documentation Examples", () => {
     expect(srsResult.data).toBeDefined();
   });
 
-  it.todo(
-    "should handle failure conversion in strict mode when minor issues occur",
-  );
+  it.todo("should handle failure conversion in strict mode when minor issues occur");
 
   // Code Sample: Plugin Data Preservation
   it("should preserve plugin data in round-trip conversion", async () => {
@@ -261,9 +254,7 @@ describe("Anki to SRS Conversion Documentation Examples", () => {
       );
       expect(noteWithPlugin).toBeDefined();
       // biome-ignore lint/complexity/useLiteralKeys: Required for TS index signature
-      expect(noteWithPlugin?.applicationSpecificData?.["ankiData"]).toBe(
-        pluginData,
-      );
+      expect(noteWithPlugin?.applicationSpecificData?.["ankiData"]).toBe(pluginData);
 
       const cards = srsPackage.getCards();
       expect(cards.length).toBeGreaterThan(0);
@@ -273,9 +264,7 @@ describe("Anki to SRS Conversion Documentation Examples", () => {
       );
       expect(cardWithPlugin).toBeDefined();
       // biome-ignore lint/complexity/useLiteralKeys: Required for TS index signature
-      expect(cardWithPlugin?.applicationSpecificData?.["ankiData"]).toBe(
-        cardPluginData,
-      );
+      expect(cardWithPlugin?.applicationSpecificData?.["ankiData"]).toBe(cardPluginData);
 
       // Convert SRS -> Anki
       const reconvertedResult = await AnkiPackage.fromSrsPackage(srsPackage);
@@ -287,17 +276,13 @@ describe("Anki to SRS Conversion Documentation Examples", () => {
         // Original plugin data is restored to the data field
         const reconvertedNotes = reconvertedAnki.getNotes();
         expect(reconvertedNotes.length).toBeGreaterThan(0);
-        const restoredNote = reconvertedNotes.find(
-          (n) => n.data === pluginData,
-        );
+        const restoredNote = reconvertedNotes.find((n) => n.data === pluginData);
         expect(restoredNote).toBeDefined();
         expect(restoredNote?.data).toBe(pluginData);
 
         const reconvertedCards = reconvertedAnki.getCards();
         expect(reconvertedCards.length).toBeGreaterThan(0);
-        const restoredCard = reconvertedCards.find(
-          (c) => c.data === cardPluginData,
-        );
+        const restoredCard = reconvertedCards.find((c) => c.data === cardPluginData);
         expect(restoredCard).toBeDefined();
         expect(restoredCard?.data).toBe(cardPluginData);
       } finally {

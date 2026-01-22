@@ -1,18 +1,13 @@
+import type { Readable } from "node:stream";
+
 import { createReadStream, createWriteStream } from "node:fs";
-import {
-  copyFile,
-  mkdtemp,
-  readFile,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import protobuf from "protobufjs";
 import { type CentralDirectory, Open } from "unzipper";
+
 import {
   type ConversionIssue,
   type ConversionOptions,
@@ -29,6 +24,7 @@ import {
   SrsPackage,
   SrsReviewScore,
 } from "@/srs-package";
+
 import { defaultDeck } from "./constants";
 import { AnkiDatabase, AnkiDatabaseError } from "./database";
 import {
@@ -103,10 +99,7 @@ function validateDeckEntry(deckId: string, data: unknown): ValidationResult {
  * @param data - The raw note type data to validate
  * @returns Validation result indicating if the note type is valid
  */
-function validateNoteTypeEntry(
-  noteTypeId: string,
-  data: unknown,
-): ValidationResult {
+function validateNoteTypeEntry(noteTypeId: string, data: unknown): ValidationResult {
   if (data === null || typeof data !== "object") {
     return { valid: false, error: "not an object" };
   }
@@ -156,10 +149,7 @@ function validateNoteTypeEntry(
  * @param validNoteTypeIds - Set of valid note type IDs to check against
  * @returns Validation result indicating if the note is valid
  */
-function validateNote(
-  note: NotesTable,
-  validNoteTypeIds: Set<number>,
-): ValidationResult {
+function validateNote(note: NotesTable, validNoteTypeIds: Set<number>): ValidationResult {
   if (Number.isNaN(note.id)) {
     return { valid: false, error: "missing or invalid 'id' field" };
   }
@@ -233,10 +223,7 @@ function validateCard(
  * @param validCardIds - Set of valid card IDs to check against
  * @returns Validation result indicating if the review is valid
  */
-function validateReview(
-  review: RevlogTable,
-  validCardIds: Set<number>,
-): ValidationResult {
+function validateReview(review: RevlogTable, validCardIds: Set<number>): ValidationResult {
   if (review.id === null || Number.isNaN(review.id)) {
     return { valid: false, error: "missing or invalid 'id' field" };
   }
@@ -261,10 +248,7 @@ function validateReview(
  * @param collector - Issue collector to report validation errors
  * @returns Database dump with only valid items
  */
-function filterValidDatabaseItems(
-  dump: DatabaseDump,
-  collector: IssueCollector,
-): DatabaseDump {
+function filterValidDatabaseItems(dump: DatabaseDump, collector: IssueCollector): DatabaseDump {
   // Step 1: Validate decks
   const validDecks: Record<string, Deck> = {};
   for (const [deckId, deckData] of Object.entries(dump.collection.decks)) {
@@ -294,9 +278,7 @@ function filterValidDatabaseItems(
   }
 
   const validDeckIds = new Set(Object.keys(validDecks).map((id) => Number(id)));
-  const validNoteTypeIds = new Set(
-    Object.keys(validNoteTypes).map((id) => Number(id)),
-  );
+  const validNoteTypeIds = new Set(Object.keys(validNoteTypes).map((id) => Number(id)));
 
   // Step 3: Validate notes
   const validNotes: NotesTable[] = [];
@@ -425,11 +407,7 @@ export class AnkiPackage {
     this.tempDir = tempDir;
   }
 
-  private getCardDescription(
-    card: CardsTable,
-    note?: NotesTable,
-    deck?: Deck,
-  ): string {
+  private getCardDescription(card: CardsTable, note?: NotesTable, deck?: Deck): string {
     const cardId = card.id?.toFixed() ?? "Unknown";
     const deckName = deck?.name ?? "Unknown";
 
@@ -442,8 +420,7 @@ export class AnkiPackage {
     // TODO: This needs some love to work with multiple fields, HTML etc.
     const frontText = fields[0] ?? note.sfld;
     const cleanText = frontText.replace(/<[^>]*>/g, "").trim();
-    const preview =
-      cleanText.length > 50 ? `${cleanText.substring(0, 47)}...` : cleanText;
+    const preview = cleanText.length > 50 ? `${cleanText.substring(0, 47)}...` : cleanText;
 
     return preview
       ? `Card "${preview}" (ID ${cardId}) in deck "${deckName}"`
@@ -457,9 +434,7 @@ export class AnkiPackage {
     deck?: Deck,
   ): string {
     const reviewId = review.id?.toFixed() ?? "Unknown";
-    const reviewDate = review.id
-      ? new Date(review.id).toLocaleDateString()
-      : "Unknown";
+    const reviewDate = review.id ? new Date(review.id).toLocaleDateString() : "Unknown";
 
     if (card && note) {
       const cardDesc = this.getCardDescription(card, note, deck);
@@ -480,10 +455,7 @@ export class AnkiPackage {
       try {
         db = await AnkiDatabase.fromDefault();
         const rawDump = await db.toObject();
-        instance.databaseContents = filterValidDatabaseItems(
-          rawDump,
-          collector,
-        );
+        instance.databaseContents = filterValidDatabaseItems(rawDump, collector);
 
         return collector.createResult(instance);
       } catch (error) {
@@ -550,10 +522,7 @@ export class AnkiPackage {
         try {
           directory = await Open.file(filepath);
         } catch (zipError) {
-          if (
-            zipError instanceof Error &&
-            zipError.message.includes("FILE_ENDED")
-          ) {
+          if (zipError instanceof Error && zipError.message.includes("FILE_ENDED")) {
             if (hasZipMagic) {
               collector.addCritical(
                 "The ZIP archive is truncated or corrupted. This typically happens when a download was interrupted. Please re-download or re-export your deck from Anki.",
@@ -651,10 +620,7 @@ export class AnkiPackage {
           try {
             parsedMedia = JSON.parse(mediaFileString);
           } catch (jsonError) {
-            const errorMessage =
-              jsonError instanceof Error
-                ? jsonError.message
-                : String(jsonError);
+            const errorMessage = jsonError instanceof Error ? jsonError.message : String(jsonError);
             collector.addCritical(
               `The media mapping file contains invalid JSON and cannot be parsed: ${errorMessage}. Please re-export your deck from Anki.`,
             );
@@ -752,10 +718,7 @@ export class AnkiPackage {
 
         // Read the contents of the database and validate
         const rawDump = await db.toObject();
-        instance.databaseContents = filterValidDatabaseItems(
-          rawDump,
-          collector,
-        );
+        instance.databaseContents = filterValidDatabaseItems(rawDump, collector);
 
         if (instance.databaseContents.collection.ver !== DB_VERSION) {
           collector.addCritical(
@@ -839,10 +802,7 @@ export class AnkiPackage {
 
     const deckIDs = new Map<string, number>();
     for (const deck of decks) {
-      let deckID = resolveAnkiId(
-        deck.applicationSpecificData,
-        extractTimestampFromUuid(deck.id),
-      );
+      let deckID = resolveAnkiId(deck.applicationSpecificData, extractTimestampFromUuid(deck.id));
 
       // Keep incrementing until we find an unused ID
       while (Array.from(deckIDs.values()).includes(deckID)) {
@@ -949,10 +909,7 @@ export class AnkiPackage {
     // Convert notes
     const noteIDs = new Map<string, number>();
     for (const note of srsPackage.getNotes()) {
-      let noteId = resolveAnkiId(
-        note.applicationSpecificData,
-        extractTimestampFromUuid(note.id),
-      );
+      let noteId = resolveAnkiId(note.applicationSpecificData, extractTimestampFromUuid(note.id));
 
       // Keep incrementing until we find an unused ID
       while (Array.from(noteIDs.values()).includes(noteId)) {
@@ -1053,9 +1010,7 @@ export class AnkiPackage {
         : deckId; // fallback to timestamp-based ID
 
       // Find the note type for this note
-      const noteType = srsPackage
-        .getNoteTypes()
-        .find((nt) => nt.id === note.noteTypeId);
+      const noteType = srsPackage.getNoteTypes().find((nt) => nt.id === note.noteTypeId);
 
       // Check if this is a cloze note type by looking at the template content
       // TODO: This is used in multiple places, extract to utility function
@@ -1070,9 +1025,7 @@ export class AnkiPackage {
 
       if (isClozeNoteType) {
         // For cloze notes, analyze the content to determine required ordinals
-        const fieldContent = joinAnkiFields(
-          note.fieldValues.map(([, value]) => value),
-        );
+        const fieldContent = joinAnkiFields(note.fieldValues.map(([, value]) => value));
         const requiredOrdinals = analyzeClozeOrdinals(fieldContent);
 
         // Map SRS cards to ordinals, ensuring we have all required ordinals
@@ -1368,9 +1321,7 @@ export class AnkiPackage {
    */
   public async getMediaFileSize(filename: string): Promise<number> {
     // Find the media file ID from the filename
-    const mediaId = Object.entries(this.mediaFiles).find(
-      ([, name]) => name === filename,
-    )?.[0];
+    const mediaId = Object.entries(this.mediaFiles).find(([, name]) => name === filename)?.[0];
 
     if (mediaId === undefined) {
       throw new Error(`Media file '${filename}' not found in package`);
@@ -1396,9 +1347,7 @@ export class AnkiPackage {
    */
   public getMediaFile(filename: string): Readable {
     // Find the media file ID from the filename
-    const mediaId = Object.entries(this.mediaFiles).find(
-      ([, name]) => name === filename,
-    )?.[0];
+    const mediaId = Object.entries(this.mediaFiles).find(([, name]) => name === filename)?.[0];
 
     if (mediaId === undefined) {
       throw new Error(`Media file '${filename}' not found in package`);
@@ -1417,22 +1366,15 @@ export class AnkiPackage {
    * @throws {Error} if the filename already exists in the package
    * @throws {Error} if the source file cannot be read or processed
    */
-  public async addMediaFile(
-    filename: string,
-    source: string | Buffer | Readable,
-  ): Promise<void> {
+  public async addMediaFile(filename: string, source: string | Buffer | Readable): Promise<void> {
     // Check if filename already exists
-    const existingFile = Object.values(this.mediaFiles).find(
-      (name) => name === filename,
-    );
+    const existingFile = Object.values(this.mediaFiles).find((name) => name === filename);
     if (existingFile !== undefined) {
       throw new Error(`Media file '${filename}' already exists in package`);
     }
 
     // Generate unique media ID (next available number)
-    const existingIds = Object.keys(this.mediaFiles).map((id) =>
-      Number.parseInt(id, 10),
-    );
+    const existingIds = Object.keys(this.mediaFiles).map((id) => Number.parseInt(id, 10));
     const nextId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 0;
     const mediaId = nextId.toFixed();
 
@@ -1468,9 +1410,7 @@ export class AnkiPackage {
    */
   public async removeMediaFile(filename: string): Promise<void> {
     // Find the media file ID from the filename
-    const mediaEntry = Object.entries(this.mediaFiles).find(
-      ([, name]) => name === filename,
-    );
+    const mediaEntry = Object.entries(this.mediaFiles).find(([, name]) => name === filename);
 
     if (mediaEntry === undefined) {
       throw new Error(`Media file '${filename}' does not exist in package`);
@@ -1486,9 +1426,7 @@ export class AnkiPackage {
       // Remove from media mapping by creating new object without the key
       const numericId = Number.parseInt(mediaId, 10);
       this.mediaFiles = Object.fromEntries(
-        Object.entries(this.mediaFiles).filter(
-          ([key]) => Number.parseInt(key, 10) !== numericId,
-        ),
+        Object.entries(this.mediaFiles).filter(([key]) => Number.parseInt(key, 10) !== numericId),
       );
     } catch (error) {
       throw new Error(
@@ -1519,8 +1457,7 @@ export class AnkiPackage {
     // Matches:
     // - <img src="filename.ext"> and variants (with/without quotes)
     // - [sound:filename.ext] (used for both audio and video in Anki)
-    const mediaReferencePattern =
-      /<img[^>]+src=["']?([^"'>\s]+)["']?|\[sound:([^\]]+)\]/gi;
+    const mediaReferencePattern = /<img[^>]+src=["']?([^"'>\s]+)["']?|\[sound:([^\]]+)\]/gi;
 
     // Collect all referenced filenames from all notes
     const referencedFiles = new Set<string>();
@@ -1542,9 +1479,7 @@ export class AnkiPackage {
 
     // Find unreferenced files
     const allMediaFiles = Object.values(this.mediaFiles);
-    const unreferencedFiles = allMediaFiles.filter(
-      (filename) => !referencedFiles.has(filename),
-    );
+    const unreferencedFiles = allMediaFiles.filter((filename) => !referencedFiles.has(filename));
 
     // Remove unreferenced files
     for (const filename of unreferencedFiles) {
@@ -1560,9 +1495,7 @@ export class AnkiPackage {
    * @param options - Configuration options for the conversion process
    * @returns A new SrsPackage containing the converted data
    */
-  public toSrsPackage(
-    options?: ConversionOptions,
-  ): ConversionResult<SrsPackage> {
+  public toSrsPackage(options?: ConversionOptions): ConversionResult<SrsPackage> {
     const collector = new IssueCollector(options);
 
     if (!this.databaseContents) {
@@ -1577,9 +1510,7 @@ export class AnkiPackage {
     // Step 1: Convert and add decks
     const ankiToSrsDeckMap = new Map<number, string>();
 
-    for (const [deckId, ankiDeck] of Object.entries(
-      this.databaseContents.collection.decks,
-    )) {
+    for (const [deckId, ankiDeck] of Object.entries(this.databaseContents.collection.decks)) {
       const deckData: Parameters<typeof createDeck>[0] = {
         name: ankiDeck.name,
         applicationSpecificData: {
@@ -1669,9 +1600,7 @@ export class AnkiPackage {
         continue;
       }
 
-      const srsNoteType = srsPackage
-        .getNoteTypes()
-        .find((nt) => nt.id === srsNoteTypeId);
+      const srsNoteType = srsPackage.getNoteTypes().find((nt) => nt.id === srsNoteTypeId);
       if (!srsNoteType) {
         collector.addError(
           `Cannot convert note ${ankiNote.id.toFixed()} because its note type was not found. This note will be skipped.`,
@@ -1684,9 +1613,10 @@ export class AnkiPackage {
       }
 
       const fieldValues = splitAnkiFields(ankiNote.flds);
-      const noteFieldValues: [string, string][] = srsNoteType.fields.map(
-        (field, index) => [field.name, fieldValues[index] ?? ""],
-      );
+      const noteFieldValues: [string, string][] = srsNoteType.fields.map((field, index) => [
+        field.name,
+        fieldValues[index] ?? "",
+      ]);
 
       const srsNote = createNote(
         {
@@ -1742,9 +1672,7 @@ export class AnkiPackage {
           ankiToSrsCardMap.set(ankiCard.id, srsCard.id);
         }
       } catch (error) {
-        const note = this.databaseContents.notes.find(
-          (n) => n.id === ankiCard.nid,
-        );
+        const note = this.databaseContents.notes.find((n) => n.id === ankiCard.nid);
         const deck = this.databaseContents.collection.decks[ankiCard.did];
 
         collector.addCardError(
@@ -1769,15 +1697,11 @@ export class AnkiPackage {
         // Check for null review ID
         if (ankiReview.id === null) {
           // Find the card and related data for better error messages
-          const ankiCard = this.databaseContents.cards.find(
-            (c) => c.id === ankiReview.cid,
-          );
+          const ankiCard = this.databaseContents.cards.find((c) => c.id === ankiReview.cid);
           const note = ankiCard
             ? this.databaseContents.notes.find((n) => n.id === ankiCard.nid)
             : undefined;
-          const deck = ankiCard
-            ? this.databaseContents.collection.decks[ankiCard.did]
-            : undefined;
+          const deck = ankiCard ? this.databaseContents.collection.decks[ankiCard.did] : undefined;
 
           collector.addReviewError(
             `Review ID is undefined for ${this.getReviewDescription(ankiReview, ankiCard, note, deck)} - Skipping review`,
@@ -1787,21 +1711,13 @@ export class AnkiPackage {
         }
 
         // Check for invalid review score
-        if (
-          ![Ease.AGAIN, Ease.HARD, Ease.GOOD, Ease.EASY].includes(
-            ankiReview.ease,
-          )
-        ) {
+        if (![Ease.AGAIN, Ease.HARD, Ease.GOOD, Ease.EASY].includes(ankiReview.ease)) {
           // Find the card and related data for better error messages
-          const ankiCard = this.databaseContents.cards.find(
-            (c) => c.id === ankiReview.cid,
-          );
+          const ankiCard = this.databaseContents.cards.find((c) => c.id === ankiReview.cid);
           const note = ankiCard
             ? this.databaseContents.notes.find((n) => n.id === ankiCard.nid)
             : undefined;
-          const deck = ankiCard
-            ? this.databaseContents.collection.decks[ankiCard.did]
-            : undefined;
+          const deck = ankiCard ? this.databaseContents.collection.decks[ankiCard.did] : undefined;
 
           collector.addReviewError(
             `Unknown review score ${ankiReview.ease.toString()} for ${this.getReviewDescription(ankiReview, ankiCard, note, deck)} - Skipping review`,
@@ -1839,15 +1755,11 @@ export class AnkiPackage {
 
         srsPackage.addReview(srsReview);
       } catch (error) {
-        const ankiCard = this.databaseContents.cards.find(
-          (c) => c.id === ankiReview.cid,
-        );
+        const ankiCard = this.databaseContents.cards.find((c) => c.id === ankiReview.cid);
         const note = ankiCard
           ? this.databaseContents.notes.find((n) => n.id === ankiCard.nid)
           : undefined;
-        const deck = ankiCard
-          ? this.databaseContents.collection.decks[ankiCard.did]
-          : undefined;
+        const deck = ankiCard ? this.databaseContents.collection.decks[ankiCard.did] : undefined;
 
         collector.addReviewError(
           `Failed to convert ${this.getReviewDescription(ankiReview, ankiCard, note, deck)}: ${error instanceof Error ? error.message : String(error)}`,

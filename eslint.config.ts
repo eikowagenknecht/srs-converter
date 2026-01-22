@@ -1,8 +1,9 @@
-import js from "@eslint/js";
 import type { Linter } from "eslint";
-import { defineConfig } from "eslint/config";
+
+import js from "@eslint/js";
 import { importX } from "eslint-plugin-import-x";
 import { jsdoc } from "eslint-plugin-jsdoc";
+import { defineConfig } from "eslint/config";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
@@ -17,14 +18,7 @@ export default defineConfig(
   ...tseslint.configs.stylisticTypeChecked,
   {
     // Global ignores
-    ignores: [
-      "node_modules/",
-      "dist/",
-      "out/",
-      "tests/dist/",
-      "*.config.js",
-      "*.config.ts",
-    ],
+    ignores: ["node_modules/", "dist/", "out/", "tests/dist/", "*.config.js", "*.config.ts"],
   },
   {
     languageOptions: {

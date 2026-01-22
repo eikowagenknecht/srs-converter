@@ -9,6 +9,7 @@
  */
 
 import { exit } from "node:process";
+
 import { AnkiPackage } from "../../dist/index.js";
 
 const testFile = "./tests/fixtures/anki/empty-legacy-2.apkg";

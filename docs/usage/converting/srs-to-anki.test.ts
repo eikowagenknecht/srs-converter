@@ -9,13 +9,9 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
 import { AnkiPackage } from "@/anki/anki-package";
-import {
-  createDeck,
-  createNote,
-  createNoteType,
-  SrsPackage,
-} from "@/srs-package";
+import { createDeck, createNote, createNoteType, SrsPackage } from "@/srs-package";
 
 /**
  * Helper function to create a test SRS package with sample data
@@ -123,13 +119,9 @@ describe("SRS to Anki Conversion Documentation Examples", () => {
     }
   });
 
-  it.todo(
-    "should handle partial conversion with data loss or compatibility issues",
-  );
+  it.todo("should handle partial conversion with data loss or compatibility issues");
 
-  it.todo(
-    "should handle failure conversion when SRS package is invalid or corrupted",
-  );
+  it.todo("should handle failure conversion when SRS package is invalid or corrupted");
 
   // Code Sample 1.2: Strict Mode
   it("should convert SRS to Anki in strict mode with no partial results", async () => {
@@ -167,7 +159,5 @@ describe("SRS to Anki Conversion Documentation Examples", () => {
     expect(ankiResult.data).toBeDefined();
   });
 
-  it.todo(
-    "should handle failure conversion in strict mode when minor compatibility issues occur",
-  );
+  it.todo("should handle failure conversion in strict mode when minor compatibility issues occur");
 });

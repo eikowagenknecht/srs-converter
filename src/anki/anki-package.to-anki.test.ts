@@ -1,5 +1,6 @@
 /** biome-ignore-all lint/complexity/useLiteralKeys: <It's a test> */
 import { describe, expect, it } from "vitest";
+
 import {
   createCard,
   createDeck,
@@ -9,6 +10,9 @@ import {
   SrsPackage,
   SrsReviewScore,
 } from "@/srs-package";
+
+import type { Ease } from "./types";
+
 import { AnkiPackage } from "./anki-package";
 import {
   createBasicSrsPackage,
@@ -17,7 +21,6 @@ import {
   expectSuccess,
   setupTempDir,
 } from "./anki-package.fixtures";
-import type { Ease } from "./types";
 import { extractTimestampFromUuid } from "./util";
 
 setupTempDir();
@@ -53,8 +56,7 @@ describe("Conversion SRS → Anki", () => {
         if (!ankiNoteType) throw new Error("Note type not found");
         expect(ankiNoteType.name).toBe(srsNoteType.name);
         expect(ankiNoteType.flds).toHaveLength(2);
-        if (!ankiNoteType.flds[0] || !ankiNoteType.flds[1])
-          throw new Error("Field not found");
+        if (!ankiNoteType.flds[0] || !ankiNoteType.flds[1]) throw new Error("Field not found");
         expect(ankiNoteType.flds[0].name).toBe("Front");
         expect(ankiNoteType.flds[1].name).toBe("Back");
         expect(ankiNoteType.did).toEqual(ankiDeck.id);
@@ -122,9 +124,7 @@ describe("Conversion SRS → Anki", () => {
       const emptySrsPackage = new SrsPackage();
       const result = await AnkiPackage.fromSrsPackage(emptySrsPackage);
       expectFailure(result);
-      expect(result.issues[0]?.message).toMatch(
-        /The package must contain exactly one deck/,
-      );
+      expect(result.issues[0]?.message).toMatch(/The package must contain exactly one deck/);
     });
 
     it("should convert note types with multiple fields and templates", async () => {
@@ -437,15 +437,9 @@ describe("Conversion SRS → Anki", () => {
 
           // Verify the data types are correct (should be strings)
           expect(typeof card.applicationSpecificData["ankiDue"]).toBe("string");
-          expect(typeof card.applicationSpecificData["ankiQueue"]).toBe(
-            "string",
-          );
-          expect(typeof card.applicationSpecificData["ankiType"]).toBe(
-            "string",
-          );
-          expect(typeof card.applicationSpecificData["ankiData"]).toBe(
-            "string",
-          );
+          expect(typeof card.applicationSpecificData["ankiQueue"]).toBe("string");
+          expect(typeof card.applicationSpecificData["ankiType"]).toBe("string");
+          expect(typeof card.applicationSpecificData["ankiData"]).toBe("string");
         } else {
           throw new Error("Card or applicationSpecificData is undefined");
         }

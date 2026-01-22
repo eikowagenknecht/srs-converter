@@ -3,6 +3,7 @@ import { Buffer } from "node:buffer";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+
 import { AnkiPackage } from "./anki-package";
 import {
   createAnkiDatabaseWithData,
@@ -74,10 +75,7 @@ describe("Error Handling and Edge Cases", () => {
       const tempDir = getTempDir();
       // Create a text file renamed to .apkg
       const textFilePath = join(tempDir, "not-a-zip.apkg");
-      await writeFile(
-        textFilePath,
-        "This is not a ZIP file, just plain text content.",
-      );
+      await writeFile(textFilePath, "This is not a ZIP file, just plain text content.");
 
       const result = await AnkiPackage.fromAnkiExport(textFilePath);
 
@@ -203,9 +201,7 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.data).toBeUndefined();
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
-      expect(result.issues[0]?.message).toMatch(
-        /missing.*'collection\.anki21'/i,
-      );
+      expect(result.issues[0]?.message).toMatch(/missing.*'collection\.anki21'/i);
       expect(result.issues[0]?.message).toMatch(/re-export/i);
     });
 
@@ -220,9 +216,7 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
       // Should have multiple critical issues for each missing file
-      const criticalIssues = result.issues.filter(
-        (issue) => issue.severity === "critical",
-      );
+      const criticalIssues = result.issues.filter((issue) => issue.severity === "critical");
       expect(criticalIssues.length).toBeGreaterThanOrEqual(2);
       // Check that both media and database are mentioned
       const allMessages = criticalIssues.map((i) => i.message).join(" ");
@@ -241,9 +235,7 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
       // Should have critical issue for missing meta file (checked first)
-      const criticalIssues = result.issues.filter(
-        (issue) => issue.severity === "critical",
-      );
+      const criticalIssues = result.issues.filter((issue) => issue.severity === "critical");
       expect(criticalIssues.length).toBeGreaterThanOrEqual(1);
       expect(criticalIssues[0]?.message).toMatch(/meta/i);
     });
@@ -292,9 +284,7 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
       // Should detect invalid SQLite header and provide guidance
-      expect(result.issues[0]?.message).toMatch(
-        /not a valid SQLite database.*re-export/is,
-      );
+      expect(result.issues[0]?.message).toMatch(/not a valid SQLite database.*re-export/is);
     });
 
     it("should detect and report empty database file with specific message", async () => {
@@ -339,9 +329,7 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
       // Truncated files with valid header may open but have no tables
-      expect(result.issues[0]?.message).toMatch(
-        /missing required tables.*re-export/is,
-      );
+      expect(result.issues[0]?.message).toMatch(/missing required tables.*re-export/is);
     });
 
     it("should detect and report database with missing required tables", async () => {
@@ -392,9 +380,7 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
       // Should detect file is too small and provide guidance
-      expect(result.issues[0]?.message).toMatch(
-        /truncated.*too small.*re-export/is,
-      );
+      expect(result.issues[0]?.message).toMatch(/truncated.*too small.*re-export/is);
     });
 
     it("should provide actionable guidance for corrupted database", async () => {
@@ -439,9 +425,7 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.data).toBeUndefined();
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
-      expect(result.issues[0]?.message).toMatch(
-        /invalid JSON.*cannot be parsed/i,
-      );
+      expect(result.issues[0]?.message).toMatch(/invalid JSON.*cannot be parsed/i);
       expect(result.issues[0]?.message).toMatch(/re-export/i);
     });
 
@@ -533,9 +517,7 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.data).toBeUndefined();
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
-      expect(result.issues[0]?.message).toMatch(
-        /invalid entry.*number.*instead of.*string/i,
-      );
+      expect(result.issues[0]?.message).toMatch(/invalid entry.*number.*instead of.*string/i);
       expect(result.issues[0]?.message).toMatch(/re-export/i);
     });
 
@@ -558,9 +540,7 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.data).toBeUndefined();
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
-      expect(result.issues[0]?.message).toMatch(
-        /invalid entry.*null.*instead of.*string/i,
-      );
+      expect(result.issues[0]?.message).toMatch(/invalid entry.*null.*instead of.*string/i);
       expect(result.issues[0]?.message).toMatch(/re-export/i);
     });
 
@@ -636,17 +616,13 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.issues.length).toBeGreaterThan(0);
 
       // Verify invalid note is reported
-      const noteIssue = result.issues.find(
-        (i) => i.context?.itemType === "note",
-      );
+      const noteIssue = result.issues.find((i) => i.context?.itemType === "note");
       expect(noteIssue).toBeDefined();
       expect(noteIssue?.severity).toBe("error");
       expect(noteIssue?.message).toMatch(/Note.*invalid/i);
 
       // Verify card for invalid note is also skipped
-      const cardIssue = result.issues.find(
-        (i) => i.context?.itemType === "card",
-      );
+      const cardIssue = result.issues.find((i) => i.context?.itemType === "card");
       expect(cardIssue).toBeDefined();
       expect(cardIssue?.severity).toBe("error");
 
@@ -695,9 +671,7 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.issues.length).toBeGreaterThan(0);
 
       // Verify error is reported
-      const noteIssue = result.issues.find(
-        (i) => i.context?.itemType === "note",
-      );
+      const noteIssue = result.issues.find((i) => i.context?.itemType === "note");
       expect(noteIssue).toBeDefined();
       expect(noteIssue?.severity).toBe("error");
     });
@@ -737,8 +711,7 @@ describe("Error Handling and Edge Cases", () => {
 
       // Verify card error is reported
       const cardIssue = result.issues.find(
-        (i) =>
-          i.context?.itemType === "card" && i.message.includes("non-existent"),
+        (i) => i.context?.itemType === "card" && i.message.includes("non-existent"),
       );
       expect(cardIssue).toBeDefined();
       expect(cardIssue?.message).toMatch(/deck/i);
@@ -784,9 +757,7 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.data).toBeDefined();
 
       // Verify review error is reported
-      const reviewIssue = result.issues.find(
-        (i) => i.context?.itemType === "review",
-      );
+      const reviewIssue = result.issues.find((i) => i.context?.itemType === "review");
       expect(reviewIssue).toBeDefined();
       expect(reviewIssue?.message).toMatch(/non-existent card/i);
 
@@ -845,9 +816,7 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.issues.length).toBeGreaterThanOrEqual(3);
 
       // Verify different item types are in issues
-      const itemTypes = result.issues
-        .map((i) => i.context?.itemType)
-        .filter(Boolean);
+      const itemTypes = result.issues.map((i) => i.context?.itemType).filter(Boolean);
       expect(itemTypes).toContain("note");
       expect(itemTypes).toContain("card");
       expect(itemTypes).toContain("review");

@@ -7,6 +7,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
 import {
   createCard,
   createCompleteDeckStructure,
@@ -20,9 +21,7 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = await mkdtemp(
-      join(tmpdir(), "srs-converter-universal-srs-test-"),
-    );
+    tempDir = await mkdtemp(join(tmpdir(), "srs-converter-universal-srs-test-"));
   });
 
   afterEach(async () => {
@@ -106,9 +105,7 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
     expect(basicNoteType.templates).toHaveLength(1);
     expect(basicNoteType.templates[0]?.name).toBe("Card 1");
     expect(basicNoteType.templates[0]?.questionTemplate).toBe("{{Front}}");
-    expect(basicNoteType.templates[0]?.answerTemplate).toBe(
-      "{{Front}} - {{Back}}",
-    );
+    expect(basicNoteType.templates[0]?.answerTemplate).toBe("{{Front}} - {{Back}}");
 
     // Verify it was added to the package
     const noteTypes = srsPackage.getNoteTypes();
@@ -152,21 +149,13 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
 
     // Check first template (Forward)
     expect(basicReversedNoteType.templates[0]?.name).toBe("Card 1");
-    expect(basicReversedNoteType.templates[0]?.questionTemplate).toBe(
-      "{{Front}}",
-    );
-    expect(basicReversedNoteType.templates[0]?.answerTemplate).toBe(
-      "{{Front}} - {{Back}}",
-    );
+    expect(basicReversedNoteType.templates[0]?.questionTemplate).toBe("{{Front}}");
+    expect(basicReversedNoteType.templates[0]?.answerTemplate).toBe("{{Front}} - {{Back}}");
 
     // Check second template (Reverse)
     expect(basicReversedNoteType.templates[1]?.name).toBe("Card 2");
-    expect(basicReversedNoteType.templates[1]?.questionTemplate).toBe(
-      "{{Back}}",
-    );
-    expect(basicReversedNoteType.templates[1]?.answerTemplate).toBe(
-      "{{Back}} - {{Front}}",
-    );
+    expect(basicReversedNoteType.templates[1]?.questionTemplate).toBe("{{Back}}");
+    expect(basicReversedNoteType.templates[1]?.answerTemplate).toBe("{{Back}} - {{Front}}");
 
     const noteTypes = srsPackage.getNoteTypes();
     expect(noteTypes).toHaveLength(1);
@@ -204,9 +193,7 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
     expect(clozeNoteType.templates).toHaveLength(1);
     expect(clozeNoteType.templates[0]?.name).toBe("Cloze");
     expect(clozeNoteType.templates[0]?.questionTemplate).toBe("{{cloze:Text}}");
-    expect(clozeNoteType.templates[0]?.answerTemplate).toBe(
-      "{{cloze:Text}} - {{Extra}}",
-    );
+    expect(clozeNoteType.templates[0]?.answerTemplate).toBe("{{cloze:Text}} - {{Extra}}");
 
     const noteTypes = srsPackage.getNoteTypes();
     expect(noteTypes).toHaveLength(1);
@@ -405,10 +392,7 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
         noteTypeId: clozeNoteType.id,
         deckId: deck.id,
         fieldValues: [
-          [
-            "Text",
-            "The {{c1::mitochondria}} is the {{c2::powerhouse}} of the cell.",
-          ],
+          ["Text", "The {{c1::mitochondria}} is the {{c2::powerhouse}} of the cell."],
           ["Extra", "This is a fundamental concept in biology."],
         ],
       },
@@ -421,10 +405,7 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
     expect(clozeNote.noteTypeId).toBe(clozeNoteType.id);
     expect(clozeNote.deckId).toBe(deck.id);
     expect(clozeNote.fieldValues).toEqual([
-      [
-        "Text",
-        "The {{c1::mitochondria}} is the {{c2::powerhouse}} of the cell.",
-      ],
+      ["Text", "The {{c1::mitochondria}} is the {{c2::powerhouse}} of the cell."],
       ["Extra", "This is a fundamental concept in biology."],
     ]);
 
@@ -638,9 +619,7 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
     // Verify note types
     expect(noteTypes).toHaveLength(2);
     const vocabType = noteTypes.find((nt) => nt.name === "Vocabulary");
-    const sentenceType = noteTypes.find(
-      (nt) => nt.name === "Sentence Practice",
-    );
+    const sentenceType = noteTypes.find((nt) => nt.name === "Sentence Practice");
 
     expect(vocabType).toBeDefined();
     expect(vocabType?.fields).toHaveLength(3);
@@ -654,16 +633,12 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
     expect(notes).toHaveLength(4); // 3 vocab + 1 sentence
 
     const houseNote = notes.find((n) =>
-      n.fieldValues.some(
-        ([field, value]) => field === "English" && value === "House",
-      ),
+      n.fieldValues.some(([field, value]) => field === "English" && value === "House"),
     );
     expect(houseNote).toBeDefined();
 
     const greetingNote = notes.find((n) =>
-      n.fieldValues.some(
-        ([field, value]) => field === "Spanish" && value === "¿Cómo estás?",
-      ),
+      n.fieldValues.some(([field, value]) => field === "Spanish" && value === "¿Cómo estás?"),
     );
     expect(greetingNote).toBeDefined();
   });

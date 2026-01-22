@@ -1,13 +1,15 @@
+import archiver from "archiver";
 /** biome-ignore-all lint/complexity/useLiteralKeys: <It's a test> */
 import { Buffer } from "node:buffer";
 import { createWriteStream } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import archiver from "archiver";
 import { Open } from "unzipper";
 import { afterEach, beforeEach, expect } from "vitest";
+
 import type { ConversionResult } from "@/error-handling";
+
 import {
   createCard,
   createDeck,
@@ -17,7 +19,9 @@ import {
   type SrsNoteType,
   SrsPackage,
 } from "@/srs-package";
+
 import type { CardsTable, Ease, NotesTable, RevlogTable } from "./types";
+
 import { guid64, joinAnkiFields } from "./util";
 
 // #region Helpers - Constants
@@ -49,9 +53,7 @@ export function expectPartial<T>(result: ConversionResult<T>): T {
   return result.data;
 }
 
-export function expectFailure<T>(
-  result: ConversionResult<T>,
-): ConversionResult<T> {
+export function expectFailure<T>(result: ConversionResult<T>): ConversionResult<T> {
   expect(result.status).toBe("failure");
   expect(result.data).toBeUndefined();
   expect(result.issues.length).toBeGreaterThan(0);
@@ -80,10 +82,7 @@ export function createTestAnkiNote(
   return {
     id,
     guid: options.guid ?? guid64(),
-    mid:
-      typeof options.noteTypeId === "bigint"
-        ? Number(options.noteTypeId)
-        : options.noteTypeId,
+    mid: typeof options.noteTypeId === "bigint" ? Number(options.noteTypeId) : options.noteTypeId,
     mod: nowSeconds,
     usn: -1,
     tags: (options.tags ?? []).join(" "),
@@ -429,9 +428,7 @@ export async function createAnkiDatabaseWithData(options: {
       type INTEGER NOT NULL
     )
   `);
-  db.run(
-    "CREATE TABLE graves (usn INTEGER NOT NULL, oid INTEGER NOT NULL, type INTEGER NOT NULL)",
-  );
+  db.run("CREATE TABLE graves (usn INTEGER NOT NULL, oid INTEGER NOT NULL, type INTEGER NOT NULL)");
 
   const now = Date.now();
 
@@ -633,29 +630,26 @@ export async function createAnkiDatabaseWithData(options: {
   // Insert cards
   if (options.cards) {
     for (const card of options.cards) {
-      db.run(
-        "INSERT INTO cards VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [
-          card.id,
-          card.nid,
-          card.did,
-          0,
-          Math.floor(now / 1000),
-          -1,
-          0,
-          0,
-          0,
-          0,
-          2500,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          "",
-        ],
-      );
+      db.run("INSERT INTO cards VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [
+        card.id,
+        card.nid,
+        card.did,
+        0,
+        Math.floor(now / 1000),
+        -1,
+        0,
+        0,
+        0,
+        0,
+        2500,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        "",
+      ]);
     }
   }
 

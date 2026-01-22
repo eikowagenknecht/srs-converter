@@ -1,6 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
 import { AnkiDatabase } from "./database";
 
 describe("anki db test", () => {
@@ -215,9 +216,7 @@ describe("anki db test", () => {
 
   it("should handle query execution failures gracefully", async () => {
     // Execute an invalid SQL query that should fail but return issues instead of throwing
-    const issues = await db.executeQueries(
-      "INVALID SQL STATEMENT THAT WILL FAIL",
-    );
+    const issues = await db.executeQueries("INVALID SQL STATEMENT THAT WILL FAIL");
 
     // Verify that issues were returned instead of throwing or logging
     expect(Array.isArray(issues)).toBe(true);

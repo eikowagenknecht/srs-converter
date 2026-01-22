@@ -8,6 +8,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
 import { AnkiPackage } from "@/anki/anki-package";
 import {
   basicAndReversedCardModel,
@@ -33,9 +34,7 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = await mkdtemp(
-      join(tmpdir(), "srs-converter-raw-anki-methods-test-"),
-    );
+    tempDir = await mkdtemp(join(tmpdir(), "srs-converter-raw-anki-methods-test-"));
   });
 
   afterEach(async () => {
@@ -61,9 +60,7 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
     expect(basicModel.name).toBe("Basic (srs-converter)");
 
     expect(basicAndReversedCardModel).toBeDefined();
-    expect(basicAndReversedCardModel.name).toBe(
-      "Basic (and reversed card) (srs-converter)",
-    );
+    expect(basicAndReversedCardModel.name).toBe("Basic (and reversed card) (srs-converter)");
 
     expect(clozeModel).toBeDefined();
     expect(clozeModel.name).toBe("Cloze (srs-converter)");
@@ -132,9 +129,7 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
     const addedDeck = decks.find((deck) => deck.name === "My Custom Deck");
 
     expect(addedDeck).toBeDefined();
-    expect(addedDeck?.desc).toBe(
-      "A custom deck created using raw Anki methods",
-    );
+    expect(addedDeck?.desc).toBe("A custom deck created using raw Anki methods");
     expect(addedDeck?.extendRev).toBe(50);
     expect(addedDeck?.conf).toBe(1);
     expect(Array.isArray(addedDeck?.newToday)).toBe(true);
@@ -163,18 +158,14 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
     // Verify the note types were added
     const noteTypes = ankiPackage.getNoteTypes();
 
-    const basicType = noteTypes.find(
-      (nt) => nt.name === "Basic (srs-converter)",
-    );
+    const basicType = noteTypes.find((nt) => nt.name === "Basic (srs-converter)");
     const basicAndReversedType = noteTypes.find(
       (nt) => nt.name === "Basic (and reversed card) (srs-converter)",
     );
     const basicOptionalReversedType = noteTypes.find(
       (nt) => nt.name === "Basic (optional reversed card) (srs-converter)",
     );
-    const clozeType = noteTypes.find(
-      (nt) => nt.name === "Cloze (srs-converter)",
-    );
+    const clozeType = noteTypes.find((nt) => nt.name === "Cloze (srs-converter)");
     const imageOcclusionType = noteTypes.find(
       (nt) => nt.name === "Image Occlusion (srs-converter)",
     );
@@ -642,10 +633,7 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
 
     // Test the documentation example: Adding Media Files
     // Method 1: Add from file path
-    await ankiPackage.addMediaFile(
-      "image.png",
-      "tests/fixtures/media/image.png",
-    );
+    await ankiPackage.addMediaFile("image.png", "tests/fixtures/media/image.png");
 
     // Method 2: Add from Buffer
     const buffer = await readFile("tests/fixtures/media/audio.mp3");
@@ -674,14 +662,8 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
 
     // Test the documentation example: Removing Media Files
     // First, add a media file
-    await ankiPackage.addMediaFile(
-      "image.png",
-      "tests/fixtures/media/image.png",
-    );
-    await ankiPackage.addMediaFile(
-      "old-image.png",
-      "tests/fixtures/media/image.png",
-    );
+    await ankiPackage.addMediaFile("image.png", "tests/fixtures/media/image.png");
+    await ankiPackage.addMediaFile("old-image.png", "tests/fixtures/media/image.png");
 
     // Verify files are added
     let mediaFiles = ankiPackage.listMediaFiles();
@@ -700,10 +682,7 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
 
     // You can also remove and then re-add a file with the same name
     await ankiPackage.removeMediaFile("old-image.png");
-    await ankiPackage.addMediaFile(
-      "old-image.png",
-      "tests/fixtures/media/image.png",
-    );
+    await ankiPackage.addMediaFile("old-image.png", "tests/fixtures/media/image.png");
 
     // Verify the file is back
     mediaFiles = ankiPackage.listMediaFiles();
@@ -724,18 +703,9 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
     ankiPackage.addNoteType(basicModel);
 
     // Add some media files
-    await ankiPackage.addMediaFile(
-      "referenced-image.png",
-      "tests/fixtures/media/image.png",
-    );
-    await ankiPackage.addMediaFile(
-      "unreferenced.png",
-      "tests/fixtures/media/image.png",
-    );
-    await ankiPackage.addMediaFile(
-      "referenced-sound.mp3",
-      "tests/fixtures/media/audio.mp3",
-    );
+    await ankiPackage.addMediaFile("referenced-image.png", "tests/fixtures/media/image.png");
+    await ankiPackage.addMediaFile("unreferenced.png", "tests/fixtures/media/image.png");
+    await ankiPackage.addMediaFile("referenced-sound.mp3", "tests/fixtures/media/audio.mp3");
 
     // Add a note that references some media
     const note: NotesTable = {

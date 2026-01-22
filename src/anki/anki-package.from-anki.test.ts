@@ -1,5 +1,6 @@
 /** biome-ignore-all lint/complexity/useLiteralKeys: <It's a test> */
 import { describe, expect, it } from "vitest";
+
 import {
   createCard,
   createDeck,
@@ -8,6 +9,9 @@ import {
   SrsPackage,
   SrsReviewScore,
 } from "@/srs-package";
+
+import type { Ease } from "./types";
+
 import { AnkiPackage } from "./anki-package";
 import {
   createBasicSrsPackage,
@@ -15,7 +19,6 @@ import {
   expectSuccess,
   setupTempDir,
 } from "./anki-package.fixtures";
-import type { Ease } from "./types";
 
 setupTempDir();
 
@@ -149,9 +152,7 @@ describe("Conversion Anki → SRS", () => {
         const convertedDecks = convertedSrs.getDecks();
         expect(convertedDecks).toHaveLength(1);
         expect(convertedDecks[0]?.name).toBe("Comprehensive Test Deck");
-        expect(convertedDecks[0]?.description).toBe(
-          "Testing all data type conversions",
-        );
+        expect(convertedDecks[0]?.description).toBe("Testing all data type conversions");
 
         // Verify note types
         const convertedNoteTypes = convertedSrs.getNoteTypes();
@@ -167,9 +168,7 @@ describe("Conversion Anki → SRS", () => {
 
         // Verify field values are preserved
         const convertedNote1 = convertedNotes.find((n) =>
-          n.fieldValues.some(
-            ([field, value]) => field === "Word" && value === "猫",
-          ),
+          n.fieldValues.some(([field, value]) => field === "Word" && value === "猫"),
         );
         expect(convertedNote1).toBeDefined();
         expect(convertedNote1?.fieldValues).toEqual([
@@ -191,11 +190,7 @@ describe("Conversion Anki → SRS", () => {
         // Check that review scores were preserved
         const reviewScores = convertedReviews.map((r) => r.score).sort();
         expect(reviewScores).toEqual(
-          [
-            SrsReviewScore.Again,
-            SrsReviewScore.Normal,
-            SrsReviewScore.Easy,
-          ].sort(),
+          [SrsReviewScore.Again, SrsReviewScore.Normal, SrsReviewScore.Easy].sort(),
         );
       } finally {
         await ankiPackage.cleanup();
@@ -263,9 +258,7 @@ describe("Conversion Anki → SRS", () => {
         expectPartial(convertResult);
 
         // Verify that an error was reported
-        const hasErrorIssue = convertResult.issues.some(
-          (issue) => issue.severity === "error",
-        );
+        const hasErrorIssue = convertResult.issues.some((issue) => issue.severity === "error");
         expect(hasErrorIssue).toBe(true);
       } finally {
         await ankiPackage.cleanup();
@@ -345,14 +338,7 @@ describe("Conversion Anki → SRS", () => {
         expect(convertedNoteType?.fields).toHaveLength(6);
 
         const fieldNames = convertedNoteType?.fields.map((f) => f.name);
-        expect(fieldNames).toEqual([
-          "Field1",
-          "Field2",
-          "Field3",
-          "Field4",
-          "Field5",
-          "Field6",
-        ]);
+        expect(fieldNames).toEqual(["Field1", "Field2", "Field3", "Field4", "Field5", "Field6"]);
 
         // Verify field values maintain their order
         const convertedNote = convertedSrs.getNotes()[0];
@@ -472,9 +458,7 @@ describe("Conversion Anki → SRS", () => {
       const basicNoteType = srsNoteTypes.find((nt) => nt.name === "Basic");
 
       // Verify original Anki IDs are stored in applicationSpecificData
-      expect(testDeck?.applicationSpecificData?.["originalAnkiId"]).toBe(
-        ankiDeckId?.toFixed(),
-      );
+      expect(testDeck?.applicationSpecificData?.["originalAnkiId"]).toBe(ankiDeckId?.toFixed());
       expect(basicNoteType?.applicationSpecificData?.["originalAnkiId"]).toBe(
         ankiNoteTypeId?.toFixed(),
       );
@@ -591,9 +575,7 @@ describe("Conversion Anki → SRS", () => {
 
       // Verify that the invalid review was handled properly
       expect(convertedSrsResult.issues).toHaveLength(1);
-      expect(convertedSrsResult.issues[0]?.message).toMatch(
-        /Unknown review score/,
-      );
+      expect(convertedSrsResult.issues[0]?.message).toMatch(/Unknown review score/);
 
       // Verify that the invalid review was not added
       expect(convertedSrsPackage.getReviews()).toHaveLength(0);
@@ -630,9 +612,7 @@ describe("Conversion Anki → SRS", () => {
 
       // Verify that the review with null ID was handled properly
       expect(convertedSrsResult.issues).toHaveLength(1);
-      expect(convertedSrsResult.issues[0]?.message).toMatch(
-        /Review ID is undefined/,
-      );
+      expect(convertedSrsResult.issues[0]?.message).toMatch(/Review ID is undefined/);
 
       // Verify that the review with null ID was not added
       expect(convertedSrsPackage.getReviews()).toHaveLength(0);
@@ -699,9 +679,7 @@ describe("Conversion Anki → SRS", () => {
 
       // Verify that the review for non-existent card was handled properly
       expect(convertedSrsResult.issues).toHaveLength(1);
-      expect(convertedSrsResult.issues[0]?.message).toMatch(
-        /Card not found for Review ID/,
-      );
+      expect(convertedSrsResult.issues[0]?.message).toMatch(/Card not found for Review ID/);
 
       // Verify that the review for non-existent card was not added
       expect(convertedSrsPackage.getReviews()).toHaveLength(0);

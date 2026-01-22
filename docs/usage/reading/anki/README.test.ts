@@ -8,6 +8,7 @@ import { access, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
 import { AnkiPackage } from "@/anki/anki-package";
 import { basicModel, clozeModel, defaultDeck } from "@/anki/constants";
 
@@ -236,9 +237,7 @@ describe("Anki Reading Documentation Examples", () => {
   // Code Sample: Working with Media Files
   it("should list and retrieve media files from an Anki package", async () => {
     // Use the test package with media
-    const result = await AnkiPackage.fromAnkiExport(
-      "tests/fixtures/anki/mixed-legacy-2.apkg",
-    );
+    const result = await AnkiPackage.fromAnkiExport("tests/fixtures/anki/mixed-legacy-2.apkg");
 
     if (result.status === "failure" || !result.data) {
       console.error("Failed to load package");

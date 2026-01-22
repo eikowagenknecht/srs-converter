@@ -2,6 +2,9 @@
 import { access } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+
+import type { Ease } from "./types";
+
 import { AnkiPackage } from "./anki-package";
 import {
   createTestAnkiCard,
@@ -11,23 +14,13 @@ import {
   expectSuccess,
   setupTempDir,
 } from "./anki-package.fixtures";
-import {
-  basicAndReversedCardModel,
-  basicModel,
-  clozeModel,
-  defaultDeck,
-} from "./constants";
-import type { Ease } from "./types";
+import { basicAndReversedCardModel, basicModel, clozeModel, defaultDeck } from "./constants";
 
 setupTempDir();
 
 describe("Create Deck", () => {
   it("should create valid Anki database directly using only Anki methods", async () => {
-    const directOutputPath = join(
-      process.cwd(),
-      "out",
-      "direct-anki-creation.apkg",
-    );
+    const directOutputPath = join(process.cwd(), "out", "direct-anki-creation.apkg");
 
     const getTimestamp = createTimestampGenerator();
 
@@ -53,10 +46,7 @@ describe("Create Deck", () => {
       const basicNote1 = createTestAnkiNote(
         {
           noteTypeId: basicModel.id,
-          fields: [
-            "What is the largest planet in our solar system?",
-            "Jupiter",
-          ],
+          fields: ["What is the largest planet in our solar system?", "Jupiter"],
         },
         getTimestamp,
       );
@@ -109,10 +99,7 @@ describe("Create Deck", () => {
       const bidirectionalNote = createTestAnkiNote(
         {
           noteTypeId: basicAndReversedCardModel.id,
-          fields: [
-            "Photosynthesis",
-            "The process by which plants convert sunlight into energy",
-          ],
+          fields: ["Photosynthesis", "The process by which plants convert sunlight into energy"],
         },
         getTimestamp,
       );
@@ -296,23 +283,17 @@ describe("Create Deck", () => {
         expect(reimportedReviews.length).toBe(5);
 
         // Verify specific content is preserved
-        const customDeckFound = reimportedDecks.find(
-          (d) => d.name === "Direct Anki Creation Deck",
-        );
+        const customDeckFound = reimportedDecks.find((d) => d.name === "Direct Anki Creation Deck");
         expect(customDeckFound).toBeDefined();
         expect(customDeckFound?.desc).toBe(
           "A test deck created by srs-converter, using it's Anki methods",
         );
 
         // Verify note content
-        const jupiterNote = reimportedNotes.find((n) =>
-          n.flds.includes("Jupiter"),
-        );
+        const jupiterNote = reimportedNotes.find((n) => n.flds.includes("Jupiter"));
         expect(jupiterNote).toBeDefined();
 
-        const clozeNoteFound = reimportedNotes.find((n) =>
-          n.flds.includes("speed of light"),
-        );
+        const clozeNoteFound = reimportedNotes.find((n) => n.flds.includes("speed of light"));
         expect(clozeNoteFound).toBeDefined();
       } finally {
         await reimportedPackage.cleanup();
@@ -338,29 +319,15 @@ describe("Data Management", () => {
 
       try {
         // Clear the database contents to simulate an uninitialized state
-        (
-          ankiPackage as unknown as { databaseContents: undefined }
-        ).databaseContents = undefined;
+        (ankiPackage as unknown as { databaseContents: undefined }).databaseContents = undefined;
 
         // Test that all getter methods throw appropriate errors
-        expect(() => ankiPackage.getNoteTypes()).toThrow(
-          "Database contents not available",
-        );
-        expect(() => ankiPackage.getDecks()).toThrow(
-          "Database contents not available",
-        );
-        expect(() => ankiPackage.getNotes()).toThrow(
-          "Database contents not available",
-        );
-        expect(() => ankiPackage.getCards()).toThrow(
-          "Database contents not available",
-        );
-        expect(() => ankiPackage.getReviews()).toThrow(
-          "Database contents not available",
-        );
-        expect(() => ankiPackage.getConfig()).toThrow(
-          "Database contents not available",
-        );
+        expect(() => ankiPackage.getNoteTypes()).toThrow("Database contents not available");
+        expect(() => ankiPackage.getDecks()).toThrow("Database contents not available");
+        expect(() => ankiPackage.getNotes()).toThrow("Database contents not available");
+        expect(() => ankiPackage.getCards()).toThrow("Database contents not available");
+        expect(() => ankiPackage.getReviews()).toThrow("Database contents not available");
+        expect(() => ankiPackage.getConfig()).toThrow("Database contents not available");
       } finally {
         await ankiPackage.cleanup();
       }
@@ -448,12 +415,8 @@ describe("Data Management", () => {
 
       expect(cleanupIssues).toHaveLength(1);
       expect(cleanupIssues[0]?.severity).toBe("warning");
-      expect(cleanupIssues[0]?.message).toContain(
-        "Could not clean up temporary files",
-      );
-      expect(cleanupIssues[0]?.message).toContain(
-        "This does not affect your converted data",
-      );
+      expect(cleanupIssues[0]?.message).toContain("Could not clean up temporary files");
+      expect(cleanupIssues[0]?.message).toContain("This does not affect your converted data");
       expect(cleanupIssues[0]?.context?.originalData).toBeDefined();
     });
 

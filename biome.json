@@ -20,9 +20,7 @@
     }
   },
   "formatter": {
-    "enabled": true,
-    "indentStyle": "space",
-    "lineEnding": "lf"
+    "enabled": false
   },
   "vcs": {
     "enabled": true,

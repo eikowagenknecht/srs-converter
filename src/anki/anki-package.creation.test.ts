@@ -1,6 +1,7 @@
 /** biome-ignore-all lint/complexity/useLiteralKeys: <It's a test> */
 import { access } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
+
 import { AnkiPackage } from "./anki-package";
 import { expectSuccess, setupTempDir } from "./anki-package.fixtures";
 import { defaultConfig, defaultDeck } from "./constants";
