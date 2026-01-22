@@ -1771,13 +1771,8 @@ interface MetaMessage {
 }
 
 function parseMeta(buffer: Uint8Array): MetaMessage {
-  // eslint-disable-next-line import-x/no-named-as-default-member -- protobufjs is a CommonJS module
   const root = new protobuf.Root();
-  // eslint-disable-next-line import-x/no-named-as-default-member -- protobufjs is a CommonJS module
-  const Meta = new protobuf.Type("Meta").add(
-    // eslint-disable-next-line import-x/no-named-as-default-member -- protobufjs is a CommonJS module
-    new protobuf.Field("version", 1, "int32", "required"),
-  );
+  const Meta = new protobuf.Type("Meta").add(new protobuf.Field("version", 1, "int32", "required"));
   root.add(Meta);
 
   // Cast the decoded message to our interface
@@ -1785,13 +1780,8 @@ function parseMeta(buffer: Uint8Array): MetaMessage {
 }
 
 function writeMeta(message: MetaMessage): Uint8Array {
-  // eslint-disable-next-line import-x/no-named-as-default-member -- protobufjs is a CommonJS module
   const root = new protobuf.Root();
-  // eslint-disable-next-line import-x/no-named-as-default-member -- protobufjs is a CommonJS module
-  const Meta = new protobuf.Type("Meta").add(
-    // eslint-disable-next-line import-x/no-named-as-default-member -- protobufjs is a CommonJS module
-    new protobuf.Field("version", 1, "int32", "required"),
-  );
+  const Meta = new protobuf.Type("Meta").add(new protobuf.Field("version", 1, "int32", "required"));
   root.add(Meta);
 
   return Meta.encode(message).finish();

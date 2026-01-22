@@ -2,7 +2,6 @@
  * Tests for SRS to Anki conversion documentation examples
  * Covers all code samples from srs-to-anki.md
  */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
