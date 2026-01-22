@@ -9,11 +9,11 @@ commit-msg:
 pre-commit:
   parallel: false
   commands:
-    eslint-fix:
+    typescript-check:
+      run: pnpm exec tsc --noEmit
+    oxlint-fix:
       glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx}"
-      run: pnpm exec eslint '{staged_files}'
+      run: pnpm exec oxlint --fix '{staged_files}'
     oxfmt-fix:
       glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}"
       run: pnpm exec oxfmt '{staged_files}' && git update-index --again
-    typescript-check:
-      run: pnpm exec tsc --noEmit
