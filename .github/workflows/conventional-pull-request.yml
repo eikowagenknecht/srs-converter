@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   lint-pr:
-      # Skip this job for Dependabot PRs as they often exceed the usual length
+    # Skip this job for Dependabot PRs as they often exceed the usual length
     if: ${{ github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     steps:

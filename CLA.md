@@ -16,7 +16,7 @@ For questions about this CLA, please contact:
 Email: <cla@eiko-wagenknecht.de>  
 GitHub: [@eikowagenknecht](https://github.com/eikowagenknecht)
 
-*This CLA is adapted from the Apache Software Foundation's Individual Contributor License Agreement.*
+_This CLA is adapted from the Apache Software Foundation's Individual Contributor License Agreement._
 
 ## 1. Definitions
 

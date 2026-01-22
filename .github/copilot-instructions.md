@@ -11,15 +11,17 @@
 **CRITICAL: Set appropriate timeouts (60+ minutes) for all build commands. NEVER CANCEL builds or tests - they typically complete quickly but need proper timeout buffer.**
 
 1. **Install Dependencies** (20-30 seconds):
+
    ```bash
    corepack enable pnpm
    pnpm install --frozen-lockfile
    ```
 
 2. **Quality Gates** (run in this exact order - **NEVER CANCEL**, total time ~25 seconds):
+
    ```bash
    pnpm type-check     # TypeScript checking (~3 seconds) - Set timeout to 60+ seconds
-   pnpm format         # Code formatting (~2 seconds) - Set timeout to 60+ seconds  
+   pnpm format         # Code formatting (~2 seconds) - Set timeout to 60+ seconds
    pnpm lint           # Full linting (~15 seconds) - Set timeout to 60+ seconds
    pnpm test           # Unit tests (~5 seconds) - Set timeout to 60+ seconds
    ```
@@ -30,9 +32,10 @@
    ```
 
 **TIMING EXPECTATIONS:**
+
 - Type check: ~3 seconds (**NEVER CANCEL** - Set timeout 60+ seconds)
 - Format: ~2 seconds (**NEVER CANCEL** - Set timeout 60+ seconds)
-- Build: ~5 seconds (**NEVER CANCEL** - Set timeout 60+ seconds) 
+- Build: ~5 seconds (**NEVER CANCEL** - Set timeout 60+ seconds)
 - Tests: ~4 seconds (**NEVER CANCEL** - Set timeout 60+ seconds)
 - Lint: ~14 seconds (**NEVER CANCEL** - Set timeout 60+ seconds)
 - **Full Quality Gates**: ~25 seconds total (**NEVER CANCEL** - Set timeout 120+ seconds)
@@ -53,13 +56,15 @@
 **Required validation scenarios:**
 
 1. **Full Quality Gate Sequence**: Validate all systems work together:
+
    ```bash
    # Run complete quality pipeline - takes ~25 seconds total
-   # NEVER CANCEL - Set timeout to 120+ seconds  
+   # NEVER CANCEL - Set timeout to 120+ seconds
    pnpm type-check && pnpm format && pnpm lint && pnpm test && pnpm build
    ```
 
 2. **Library Build Validation**: Verify the package builds correctly and exports exist:
+
    ```bash
    # Check that build output contains expected files
    ls -la dist/ && ls -la dist/anki/
@@ -67,12 +72,14 @@
    ```
 
 3. **Anki Package Creation**: Test creating and manipulating Anki packages:
+
    ```bash
    # Run Anki package tests which validate full workflows
    pnpm test src/anki/anki-package.test.ts
    ```
 
 4. **SRS Conversion Workflow**: Test the full conversion pipeline:
+
    ```bash
    # Run conversion tests which test Anki ↔ SRS conversion
    pnpm test docs/usage/converting/
@@ -90,7 +97,7 @@
 **Always run ALL quality gates before committing changes or the CI (.github/workflows/quality-check.yml) will fail:**
 
 1. `pnpm type-check` - TypeScript compilation check
-2. `pnpm format` - Code formatting with prettier and biome  
+2. `pnpm format` - Code formatting with prettier and biome
 3. `pnpm lint` - Full lint and fix run (type-check + eslint + prettier + biome)
 4. `pnpm test` - Run tests with Vitest
 
@@ -154,17 +161,20 @@ srs-converter/
 ## Common Commands Reference
 
 ### Development
+
 - `pnpm dev` - Start TypeScript compiler in watch mode
 - `pnpm build` - Build TypeScript package for production
 - `pnpm clean:npm` - Clean node_modules
 
-### Quality Assurance  
+### Quality Assurance
+
 - `pnpm type-check` - TypeScript type checking only
 - `pnpm format` - Format code with prettier and biome
 - `pnpm lint` - Full lint run (type-check + eslint + prettier + biome)
 - `pnpm lint:biome` - Run biome linter (fast, catches most issues)
 
 ### Testing
+
 - `pnpm test` - Run tests with Vitest
 - `pnpm test:watch` - Run tests in watch mode
 - `pnpm test:coverage` - Run tests with coverage report
@@ -201,6 +211,7 @@ srs-converter/
 ### Conventional Commits Format
 
 **Required structure:**
+
 ```
 <type>[optional scope]: <description>
 
@@ -212,6 +223,7 @@ srs-converter/
 ### Commit Types
 
 **Primary types (most commonly used):**
+
 - `feat`: A new feature for the user
 - `fix`: A bug fix
 - `docs`: Documentation only changes
@@ -221,6 +233,7 @@ srs-converter/
 - `chore`: Changes to build process, auxiliary tools, libraries, dependencies
 
 **Examples of well-formed commit messages:**
+
 ```bash
 feat: add SRS to Anki conversion with custom note types
 fix: resolve database connection timeout in large deck imports
@@ -237,6 +250,7 @@ chore(deps): bump typescript from 5.2.0 to 5.3.0
 3. **Enforcement**: The `conventional-pull-request.yml` workflow validates PR titles automatically
 
 **Good PR title examples:**
+
 - `feat: implement universal SRS format converter`
 - `fix: handle malformed Anki database files gracefully`
 - `docs: create comprehensive GitHub Copilot instructions for effective development`
@@ -244,12 +258,14 @@ chore(deps): bump typescript from 5.2.0 to 5.3.0
 ### Scopes (Optional)
 
 Common scopes used in this project:
+
 - `anki`: Changes specific to Anki integration
 - `deps`: Dependency updates
 - `ci`: CI/CD pipeline changes
 - `types`: TypeScript type definitions
 
 **Examples with scopes:**
+
 ```bash
 feat(anki): add support for custom card templates
 fix(types): correct ConversionResult generic constraints
@@ -259,17 +275,20 @@ chore(ci): update GitHub Actions to latest versions
 ### Validation and Enforcement
 
 **Automated enforcement:**
+
 - **commitlint**: Validates individual commit messages using `@commitlint/config-conventional`
 - **conventional-pull-request**: Validates PR titles match conventional commits format
 - **lefthook**: Git hooks run commitlint on every commit
 
 **Manual validation:**
+
 ```bash
 # Test your commit message format locally
 echo "feat: your commit message" | pnpm dlx commitlint --from=stdin
 ```
 
 **If validation fails:**
+
 - Fix your commit message format
 - For already committed changes: `git commit --amend -m "properly formatted message"`
 - For PR titles: Edit the PR title in the GitHub interface

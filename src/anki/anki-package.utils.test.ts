@@ -591,33 +591,21 @@ describe("Utilities and Helper Functions", () => {
         }
       });
 
-      it.todo(
-        "should handle basic note type with 2 fields, 1 template",
-        async () => {
-          // TODO: Test round-trip with simplest case
-        },
-      );
+      it.todo("should handle basic note type with 2 fields, 1 template", async () => {
+        // TODO: Test round-trip with simplest case
+      });
 
-      it.todo(
-        "should handle note type with multiple fields (3-5)",
-        async () => {
-          // TODO: Test round-trip with more complex fields
-        },
-      );
+      it.todo("should handle note type with multiple fields (3-5)", async () => {
+        // TODO: Test round-trip with more complex fields
+      });
 
-      it.todo(
-        "should handle note type with multiple templates (2-3)",
-        async () => {
-          // TODO: Test round-trip with multiple templates
-        },
-      );
+      it.todo("should handle note type with multiple templates (2-3)", async () => {
+        // TODO: Test round-trip with multiple templates
+      });
 
-      it.todo(
-        "should handle notes with various field content types",
-        async () => {
-          // TODO: Test round-trip with diverse content
-        },
-      );
+      it.todo("should handle notes with various field content types", async () => {
+        // TODO: Test round-trip with diverse content
+      });
     });
 
     describe("Multi-deck scenarios", () => {
@@ -625,12 +613,9 @@ describe("Utilities and Helper Functions", () => {
         // TODO: Test shared note types across decks
       });
 
-      it.todo(
-        "should handle multiple decks with different note types",
-        async () => {
-          // TODO: Test distinct note types per deck
-        },
-      );
+      it.todo("should handle multiple decks with different note types", async () => {
+        // TODO: Test distinct note types per deck
+      });
 
       it.todo("should handle cross-deck note type sharing", async () => {
         // TODO: Test complex deck/note type relationships
@@ -638,12 +623,9 @@ describe("Utilities and Helper Functions", () => {
     });
 
     describe("Complex scenarios", () => {
-      it.todo(
-        "should handle multiple note types with overlapping field names",
-        async () => {
-          // TODO: Test field name conflicts
-        },
-      );
+      it.todo("should handle multiple note types with overlapping field names", async () => {
+        // TODO: Test field name conflicts
+      });
 
       it.todo("should handle cards with different template IDs", async () => {
         // TODO: Test various template ID combinations
@@ -653,12 +635,9 @@ describe("Utilities and Helper Functions", () => {
         // TODO: Test all review score types
       });
 
-      it.todo(
-        "should handle large datasets (100+ notes, 500+ cards, 1000+ reviews)",
-        async () => {
-          // TODO: Test performance with large datasets
-        },
-      );
+      it.todo("should handle large datasets (100+ notes, 500+ cards, 1000+ reviews)", async () => {
+        // TODO: Test performance with large datasets
+      });
     });
 
     describe("Data preservation verification", () => {
@@ -666,23 +645,17 @@ describe("Utilities and Helper Functions", () => {
         // TODO: Test deck metadata preservation
       });
 
-      it.todo(
-        "should preserve note type names and field structures",
-        async () => {
-          // TODO: Test note type structure preservation
-        },
-      );
+      it.todo("should preserve note type names and field structures", async () => {
+        // TODO: Test note type structure preservation
+      });
 
       it.todo("should preserve template names and content", async () => {
         // TODO: Test template preservation
       });
 
-      it.todo(
-        "should preserve field values (including unicode, HTML, special chars)",
-        async () => {
-          // TODO: Test field content preservation
-        },
-      );
+      it.todo("should preserve field values (including unicode, HTML, special chars)", async () => {
+        // TODO: Test field content preservation
+      });
 
       it.todo("should preserve review timestamps and scores", async () => {
         // TODO: Test review data preservation

@@ -1,28 +1,19 @@
 {
   "name": "srs-converter",
   "version": "0.3.0",
-  "type": "module",
-  "packageManager": "pnpm@10.19.0",
-  "engines": {
-    "pnpm": ">=10.0.0",
-    "node": ">=22.0.0"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "lefthook",
-      "protobufjs",
-      "unrs-resolver",
-      "esbuild"
-    ]
-  },
   "description": "A library for converting between different spaced repetition system formats",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
+  "keywords": [
+    "anki",
+    "apkg",
+    "converter",
+    "flashcards",
+    "spaced-repetition",
+    "srs",
+    "typescript"
+  ],
+  "homepage": "https://github.com/eikowagenknecht/srs-converter#readme",
+  "bugs": {
+    "url": "https://github.com/eikowagenknecht/srs-converter/issues"
   },
   "license": "MIT",
   "author": "Eiko Wagenknecht <git@eiko-wagenknecht.de> (https://eikowagenknecht.de)",
@@ -30,34 +21,30 @@
     "type": "git",
     "url": "git+https://github.com/eikowagenknecht/srs-converter.git"
   },
-  "bugs": {
-    "url": "https://github.com/eikowagenknecht/srs-converter/issues"
-  },
-  "homepage": "https://github.com/eikowagenknecht/srs-converter#readme",
-  "keywords": [
-    "srs",
-    "spaced-repetition",
-    "flashcards",
-    "converter",
-    "anki",
-    "apkg",
-    "typescript"
-  ],
   "files": [
+    "LICENSE",
+    "README.md",
     "dist/",
     "!dist/**/*.test.*",
-    "!dist/docs/",
-    "README.md",
-    "LICENSE"
+    "!dist/docs/"
   ],
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "dev": "tsc --watch",
     "build": "tsdown src/index.ts",
-    "format": "prettier --write ./src ./docs && biome format --write ./src ./docs",
-    "lint": "pnpm type-check && pnpm lint:eslint && pnpm lint:prettier && pnpm lint:biome",
+    "format": "oxfmt ./src ./docs && biome format --write ./src ./docs",
+    "lint": "pnpm type-check && pnpm lint:eslint && pnpm lint:oxfmt && pnpm lint:biome",
     "lint:biome": "biome check --write ./src ./docs",
     "lint:eslint": "eslint --fix ./src ./docs",
-    "lint:prettier": "prettier --write ./src ./docs",
+    "lint:oxfmt": "oxfmt ./src ./docs",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest watch",
@@ -103,11 +90,25 @@
     "jscpd": "4.0.7",
     "knip": "5.82.1",
     "lefthook": "2.0.15",
+    "oxfmt": "0.26.0",
     "prettier": "3.8.0",
     "semantic-release": "25.0.2",
     "tsdown": "0.19.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.53.1",
     "vitest": "3.2.4"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "packageManager": "pnpm@10.28.1",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "lefthook",
+      "protobufjs",
+      "unrs-resolver",
+      "esbuild"
+    ]
   }
 }

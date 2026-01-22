@@ -7,19 +7,19 @@
 ## Type of Change
 
 - [ ] 🐛 Bug fix
-- [ ] ✨ New feature  
+- [ ] ✨ New feature
 - [ ] 💥 Breaking change
 - [ ] 📚 Documentation
 - [ ] 🔧 Refactoring
 - [ ] ✅ Tests
 
-<!-- 
+<!--
 ## Related Issues
 - Fixes #(issue number)
 - Related to #(issue number)
 -->
 
-<!-- 
+<!--
 ## Additional notes
 [Any other context or information for reviewers]
 -->

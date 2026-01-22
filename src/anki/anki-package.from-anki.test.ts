@@ -510,12 +510,9 @@ describe("Conversion Anki → SRS", () => {
       // TODO: Test the logic that assigns notes to decks based on first card
     });
 
-    it.todo(
-      "should handle notes with multiple cards in different decks",
-      async () => {
-        // TODO: Test edge case where cards belong to different decks
-      },
-    );
+    it.todo("should handle notes with multiple cards in different decks", async () => {
+      // TODO: Test edge case where cards belong to different decks
+    });
 
     it.todo("should handle notes without cards", async () => {
       // TODO: Test handling of orphaned notes

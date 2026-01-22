@@ -193,10 +193,7 @@ const clozeNote = createNote(
     noteTypeId: clozeNoteType.id,
     deckId: deck.id,
     fieldValues: [
-      [
-        "Text",
-        "The {{c1::mitochondria}} is the {{c2::powerhouse}} of the cell.",
-      ],
+      ["Text", "The {{c1::mitochondria}} is the {{c2::powerhouse}} of the cell."],
       ["Extra", "This is a fundamental concept in biology."],
     ],
   },
@@ -266,12 +263,7 @@ const completeDeck = createCompleteDeckStructure({
 Here's a complete example creating a deck with multiple note types:
 
 ```typescript
-import {
-  SrsPackage,
-  createDeck,
-  createNoteType,
-  createNote,
-} from "srs-converter";
+import { SrsPackage, createDeck, createNoteType, createNote } from "srs-converter";
 
 function createLanguageLearningDeck() {
   const srsPackage = new SrsPackage();

@@ -1008,19 +1008,13 @@ describe("Error Handling and Edge Cases", () => {
 
   describe("Content Validation Tests", () => {
     describe("Unicode and international content", () => {
-      it.todo(
-        "should handle Asian characters (Chinese, Japanese, Korean)",
-        async () => {
-          // TODO: Test CJK character handling
-        },
-      );
+      it.todo("should handle Asian characters (Chinese, Japanese, Korean)", async () => {
+        // TODO: Test CJK character handling
+      });
 
-      it.todo(
-        "should handle Right-to-left scripts (Arabic, Hebrew)",
-        async () => {
-          // TODO: Test RTL script handling
-        },
-      );
+      it.todo("should handle Right-to-left scripts (Arabic, Hebrew)", async () => {
+        // TODO: Test RTL script handling
+      });
 
       it.todo("should handle Emoji and special symbols", async () => {
         // TODO: Test emoji and symbol handling
@@ -1040,12 +1034,9 @@ describe("Error Handling and Edge Cases", () => {
         // TODO: Test CSS preservation
       });
 
-      it.todo(
-        "should handle JavaScript (should be preserved but not executed)",
-        async () => {
-          // TODO: Test JavaScript handling
-        },
-      );
+      it.todo("should handle JavaScript (should be preserved but not executed)", async () => {
+        // TODO: Test JavaScript handling
+      });
 
       it.todo("should handle malformed HTML", async () => {
         // TODO: Test malformed HTML handling
@@ -1076,12 +1067,9 @@ describe("Error Handling and Edge Cases", () => {
       // TODO: Test compatibility with various export versions
     });
 
-    it.todo(
-      "should provide clear error messages for unsupported versions",
-      async () => {
-        // TODO: Test error messaging for unsupported versions
-      },
-    );
+    it.todo("should provide clear error messages for unsupported versions", async () => {
+      // TODO: Test error messaging for unsupported versions
+    });
 
     it.todo("should handle database schema migrations", async () => {
       // TODO: Test schema migration handling

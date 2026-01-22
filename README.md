@@ -86,30 +86,30 @@ The library development follows a phase-based approach. For detailed development
 
 ### Format Support Matrix
 
-| Feature | Anki | Mnemosyne | SuperMemo | Mochi | Custom Formats |
-|---------|------|-----------|-----------|-------|----------------|
-| **Read Support** | ✅ Good | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned |
-| **Write Support** | ✅ Good | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned |
-| **Round-trip** | ✅ Working | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned |
-| **File Types** | `.apkg`, `.colpkg` | - | - | - | - |
-| **Database Schema** | Legacy v2 | - | - | - | - |
+| Feature             | Anki               | Mnemosyne  | SuperMemo  | Mochi      | Custom Formats |
+| ------------------- | ------------------ | ---------- | ---------- | ---------- | -------------- |
+| **Read Support**    | ✅ Good            | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned     |
+| **Write Support**   | ✅ Good            | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned     |
+| **Round-trip**      | ✅ Working         | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned     |
+| **File Types**      | `.apkg`, `.colpkg` | -          | -          | -          | -              |
+| **Database Schema** | Legacy v2          | -          | -          | -          | -              |
 
 ### Anki Format Details
 
 For detailed technical information about the Anki package format, see: [Understanding the Anki .apkg Format (Legacy 2)](https://eikowagenknecht.com/posts/understanding-the-anki-apkg-format-legacy-2/)
 
-| Component | Support Level | Notes |
-|-----------|---------------|-------|
-| **Decks** | ✅ Full | Name, description, configuration, hierarchy |
-| **Note Types** | ✅ Full | Fields, templates, CSS styling, configuration |
-| **Notes** | ✅ Full | Content in all fields, tags, modification timestamps |
-| **Cards** | ✅ Full | Question/answer templates, due dates, intervals, ease factors |
-| **Review History** | ✅ Full | Complete review logs with timestamps and scores |
-| **Media Files** | ✅ Full | List files, get file size, stream content, add files from paths/buffers/streams |
-| **Formats** | ⚠️ Partial | Only Legacy v2 is supported for now |
-| **Plugin Data** | ✅ Full | Preserved in direct operations and round-trip conversions |
-| **Conversion Quality** | ⚠️ Partial | Anki ↔ Universal SRS format conversion preserves basic data with round-trip capability |
-| **Advanced Features** | ⚠️ Partial | Complex note types (Cloze, Image Occlusion) are untested |
+| Component              | Support Level | Notes                                                                                  |
+| ---------------------- | ------------- | -------------------------------------------------------------------------------------- |
+| **Decks**              | ✅ Full       | Name, description, configuration, hierarchy                                            |
+| **Note Types**         | ✅ Full       | Fields, templates, CSS styling, configuration                                          |
+| **Notes**              | ✅ Full       | Content in all fields, tags, modification timestamps                                   |
+| **Cards**              | ✅ Full       | Question/answer templates, due dates, intervals, ease factors                          |
+| **Review History**     | ✅ Full       | Complete review logs with timestamps and scores                                        |
+| **Media Files**        | ✅ Full       | List files, get file size, stream content, add files from paths/buffers/streams        |
+| **Formats**            | ⚠️ Partial    | Only Legacy v2 is supported for now                                                    |
+| **Plugin Data**        | ✅ Full       | Preserved in direct operations and round-trip conversions                              |
+| **Conversion Quality** | ⚠️ Partial    | Anki ↔ Universal SRS format conversion preserves basic data with round-trip capability |
+| **Advanced Features**  | ⚠️ Partial    | Complex note types (Cloze, Image Occlusion) are untested                               |
 
 ## Maintainer
 
@@ -128,7 +128,7 @@ For detailed development information:
 - [Decision Records](docs/decisions/README.md) - Architectural decisions and their rationale
 - [Development Stories](docs/stories/README.md) - Development roadmap and progress tracking
 - [Development Commands](docs/README.commands.md) - Package management and build commands
-- [Testing Guidelines](docs/README.testing.md) - Testing setup and best practices  
+- [Testing Guidelines](docs/README.testing.md) - Testing setup and best practices
 - [Setup Guide](docs/README.setup.md) - Environment setup and prerequisites
 - [Git Workflow](docs/README.git.md) - Branching and commit conventions
 

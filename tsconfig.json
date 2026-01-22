@@ -1,36 +1,36 @@
 {
-	"compilerOptions": {
-		"target": "ES2022",
-		"module": "ESNext",
-		"skipLibCheck": true,
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "skipLibCheck": true,
 
-		/* Bundler mode */
-		"moduleResolution": "bundler",
-		"esModuleInterop": true,
-		"isolatedModules": true,
-		"declaration": true,
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "declaration": true,
 
-		/* Linting */
-		"strict": true,
-		"noUnusedLocals": true,
-		"noUnusedParameters": true,
-		"noFallthroughCasesInSwitch": true,
-		"exactOptionalPropertyTypes": true,
-		"noImplicitOverride": true,
-		"noImplicitReturns": true,
-		"noPropertyAccessFromIndexSignature": true,
-		"noUncheckedIndexedAccess": true,
-		"forceConsistentCasingInFileNames": true,
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true,
+    "forceConsistentCasingInFileNames": true,
 
-		/* Paths */
+    /* Paths */
     // Resolve @/ to the source root directory
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     },
-		"noEmit": true
-	},
-	"include": ["src/**/*", "docs/**/*"],
+    "noEmit": true
+  },
+  "include": ["src/**/*", "docs/**/*"],
   // Needs to include (=not exclude) test files
-	"exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist"]
 }
