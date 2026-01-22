@@ -312,7 +312,7 @@ describe("serializeWithBigInts", () => {
     const obj = { active: true, count: 42, name: "test" };
     const result = serializeWithBigInts(obj);
 
-    expect(result).toBe('{"name":"test","count":42,"active":true}');
+    expect(result).toBe('{"active":true,"count":42,"name":"test"}');
   });
 
   it("should serialize BigInt values as unquoted numbers", () => {
@@ -334,7 +334,7 @@ describe("serializeWithBigInts", () => {
 
     const result = serializeWithBigInts(obj);
     expect(result).toBe(
-      '{"large":18446744073709551615,"veryLarge":340282366920938463463374607431768211455,"regular":42}',
+      '{"large":18446744073709551615,"regular":42,"veryLarge":340282366920938463463374607431768211455}',
     );
   });
 
@@ -354,7 +354,7 @@ describe("serializeWithBigInts", () => {
 
     const result = serializeWithBigInts(obj);
     const expected =
-      '{"user":{"id":9007199254740992,"profile":{"timestamp":1699123456789,"score":100}},"metadata":{"version":1}}';
+      '{"metadata":{"version":1},"user":{"id":9007199254740992,"profile":{"score":100,"timestamp":1699123456789}}}';
     expect(result).toBe(expected);
   });
 
@@ -380,7 +380,7 @@ describe("serializeWithBigInts", () => {
 
     const result = serializeWithBigInts(obj);
     expect(result).toBe(
-      '{"bigIntValue":123,"nullValue":null,"stringValue":"test","numberValue":42,"booleanValue":true}',
+      '{"bigIntValue":123,"booleanValue":true,"nullValue":null,"numberValue":42,"stringValue":"test"}',
     );
   });
 
