@@ -1,4 +1,5 @@
 import type { Readable } from "node:stream";
+import type { CentralDirectory } from "unzipper";
 
 import { createReadStream, createWriteStream } from "node:fs";
 import { copyFile, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
@@ -6,41 +7,36 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import protobuf from "protobufjs";
-import { type CentralDirectory, Open } from "unzipper";
+import { Open } from "unzipper";
 
+import type { ConversionIssue, ConversionOptions, ConversionResult } from "@/error-handling";
+import type { SrsCard } from "@/srs-package";
+
+import { IssueCollector } from "@/error-handling";
 import {
-  type ConversionIssue,
-  type ConversionOptions,
-  type ConversionResult,
-  IssueCollector,
-} from "@/error-handling";
-import {
+  SrsPackage,
+  SrsReviewScore,
   createCard,
   createDeck,
   createNote,
   createNoteType,
   createReview,
-  type SrsCard,
-  SrsPackage,
-  SrsReviewScore,
 } from "@/srs-package";
+
+import type {
+  CardsTable,
+  Config,
+  DatabaseDump,
+  Deck,
+  MediaFileMapping,
+  NoteType,
+  NotesTable,
+  RevlogTable,
+} from "./types";
 
 import { defaultDeck } from "./constants";
 import { AnkiDatabase, AnkiDatabaseError } from "./database";
-import {
-  type CardsTable,
-  type Config,
-  type DatabaseDump,
-  type Deck,
-  DeckDynamicity,
-  Ease,
-  ExportVersion,
-  type MediaFileMapping,
-  type NotesTable,
-  type NoteType,
-  NoteTypeKind,
-  type RevlogTable,
-} from "./types";
+import { DeckDynamicity, Ease, ExportVersion, NoteTypeKind } from "./types";
 import {
   createSelectiveZip,
   extractTimestampFromUuid,
@@ -66,7 +62,7 @@ interface ValidationResult {
  */
 function validateDeckEntry(deckId: string, data: unknown): ValidationResult {
   if (data === null || typeof data !== "object") {
-    return { valid: false, error: "not an object" };
+    return { error: "not an object", valid: false };
   }
 
   const deck = data as Record<string, unknown>;
@@ -74,17 +70,17 @@ function validateDeckEntry(deckId: string, data: unknown): ValidationResult {
   const deckNameValue = deck["name"];
 
   if (typeof deckIdValue !== "number" || Number.isNaN(deckIdValue)) {
-    return { valid: false, error: "missing or invalid 'id' field" };
+    return { error: "missing or invalid 'id' field", valid: false };
   }
 
   if (typeof deckNameValue !== "string") {
-    return { valid: false, error: "missing or invalid 'name' field" };
+    return { error: "missing or invalid 'name' field", valid: false };
   }
 
   if (deckIdValue.toString() !== deckId) {
     return {
-      valid: false,
       error: `deck ID mismatch: key is '${deckId}' but id field is '${deckIdValue.toString()}'`,
+      valid: false,
     };
   }
 
@@ -99,7 +95,7 @@ function validateDeckEntry(deckId: string, data: unknown): ValidationResult {
  */
 function validateNoteTypeEntry(noteTypeId: string, data: unknown): ValidationResult {
   if (data === null || typeof data !== "object") {
-    return { valid: false, error: "not an object" };
+    return { error: "not an object", valid: false };
   }
 
   const noteType = data as Record<string, unknown>;
@@ -109,28 +105,28 @@ function validateNoteTypeEntry(noteTypeId: string, data: unknown): ValidationRes
   const noteTypeTmplsValue = noteType["tmpls"];
 
   if (typeof noteTypeIdValue !== "number" || Number.isNaN(noteTypeIdValue)) {
-    return { valid: false, error: "missing or invalid 'id' field" };
+    return { error: "missing or invalid 'id' field", valid: false };
   }
 
   if (typeof noteTypeNameValue !== "string") {
-    return { valid: false, error: "missing or invalid 'name' field" };
+    return { error: "missing or invalid 'name' field", valid: false };
   }
 
   if (!Array.isArray(noteTypeFldsValue)) {
-    return { valid: false, error: "missing or invalid 'flds' (fields) array" };
+    return { error: "missing or invalid 'flds' (fields) array", valid: false };
   }
 
   if (!Array.isArray(noteTypeTmplsValue)) {
     return {
-      valid: false,
       error: "missing or invalid 'tmpls' (templates) array",
+      valid: false,
     };
   }
 
   if (noteTypeIdValue.toString() !== noteTypeId) {
     return {
-      valid: false,
       error: `note type ID mismatch: key is '${noteTypeId}' but id field is '${noteTypeIdValue.toString()}'`,
+      valid: false,
     };
   }
 
@@ -145,26 +141,26 @@ function validateNoteTypeEntry(noteTypeId: string, data: unknown): ValidationRes
  */
 function validateNote(note: NotesTable, validNoteTypeIds: Set<number>): ValidationResult {
   if (Number.isNaN(note.id)) {
-    return { valid: false, error: "missing or invalid 'id' field" };
+    return { error: "missing or invalid 'id' field", valid: false };
   }
 
   if (typeof note.guid !== "string" || note.guid === "") {
-    return { valid: false, error: "missing or invalid 'guid' field" };
+    return { error: "missing or invalid 'guid' field", valid: false };
   }
 
   if (typeof note.mid !== "number" || Number.isNaN(note.mid)) {
-    return { valid: false, error: "missing or invalid 'mid' (note type id)" };
+    return { error: "missing or invalid 'mid' (note type id)", valid: false };
   }
 
   if (!validNoteTypeIds.has(note.mid)) {
     return {
+      error: `references non-existent note type '${note.mid.toFixed(0)}'`,
       valid: false,
-      error: `references non-existent note type '${note.mid.toFixed()}'`,
     };
   }
 
   if (typeof note.flds !== "string") {
-    return { valid: false, error: "missing or invalid 'flds' (fields)" };
+    return { error: "missing or invalid 'flds' (fields)", valid: false };
   }
 
   return { valid: true };
@@ -183,28 +179,28 @@ function validateCard(
   validDeckIds: Set<number>,
 ): ValidationResult {
   if (card.id === null || Number.isNaN(card.id)) {
-    return { valid: false, error: "missing or invalid 'id' field" };
+    return { error: "missing or invalid 'id' field", valid: false };
   }
 
   if (typeof card.nid !== "number" || Number.isNaN(card.nid)) {
-    return { valid: false, error: "missing or invalid 'nid' (note id)" };
+    return { error: "missing or invalid 'nid' (note id)", valid: false };
   }
 
   if (!validNoteIds.has(card.nid)) {
     return {
+      error: `references non-existent note '${card.nid.toFixed(0)}'`,
       valid: false,
-      error: `references non-existent note '${card.nid.toFixed()}'`,
     };
   }
 
   if (typeof card.did !== "number" || Number.isNaN(card.did)) {
-    return { valid: false, error: "missing or invalid 'did' (deck id)" };
+    return { error: "missing or invalid 'did' (deck id)", valid: false };
   }
 
   if (!validDeckIds.has(card.did)) {
     return {
+      error: `references non-existent deck '${card.did.toFixed(0)}'`,
       valid: false,
-      error: `references non-existent deck '${card.did.toFixed()}'`,
     };
   }
 
@@ -219,17 +215,17 @@ function validateCard(
  */
 function validateReview(review: RevlogTable, validCardIds: Set<number>): ValidationResult {
   if (review.id === null || Number.isNaN(review.id)) {
-    return { valid: false, error: "missing or invalid 'id' field" };
+    return { error: "missing or invalid 'id' field", valid: false };
   }
 
   if (typeof review.cid !== "number" || Number.isNaN(review.cid)) {
-    return { valid: false, error: "missing or invalid 'cid' (card id)" };
+    return { error: "missing or invalid 'cid' (card id)", valid: false };
   }
 
   if (!validCardIds.has(review.cid)) {
     return {
+      error: `references non-existent card '${review.cid.toFixed(0)}'`,
       valid: false,
-      error: `references non-existent card '${review.cid.toFixed()}'`,
     };
   }
 
@@ -282,7 +278,7 @@ function filterValidDatabaseItems(dump: DatabaseDump, collector: IssueCollector)
       validNotes.push(note);
     } else {
       collector.addError(
-        `Note ${note.id.toFixed()} is invalid: ${validation.error ?? "unknown error"}. This note will be skipped.`,
+        `Note ${note.id.toFixed(0)} is invalid: ${validation.error ?? "unknown error"}. This note will be skipped.`,
         { itemType: "note", originalData: note },
       );
     }
@@ -297,7 +293,7 @@ function filterValidDatabaseItems(dump: DatabaseDump, collector: IssueCollector)
     if (validation.valid) {
       validCards.push(card);
     } else {
-      const cardId = card.id !== null ? card.id.toFixed() : "unknown";
+      const cardId = card.id !== null ? card.id.toFixed(0) : "unknown";
       collector.addError(
         `Card ${cardId} is invalid: ${validation.error ?? "unknown error"}. This card will be skipped.`,
         { itemType: "card", originalData: card },
@@ -316,7 +312,7 @@ function filterValidDatabaseItems(dump: DatabaseDump, collector: IssueCollector)
     if (validation.valid) {
       validReviews.push(review);
     } else {
-      const reviewId = review.id !== null ? review.id.toFixed() : "unknown";
+      const reviewId = review.id !== null ? review.id.toFixed(0) : "unknown";
       collector.addError(
         `Review ${reviewId} is invalid: ${validation.error ?? "unknown error"}. This review will be skipped.`,
         { itemType: "review", originalData: review },
@@ -325,15 +321,15 @@ function filterValidDatabaseItems(dump: DatabaseDump, collector: IssueCollector)
   }
 
   return {
+    cards: validCards,
     collection: {
       ...dump.collection,
       decks: validDecks,
       models: validNoteTypes,
     },
-    notes: validNotes,
-    cards: validCards,
-    reviews: validReviews,
     deletedItems: dump.deletedItems,
+    notes: validNotes,
+    reviews: validReviews,
   };
 }
 
@@ -406,11 +402,11 @@ export class AnkiPackage {
     }
 
     // Extract front text from note fields
-    const fields = note.flds.split("\x1f");
+    const fields = note.flds.split("\x1F");
     // TODO: This needs some love to work with multiple fields, HTML etc.
     const frontText = fields[0] ?? note.sfld;
-    const cleanText = frontText.replace(/<[^>]*>/g, "").trim();
-    const preview = cleanText.length > 50 ? `${cleanText.substring(0, 47)}...` : cleanText;
+    const cleanText = frontText.replaceAll(/<[^>]*>/g, "").trim();
+    const preview = cleanText.length > 50 ? `${cleanText.slice(0, 47)}...` : cleanText;
 
     return preview
       ? `Card "${preview}" (ID ${cardId}) in deck "${deckName}"`
@@ -511,8 +507,8 @@ export class AnkiPackage {
         let directory: CentralDirectory;
         try {
           directory = await Open.file(filepath);
-        } catch (zipError) {
-          if (zipError instanceof Error && zipError.message.includes("FILE_ENDED")) {
+        } catch (error) {
+          if (error instanceof Error && error.message.includes("FILE_ENDED")) {
             if (hasZipMagic) {
               collector.addCritical(
                 "The ZIP archive is truncated or corrupted. This typically happens when a download was interrupted. Please re-download or re-export your deck from Anki.",
@@ -524,7 +520,7 @@ export class AnkiPackage {
             }
           } else {
             collector.addCritical(
-              `Failed to open the ZIP archive: ${zipError instanceof Error ? zipError.message : String(zipError)}. Please ensure the file is a valid Anki export.`,
+              `Failed to open the ZIP archive: ${error instanceof Error ? error.message : String(error)}. Please ensure the file is a valid Anki export.`,
             );
           }
           const cleanupIssues = await removeDirectory(instance.tempDir);
@@ -558,7 +554,7 @@ export class AnkiPackage {
 
         if (meta.version !== EXPORT_VERSION.valueOf()) {
           collector.addCritical(
-            `Unsupported Anki export package version: ${meta.version.toFixed()}. Make sure to check "Support older Anki versions" in the Anki export dialog.`,
+            `Unsupported Anki export package version: ${meta.version.toFixed(0)}. Make sure to check "Support older Anki versions" in the Anki export dialog.`,
           );
           const cleanupIssues = await removeDirectory(instance.tempDir);
           collector.addIssues(cleanupIssues);
@@ -609,8 +605,8 @@ export class AnkiPackage {
           let parsedMedia: unknown;
           try {
             parsedMedia = JSON.parse(mediaFileString);
-          } catch (jsonError) {
-            const errorMessage = jsonError instanceof Error ? jsonError.message : String(jsonError);
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
             collector.addCritical(
               `The media mapping file contains invalid JSON and cannot be parsed: ${errorMessage}. Please re-export your deck from Anki.`,
             );
@@ -658,10 +654,10 @@ export class AnkiPackage {
         // Open the collection.anki21 file as the database
         try {
           db = await AnkiDatabase.fromBuffer(await readFile(dbFilePath));
-        } catch (dbError) {
-          if (dbError instanceof AnkiDatabaseError) {
+        } catch (error) {
+          if (error instanceof AnkiDatabaseError) {
             let userMessage: string;
-            switch (dbError.type) {
+            switch (error.type) {
               case "empty":
                 userMessage =
                   "The collection.anki21 database file is empty (0 bytes). This may indicate an incomplete export or file corruption. Please re-export your deck from Anki.";
@@ -675,26 +671,26 @@ export class AnkiPackage {
                   "The collection.anki21 file is not a valid SQLite database. The file may have been corrupted or replaced with non-database content. Please re-export your deck from Anki.";
                 break;
               case "corrupted":
-                userMessage = `The collection.anki21 database is corrupted and cannot be opened. ${dbError.message} Please try re-exporting your deck from Anki, or check if your Anki installation is working correctly.`;
+                userMessage = `The collection.anki21 database is corrupted and cannot be opened. ${error.message} Please try re-exporting your deck from Anki, or check if your Anki installation is working correctly.`;
                 break;
               default:
-                userMessage = `Database error: ${dbError.message}`;
+                userMessage = `Database error: ${error.message}`;
             }
             collector.addCritical(userMessage);
             const cleanupIssues = await removeDirectory(instance.tempDir);
             collector.addIssues(cleanupIssues);
             return collector.createFailureResult<AnkiPackage>();
           }
-          throw dbError; // Re-throw non-AnkiDatabaseError errors
+          throw error; // Re-throw non-AnkiDatabaseError errors
         }
 
         // Validate the database schema has all required tables
         try {
           db.validateSchema();
-        } catch (schemaError) {
-          if (schemaError instanceof AnkiDatabaseError) {
-            const missingTables = schemaError.missingTables
-              ? schemaError.missingTables.map((t) => `'${t}'`).join(", ")
+        } catch (error) {
+          if (error instanceof AnkiDatabaseError) {
+            const missingTables = error.missingTables
+              ? error.missingTables.map((t) => `'${t}'`).join(", ")
               : "unknown tables";
             collector.addCritical(
               `The collection.anki21 database is missing required tables: ${missingTables}. This may indicate a corrupted database or an incompatible Anki version. Please re-export your deck from Anki.`,
@@ -703,7 +699,7 @@ export class AnkiPackage {
             collector.addIssues(cleanupIssues);
             return collector.createFailureResult<AnkiPackage>();
           }
-          throw schemaError; // Re-throw non-AnkiDatabaseError errors
+          throw error; // Re-throw non-AnkiDatabaseError errors
         }
 
         // Read the contents of the database and validate
@@ -712,7 +708,7 @@ export class AnkiPackage {
 
         if (instance.databaseContents.collection.ver !== DB_VERSION) {
           collector.addCritical(
-            `This Anki file uses database version ${instance.databaseContents.collection.ver.toFixed()}, which is not supported. Please export your deck from a compatible Anki version.`,
+            `This Anki file uses database version ${instance.databaseContents.collection.ver.toFixed(0)}, which is not supported. Please export your deck from a compatible Anki version.`,
           );
           const cleanupIssues = await removeDirectory(instance.tempDir);
           collector.addIssues(cleanupIssues);
@@ -729,7 +725,7 @@ export class AnkiPackage {
           if (!mediaExists) {
             collector.addWarning(
               `Media file '${filename}' (ID: ${mediaId}) is listed in the media mapping but not found in the package. References to this file may be broken.`,
-              { itemType: "media", originalData: { mediaId, filename } },
+              { itemType: "media", originalData: { filename, mediaId } },
             );
           }
         }
@@ -784,7 +780,7 @@ export class AnkiPackage {
     if (decks.length !== 1) {
       const deckNames = decks.map((deck) => `'${deck.name}'`).join(", ");
       collector.addCritical(
-        `The package must contain exactly one deck, but found ${decks.length.toFixed()} decks: ${deckNames}.`,
+        `The package must contain exactly one deck, but found ${decks.length.toFixed(0)} decks: ${deckNames}.`,
         { itemType: "deck" },
       );
       return collector.createFailureResult<AnkiPackage>();
@@ -795,7 +791,7 @@ export class AnkiPackage {
       let deckID = resolveAnkiId(deck.applicationSpecificData, extractTimestampFromUuid(deck.id));
 
       // Keep incrementing until we find an unused ID
-      while (Array.from(deckIDs.values()).includes(deckID)) {
+      while ([...deckIDs.values()].includes(deckID)) {
         deckID++;
       }
 
@@ -835,7 +831,7 @@ export class AnkiPackage {
       );
 
       // Keep incrementing until we find an unused ID
-      while (Array.from(noteTypeIDs.values()).includes(noteTypeId)) {
+      while ([...noteTypeIDs.values()].includes(noteTypeId)) {
         noteTypeId++;
       }
 
@@ -902,7 +898,7 @@ export class AnkiPackage {
       let noteId = resolveAnkiId(note.applicationSpecificData, extractTimestampFromUuid(note.id));
 
       // Keep incrementing until we find an unused ID
-      while (Array.from(noteIDs.values()).includes(noteId)) {
+      while ([...noteIDs.values()].includes(noteId)) {
         noteId++;
       }
 
@@ -1044,7 +1040,7 @@ export class AnkiPackage {
         );
 
         // Keep incrementing until we find an unused ID
-        while (Array.from(cardIDs.values()).includes(cardId)) {
+        while ([...cardIDs.values()].includes(cardId)) {
           cardId++;
         }
 
@@ -1078,19 +1074,23 @@ export class AnkiPackage {
       let ease: Ease;
 
       switch (review.score) {
-        case SrsReviewScore.Again:
+        case SrsReviewScore.Again: {
           ease = Ease.AGAIN;
           break;
-        case SrsReviewScore.Hard:
+        }
+        case SrsReviewScore.Hard: {
           ease = Ease.HARD;
           break;
-        case SrsReviewScore.Normal:
+        }
+        case SrsReviewScore.Normal: {
           ease = Ease.GOOD;
           break;
-        case SrsReviewScore.Easy:
+        }
+        case SrsReviewScore.Easy: {
           ease = Ease.EASY;
           break;
-        default:
+        }
+        default: {
           collector.addError(
             `Cannot convert review because the score ${String(review.score)} is not valid. Valid review scores are 1 (Again), 2 (Hard), 3 (Normal), 4 (Easy). This review will be skipped.`,
             {
@@ -1099,6 +1099,7 @@ export class AnkiPackage {
             },
           );
           continue;
+        }
       }
 
       const cardId = cardIDs.get(review.cardId);
@@ -1162,24 +1163,24 @@ export class AnkiPackage {
     // Build list of files to include in zip
     const filesToZip = [
       {
-        path: join(this.tempDir, "collection.anki21"),
         compress: true,
+        path: join(this.tempDir, "collection.anki21"),
       },
       {
+        compress: false,
         path: join(this.tempDir, "media"),
-        compress: false,
       },
       {
-        path: join(this.tempDir, "meta"),
         compress: false,
+        path: join(this.tempDir, "meta"),
       },
     ];
 
     // Add all media files to the zip
     for (const mediaId of Object.keys(this.mediaFiles)) {
       filesToZip.push({
-        path: join(this.tempDir, mediaId),
         compress: false,
+        path: join(this.tempDir, mediaId),
       });
     }
 
@@ -1283,11 +1284,11 @@ export class AnkiPackage {
     if (this.databaseContents.collection.decks[deckId]) {
       this.databaseContents.collection.decks = Object.fromEntries(
         Object.entries(this.databaseContents.collection.decks).filter(
-          ([key]) => key !== deckId.toFixed(),
+          ([key]) => key !== deckId.toFixed(0),
         ),
       );
     } else {
-      throw new Error(`Deck with ID ${deckId.toFixed()} does not exist`);
+      throw new Error(`Deck with ID ${deckId.toFixed(0)} does not exist`);
     }
   }
 
@@ -1362,7 +1363,7 @@ export class AnkiPackage {
     // Generate unique media ID (next available number)
     const existingIds = Object.keys(this.mediaFiles).map((id) => Number.parseInt(id, 10));
     const nextId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 0;
-    const mediaId = nextId.toFixed();
+    const mediaId = nextId.toFixed(0);
 
     const targetPath = join(this.tempDir, mediaId);
 
@@ -1498,11 +1499,11 @@ export class AnkiPackage {
 
     for (const [deckId, ankiDeck] of Object.entries(this.databaseContents.collection.decks)) {
       const deckData: Parameters<typeof createDeck>[0] = {
-        name: ankiDeck.name,
         applicationSpecificData: {
-          originalAnkiId: deckId,
           ankiDeckData: JSON.stringify(ankiDeck),
+          originalAnkiId: deckId,
         },
+        name: ankiDeck.name,
       };
 
       if (ankiDeck.desc) {
@@ -1521,7 +1522,9 @@ export class AnkiPackage {
       this.databaseContents.collection.models,
     )) {
       const srsNoteType = createNoteType({
-        name: ankiNoteType.name,
+        applicationSpecificData: {
+          originalAnkiId: noteTypeId,
+        },
         fields: ankiNoteType.flds.map((field, index) => {
           const srsField: { id: number; name: string; description?: string } = {
             id: index,
@@ -1532,18 +1535,16 @@ export class AnkiPackage {
           }
           return srsField;
         }),
+        name: ankiNoteType.name,
         templates: ankiNoteType.tmpls.map((template, index) => ({
-          id: index,
-          name: template.name,
-          questionTemplate: template.qfmt,
           answerTemplate: template.afmt,
           applicationSpecificData: {
             ankiTemplateData: serializeWithBigInts(template),
           },
+          id: index,
+          name: template.name,
+          questionTemplate: template.qfmt,
         })),
-        applicationSpecificData: {
-          originalAnkiId: noteTypeId,
-        },
       });
       srsPackage.addNoteType(srsNoteType);
       ankiToSrsNoteTypeMap.set(noteTypeId, srsNoteType.id);
@@ -1571,13 +1572,13 @@ export class AnkiPackage {
     const ankiToSrsNoteMap = new Map<number, string>();
 
     for (const ankiNote of this.databaseContents.notes) {
-      const srsNoteTypeId = ankiToSrsNoteTypeMap.get(ankiNote.mid.toFixed());
+      const srsNoteTypeId = ankiToSrsNoteTypeMap.get(ankiNote.mid.toFixed(0));
       const ankiDeckId = noteIdToDeckId.get(ankiNote.id) ?? 1; // Default to deck 1
       const srsDeckId = ankiToSrsDeckMap.get(ankiDeckId);
 
       if (!srsNoteTypeId || !srsDeckId) {
         collector.addError(
-          `Cannot convert note ${ankiNote.id.toFixed()} because note type or deck mapping is missing. This note will be skipped.`,
+          `Cannot convert note ${ankiNote.id.toFixed(0)} because note type or deck mapping is missing. This note will be skipped.`,
           {
             itemType: "note",
             originalData: ankiNote,
@@ -1589,7 +1590,7 @@ export class AnkiPackage {
       const srsNoteType = srsPackage.getNoteTypes().find((nt) => nt.id === srsNoteTypeId);
       if (!srsNoteType) {
         collector.addError(
-          `Cannot convert note ${ankiNote.id.toFixed()} because its note type was not found. This note will be skipped.`,
+          `Cannot convert note ${ankiNote.id.toFixed(0)} because its note type was not found. This note will be skipped.`,
           {
             itemType: "note",
             originalData: ankiNote,
@@ -1606,15 +1607,15 @@ export class AnkiPackage {
 
       const srsNote = createNote(
         {
-          noteTypeId: srsNoteTypeId,
-          deckId: srsDeckId,
-          fieldValues: noteFieldValues,
           applicationSpecificData: {
-            originalAnkiId: ankiNote.id.toFixed(),
+            ankiData: ankiNote.data,
             ankiGuid: ankiNote.guid,
             ankiTags: ankiNote.tags,
-            ankiData: ankiNote.data,
+            originalAnkiId: ankiNote.id.toFixed(0),
           },
+          deckId: srsDeckId,
+          fieldValues: noteFieldValues,
+          noteTypeId: srsNoteTypeId,
         },
         srsNoteType,
       );
@@ -1641,16 +1642,16 @@ export class AnkiPackage {
         }
 
         const srsCard = createCard({
-          noteId: srsNoteId,
-          templateId: ankiCard.ord,
           applicationSpecificData: {
             // TODO: Check which of these fields actually need to be stored. Maybe extract a type.
-            originalAnkiId: ankiCard.id?.toFixed() ?? "",
             ankiData: ankiCard.data,
-            ankiDue: ankiCard.due.toFixed(),
+            ankiDue: ankiCard.due.toFixed(0),
             ankiQueue: ankiCard.queue.toString(),
             ankiType: ankiCard.type.toString(),
+            originalAnkiId: ankiCard.id?.toFixed() ?? "",
           },
+          noteId: srsNoteId,
+          templateId: ankiCard.ord,
         });
 
         srsPackage.addCard(srsCard);
@@ -1717,25 +1718,29 @@ export class AnkiPackage {
         // SRS: 1=again, 2=hard, 3=normal, 4=easy
         let srsScore: SrsReviewScore;
         switch (ankiReview.ease) {
-          case Ease.AGAIN:
+          case Ease.AGAIN: {
             srsScore = SrsReviewScore.Again;
             break;
-          case Ease.HARD:
+          }
+          case Ease.HARD: {
             srsScore = SrsReviewScore.Hard;
             break;
-          case Ease.GOOD:
+          }
+          case Ease.GOOD: {
             srsScore = SrsReviewScore.Normal;
             break;
-          case Ease.EASY:
+          }
+          case Ease.EASY: {
             srsScore = SrsReviewScore.Easy;
             break;
+          }
         }
         const srsReview = createReview({
           cardId: srsCardId,
           timestamp: ankiReview.id, // Anki review ID is the timestamp
           score: srsScore,
           applicationSpecificData: {
-            originalAnkiId: ankiReview.id.toFixed(),
+            originalAnkiId: ankiReview.id.toFixed(0),
           },
         });
 
@@ -1806,12 +1811,12 @@ async function removeDirectory(dirPath: string): Promise<ConversionIssue[]> {
     await rm(dirPath, { recursive: true });
   } catch (error) {
     issues.push({
-      severity: "warning",
-      message:
-        "Could not clean up temporary files after conversion. This does not affect your converted data.",
       context: {
         originalData: error,
       },
+      message:
+        "Could not clean up temporary files after conversion. This does not affect your converted data.",
+      severity: "warning",
     });
   }
 

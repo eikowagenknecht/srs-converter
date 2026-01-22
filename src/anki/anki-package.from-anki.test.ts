@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  SrsPackage,
+  SrsReviewScore,
   createCard,
   createDeck,
   createNote,
   createNoteType,
-  SrsPackage,
-  SrsReviewScore,
 } from "@/srs-package";
 
 import type { Ease } from "./types";
@@ -28,26 +28,25 @@ describe("Conversion Anki → SRS", () => {
       const srsPackage = new SrsPackage();
 
       const srsDeck = createDeck({
-        name: "Comprehensive Test Deck",
         description: "Testing all data type conversions",
+        name: "Comprehensive Test Deck",
       });
 
       const multiFieldTemplate1 = {
+        answerTemplate: "{{Pronunciation}}<br>{{Meaning}}<br>{{Example}}",
         id: 0,
         name: "Recognition",
         questionTemplate: "{{Word}}",
-        answerTemplate: "{{Pronunciation}}<br>{{Meaning}}<br>{{Example}}",
       };
 
       const multiFieldTemplate2 = {
+        answerTemplate: "{{Word}}<br>{{Pronunciation}}",
         id: 1,
         name: "Production",
         questionTemplate: "{{Meaning}}",
-        answerTemplate: "{{Word}}<br>{{Pronunciation}}",
       };
 
       const srsNoteType = createNoteType({
-        name: "Comprehensive Note Type",
         fields: [
           { id: 0, name: "Word" },
           { id: 1, name: "Pronunciation" },
@@ -55,13 +54,13 @@ describe("Conversion Anki → SRS", () => {
           { id: 3, name: "Example" },
           { id: 4, name: "Notes" },
         ],
+        name: "Comprehensive Note Type",
         templates: [multiFieldTemplate1, multiFieldTemplate2],
       });
 
       // Create multiple notes with different content types
       const note1 = createNote(
         {
-          noteTypeId: srsNoteType.id,
           deckId: srsDeck.id,
           fieldValues: [
             ["Word", "猫"],
@@ -70,13 +69,13 @@ describe("Conversion Anki → SRS", () => {
             ["Example", "猫が好きです。(I like cats.)"],
             ["Notes", "Common animal word"],
           ],
+          noteTypeId: srsNoteType.id,
         },
         srsNoteType,
       );
 
       const note2 = createNote(
         {
-          noteTypeId: srsNoteType.id,
           deckId: srsDeck.id,
           fieldValues: [
             ["Word", "犬"],
@@ -85,6 +84,7 @@ describe("Conversion Anki → SRS", () => {
             ["Example", "犬と散歩します。(I walk with the dog.)"],
             ["Notes", "Another common animal"],
           ],
+          noteTypeId: srsNoteType.id,
         },
         srsNoteType,
       );
@@ -107,23 +107,23 @@ describe("Conversion Anki → SRS", () => {
 
       // Add some reviews with different scores
       const review1 = {
-        id: `${card1.id}-${Date.now().toFixed()}`,
+        id: `${card1.id}-${Date.now().toFixed(0)}`,
         cardId: card1.id,
-        timestamp: Date.now() - 86400000, // 1 day ago
+        timestamp: Date.now() - 86_400_000, // 1 day ago
         score: SrsReviewScore.Again,
       };
 
       const review2 = {
-        id: `${card2.id}-${(Date.now() + 1).toFixed()}`,
+        id: `${card2.id}-${(Date.now() + 1).toFixed(0)}`,
         cardId: card2.id,
-        timestamp: Date.now() - 43200000, // 12 hours ago
+        timestamp: Date.now() - 43_200_000, // 12 hours ago
         score: SrsReviewScore.Normal,
       };
 
       const review3 = {
-        id: `${card3.id}-${(Date.now() + 2).toFixed()}`,
+        id: `${card3.id}-${(Date.now() + 2).toFixed(0)}`,
         cardId: card3.id,
-        timestamp: Date.now() - 21600000, // 6 hours ago
+        timestamp: Date.now() - 21_600_000, // 6 hours ago
         score: SrsReviewScore.Easy,
       };
 
@@ -273,20 +273,19 @@ describe("Conversion Anki → SRS", () => {
       const srsPackage = new SrsPackage();
 
       const srsDeck = createDeck({
-        name: "Field Order Test Deck",
         description: "Testing field ordering preservation",
+        name: "Field Order Test Deck",
       });
 
       // Create a note type with deliberately ordered fields
       const template = {
+        answerTemplate: "{{Field4}} {{Field5}} {{Field6}}",
         id: 0,
         name: "Order Test",
         questionTemplate: "{{Field1}} {{Field2}} {{Field3}}",
-        answerTemplate: "{{Field4}} {{Field5}} {{Field6}}",
       };
 
       const srsNoteType = createNoteType({
-        name: "Field Order Test",
         fields: [
           { id: 0, name: "Field1" },
           { id: 1, name: "Field2" },
@@ -295,12 +294,12 @@ describe("Conversion Anki → SRS", () => {
           { id: 4, name: "Field5" },
           { id: 5, name: "Field6" },
         ],
+        name: "Field Order Test",
         templates: [template],
       });
 
       const srsNote = createNote(
         {
-          noteTypeId: srsNoteType.id,
           deckId: srsDeck.id,
           fieldValues: [
             ["Field1", "Value1"],
@@ -310,6 +309,7 @@ describe("Conversion Anki → SRS", () => {
             ["Field5", "Value5"],
             ["Field6", "Value6"],
           ],
+          noteTypeId: srsNoteType.id,
         },
         srsNoteType,
       );
@@ -400,17 +400,17 @@ describe("Conversion Anki → SRS", () => {
       srsPackage.addDeck(deck);
 
       const noteType = createNoteType({
-        name: "Basic",
         fields: [
           { id: 0, name: "Front" },
           { id: 1, name: "Back" },
         ],
+        name: "Basic",
         templates: [
           {
+            answerTemplate: "{{Back}}",
             id: 0,
             name: "Card 1",
             questionTemplate: "{{Front}}",
-            answerTemplate: "{{Back}}",
           },
         ],
       });
@@ -418,12 +418,12 @@ describe("Conversion Anki → SRS", () => {
 
       const note = createNote(
         {
-          noteTypeId: noteType.id,
           deckId: deck.id,
           fieldValues: [
             ["Front", "Question"],
             ["Back", "Answer"],
           ],
+          noteTypeId: noteType.id,
         },
         noteType,
       );
@@ -657,7 +657,7 @@ describe("Conversion Anki → SRS", () => {
       const ankiPackage = expectSuccess(ankiResult);
 
       // Add a review with a card ID that doesn't exist
-      const nonExistentCardId = 999999; // Card ID that doesn't exist
+      const nonExistentCardId = 999_999; // Card ID that doesn't exist
       const reviewId = Date.now();
 
       ankiPackage.addReview({

@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  SrsPackage,
+  SrsReviewScore,
   createCard,
   createDeck,
   createNote,
   createNoteType,
   createReview,
-  SrsPackage,
-  SrsReviewScore,
 } from "@/srs-package";
 
 import type { Ease } from "./types";
@@ -33,8 +33,8 @@ describe("Conversion SRS → Anki", () => {
         noteType: srsNoteType,
         note: srsNote,
       } = createBasicSrsPackage({
-        frontValue: "What is the capital of France?",
         backValue: "Paris",
+        frontValue: "What is the capital of France?",
       });
 
       const result = await AnkiPackage.fromSrsPackage(srsPackage);
@@ -43,7 +43,9 @@ describe("Conversion SRS → Anki", () => {
       try {
         const ankiDeck = ankiPackage.getDecks()[0];
         expect(ankiDeck).toBeDefined();
-        if (!ankiDeck) throw new Error("Deck not found");
+        if (!ankiDeck) {
+          throw new Error("Deck not found");
+        }
 
         // Check if all deck data is there
         expect(ankiDeck.name).toBe(deck.name);
@@ -52,10 +54,14 @@ describe("Conversion SRS → Anki", () => {
         // Check if all note types are there
         const ankiNoteType = ankiPackage.getNoteTypes()[0];
         expect(ankiNoteType).toBeDefined();
-        if (!ankiNoteType) throw new Error("Note type not found");
+        if (!ankiNoteType) {
+          throw new Error("Note type not found");
+        }
         expect(ankiNoteType.name).toBe(srsNoteType.name);
         expect(ankiNoteType.flds).toHaveLength(2);
-        if (!ankiNoteType.flds[0] || !ankiNoteType.flds[1]) throw new Error("Field not found");
+        if (!ankiNoteType.flds[0] || !ankiNoteType.flds[1]) {
+          throw new Error("Field not found");
+        }
         expect(ankiNoteType.flds[0].name).toBe("Front");
         expect(ankiNoteType.flds[1].name).toBe("Back");
         expect(ankiNoteType.did).toEqual(ankiDeck.id);
@@ -63,10 +69,12 @@ describe("Conversion SRS → Anki", () => {
         // Check if all notes are there
         const ankiNote = ankiPackage.getNotes()[0];
         expect(ankiNote).toBeDefined();
-        if (!ankiNote) throw new Error("Note not found");
+        if (!ankiNote) {
+          throw new Error("Note not found");
+        }
         expect(ankiNote.id).toBe(extractTimestampFromUuid(srsNote.id));
         expect(ankiNote.mid).toBe(extractTimestampFromUuid(srsNoteType.id));
-        const fields = ankiNote.flds.split("\x1f");
+        const fields = ankiNote.flds.split("\x1F");
         expect(fields).toHaveLength(2);
         expect(fields[0]).toEqual("What is the capital of France?");
         expect(fields[1]).toEqual("Paris");
@@ -75,7 +83,9 @@ describe("Conversion SRS → Anki", () => {
         // Check if all cards are there
         const ankiCard = ankiPackage.getCards()[0];
         expect(ankiCard).toBeDefined();
-        if (!ankiCard) throw new Error("Card not found");
+        if (!ankiCard) {
+          throw new Error("Card not found");
+        }
         // expect(ankiCard1.id).toBe(generateUniqueIdFromUuid(srsCard.id));
         expect(ankiCard.nid).toBe(ankiNote.id);
         expect(ankiCard.ord).toBe(0);
@@ -86,17 +96,17 @@ describe("Conversion SRS → Anki", () => {
 
     it("should remove unused note types", async () => {
       const { srsPackage } = createBasicSrsPackage({
-        frontValue: "What is the capital of France?",
         backValue: "Paris",
+        frontValue: "What is the capital of France?",
       });
 
       // Add an unused note type
       const unusedSrsNotetype = createNoteType({
-        name: "Basically useless",
         fields: [
           { id: 0, name: "Front" },
           { id: 1, name: "Back" },
         ],
+        name: "Basically useless",
         templates: [createBasicTemplate()],
       });
       srsPackage.addNoteType(unusedSrsNotetype);
@@ -107,12 +117,16 @@ describe("Conversion SRS → Anki", () => {
       try {
         const ankiDeck = ankiPackage.getDecks()[0];
         expect(ankiDeck).toBeDefined();
-        if (!ankiDeck) throw new Error("Deck not found");
+        if (!ankiDeck) {
+          throw new Error("Deck not found");
+        }
 
         // Check that the unused note type was removed
         const noteTypes = ankiPackage.getNoteTypes();
         expect(noteTypes).toHaveLength(1);
-        if (!noteTypes[0]) throw new Error("Note type not found");
+        if (!noteTypes[0]) {
+          throw new Error("Note type not found");
+        }
         expect(noteTypes[0].name).toBe("Basic");
       } finally {
         await ankiPackage.cleanup();
@@ -131,7 +145,6 @@ describe("Conversion SRS → Anki", () => {
 
       const deck = createDeck({ name: "Test Deck" });
       const noteType = createNoteType({
-        name: "Language Learning",
         fields: [
           { id: 0, name: "Word" },
           { id: 1, name: "Pronunciation" },
@@ -139,18 +152,19 @@ describe("Conversion SRS → Anki", () => {
           { id: 3, name: "Example" },
           { id: 4, name: "Notes" },
         ],
+        name: "Language Learning",
         templates: [
           {
+            answerTemplate: "{{Pronunciation}}\n\n{{Meaning}}\n\n{{Example}}",
             id: 0,
             name: "Recognition",
             questionTemplate: "{{Word}}",
-            answerTemplate: "{{Pronunciation}}\n\n{{Meaning}}\n\n{{Example}}",
           },
           {
+            answerTemplate: "{{Word}}",
             id: 1,
             name: "Production",
             questionTemplate: "{{Meaning}}",
-            answerTemplate: "{{Word}}",
           },
         ],
       });
@@ -158,7 +172,6 @@ describe("Conversion SRS → Anki", () => {
       // Create a note that uses all the fields
       const note = createNote(
         {
-          noteTypeId: noteType.id,
           deckId: deck.id,
           fieldValues: [
             ["Word", "猫"],
@@ -167,6 +180,7 @@ describe("Conversion SRS → Anki", () => {
             ["Example", "猫が好きです。"],
             ["Notes", "Common animal word"],
           ],
+          noteTypeId: noteType.id,
         },
         noteType,
       );
@@ -208,35 +222,35 @@ describe("Conversion SRS → Anki", () => {
       const deck = createDeck({ name: "Test Deck" });
 
       const bidirectionalNoteType = createNoteType({
-        name: "Bidirectional",
         fields: [
           { id: 0, name: "Front" },
           { id: 1, name: "Back" },
         ],
+        name: "Bidirectional",
         templates: [
           {
+            answerTemplate: "{{Back}}",
             id: 0,
             name: "Front to Back",
             questionTemplate: "{{Front}}",
-            answerTemplate: "{{Back}}",
           },
           {
+            answerTemplate: "{{Front}}",
             id: 1,
             name: "Back to Front",
             questionTemplate: "{{Back}}",
-            answerTemplate: "{{Front}}",
           },
         ],
       });
 
       const note = createNote(
         {
-          noteTypeId: bidirectionalNoteType.id,
           deckId: deck.id,
           fieldValues: [
             ["Front", "Hello"],
             ["Back", "こんにちは"],
           ],
+          noteTypeId: bidirectionalNoteType.id,
         },
         bidirectionalNoteType,
       );
@@ -288,42 +302,42 @@ describe("Conversion SRS → Anki", () => {
       const srsPackage = new SrsPackage();
 
       const deck = createDeck({
-        name: "Test Deck",
         applicationSpecificData: {
           originalAnkiId: "1234567890",
         },
+        name: "Test Deck",
       });
       srsPackage.addDeck(deck);
 
       const noteType = createNoteType({
-        name: "Basic",
+        applicationSpecificData: {
+          originalAnkiId: "9876543210",
+        },
         fields: [
           { id: 0, name: "Front" },
           { id: 1, name: "Back" },
         ],
+        name: "Basic",
         templates: [
           {
+            answerTemplate: "{{Back}}",
             id: 0,
             name: "Card 1",
             questionTemplate: "{{Front}}",
-            answerTemplate: "{{Back}}",
           },
         ],
-        applicationSpecificData: {
-          originalAnkiId: "9876543210",
-        },
       });
       srsPackage.addNoteType(noteType);
 
       // Add a note so the package is valid
       const note = createNote(
         {
-          noteTypeId: noteType.id,
           deckId: deck.id,
           fieldValues: [
             ["Front", "Question"],
             ["Back", "Answer"],
           ],
+          noteTypeId: noteType.id,
         },
         noteType,
       );
@@ -336,8 +350,8 @@ describe("Conversion SRS → Anki", () => {
       const noteTypes = ankiPackage.getNoteTypes();
 
       // Verify original IDs were used
-      expect(decks[0]?.id).toBe(1234567890);
-      expect(noteTypes[0]?.id).toBe(9876543210);
+      expect(decks[0]?.id).toBe(1_234_567_890);
+      expect(noteTypes[0]?.id).toBe(9_876_543_210);
 
       await ankiPackage.cleanup();
     });
@@ -455,8 +469,8 @@ describe("Conversion SRS → Anki", () => {
 
     it("should handle invalid review scores", async () => {
       const { srsPackage } = createBasicSrsPackage({
-        frontValue: "Question",
         backValue: "Answer",
+        frontValue: "Question",
       });
 
       // Convert to Anki first to get valid cards
@@ -476,7 +490,7 @@ describe("Conversion SRS → Anki", () => {
 
       // Create a review with invalid ease but valid card ID
       ankiPackage.addReview({
-        id: 999999,
+        id: 999_999,
         cid: firstCard.id, // Valid card ID
         usn: 0,
         ease: 999 as unknown as Ease, // Invalid ease value (type-cast for testing)
@@ -519,14 +533,14 @@ describe("Conversion SRS → Anki", () => {
       srsPackage.addDeck(deck);
 
       const noteType = createNoteType({
-        name: "Basic",
         fields: [{ id: 0, name: "Front" }],
+        name: "Basic",
         templates: [
           {
+            answerTemplate: "{{Front}}",
             id: 0,
             name: "Card 1",
             questionTemplate: "{{Front}}",
-            answerTemplate: "{{Front}}",
           },
         ],
       });
@@ -534,9 +548,9 @@ describe("Conversion SRS → Anki", () => {
 
       const note = createNote(
         {
-          noteTypeId: noteType.id,
           deckId: deck.id,
           fieldValues: [["Front", "Test"]],
+          noteTypeId: noteType.id,
         },
         noteType,
       );
@@ -548,11 +562,11 @@ describe("Conversion SRS → Anki", () => {
       });
       srsPackage.addCard(card);
 
-      const timestamp = 1234567890000;
+      const timestamp = 1_234_567_890_000;
       const review = createReview({
         cardId: card.id,
-        timestamp: timestamp,
         score: SrsReviewScore.Normal,
+        timestamp: timestamp,
       });
       srsPackage.addReview(review);
 

@@ -28,106 +28,106 @@ describe("anki db test", () => {
     const defaultCollection = await db.getCollection();
 
     expect(defaultCollection.id).toStrictEqual(1);
-    expect(defaultCollection.crt).toStrictEqual(1681178400);
-    expect(defaultCollection.mod).toStrictEqual(1731670964300);
-    expect(defaultCollection.scm).toStrictEqual(1731670964297);
+    expect(defaultCollection.crt).toStrictEqual(1_681_178_400);
+    expect(defaultCollection.mod).toStrictEqual(1_731_670_964_300);
+    expect(defaultCollection.scm).toStrictEqual(1_731_670_964_297);
     expect(defaultCollection.ver).toStrictEqual(11);
     expect(defaultCollection.dty).toStrictEqual(0);
     expect(defaultCollection.usn).toStrictEqual(0);
     expect(defaultCollection.ls).toStrictEqual(0);
     expect(defaultCollection.conf).toEqual({
-      sortBackwards: false,
-      dayLearnFirst: false,
-      curDeck: 1,
-      schedVer: 2,
-      estTimes: true,
-      nextPos: 1,
-      collapseTime: 1200,
-      sched2021: true,
       activeDecks: [1],
-      dueCounts: true,
-      sortType: "noteFld",
-      curModel: 1731670964298,
       addToCur: true,
-      timeLim: 0,
-      newSpread: 0,
+      collapseTime: 1200,
       creationOffset: -120,
+      curDeck: 1,
+      curModel: 1_731_670_964_298,
+      dayLearnFirst: false,
+      dueCounts: true,
+      estTimes: true,
+      newSpread: 0,
+      nextPos: 1,
+      sched2021: true,
+      schedVer: 2,
+      sortBackwards: false,
+      sortType: "noteFld",
+      timeLim: 0,
     });
     expect(defaultCollection.models).toEqual({});
     expect(defaultCollection.decks).toEqual({
       "1": {
-        id: 1,
-        mod: 0,
-        name: "Default",
-        usn: 0,
-        lrnToday: [0, 0],
-        revToday: [0, 0],
-        newToday: [0, 0],
-        timeToday: [0, 0],
-        collapsed: true,
         browserCollapsed: true,
+        collapsed: true,
+        conf: 1,
         desc: "",
         dyn: 0,
-        conf: 1,
         extendNew: 0,
         extendRev: 0,
-        reviewLimit: null,
+        id: 1,
+        lrnToday: [0, 0],
+        mod: 0,
+        name: "Default",
         newLimit: null,
-        reviewLimitToday: null,
         newLimitToday: null,
+        newToday: [0, 0],
+        revToday: [0, 0],
+        reviewLimit: null,
+        reviewLimitToday: null,
+        timeToday: [0, 0],
+        usn: 0,
       },
     });
     expect(defaultCollection.dconf).toEqual({
       "1": {
+        answerAction: 0,
+        autoplay: true,
+        buryInterdayLearning: false,
+        desiredRetention: 0.9,
+        dyn: false,
+        fsrsWeights: [],
         id: 1,
+        ignoreRevlogsBeforeDate: "",
+        interdayLearningMix: 0,
+        lapse: {
+          delays: [10],
+          leechAction: 1,
+          leechFails: 8,
+          minInt: 1,
+          mult: 0,
+        },
+        maxTaken: 60,
         mod: 0,
         name: "Default",
-        usn: 0,
-        maxTaken: 60,
-        autoplay: true,
-        timer: 0,
-        replayq: true,
         new: {
           bury: false,
-          delays: [1.0, 10.0],
+          delays: [1, 10],
           initialFactor: 2500,
           ints: [1, 4, 0],
           order: 1,
           perDay: 20,
         },
+        newGatherPriority: 0,
+        newMix: 0,
+        newPerDayMinimum: 0,
+        newSortOrder: 0,
+        questionAction: 0,
+        replayq: true,
         rev: {
           bury: false,
           ease4: 1.3,
-          ivlFct: 1.0,
-          maxIvl: 36500,
-          perDay: 200,
           hardFactor: 1.2,
+          ivlFct: 1,
+          maxIvl: 36_500,
+          perDay: 200,
         },
-        lapse: {
-          delays: [10.0],
-          leechAction: 1,
-          leechFails: 8,
-          minInt: 1,
-          mult: 0.0,
-        },
-        dyn: false,
-        newMix: 0,
-        newPerDayMinimum: 0,
-        interdayLearningMix: 0,
         reviewOrder: 0,
-        newSortOrder: 0,
-        newGatherPriority: 0,
-        buryInterdayLearning: false,
-        fsrsWeights: [],
-        desiredRetention: 0.9,
-        ignoreRevlogsBeforeDate: "",
-        stopTimerOnAnswer: false,
-        secondsToShowQuestion: 0.0,
-        secondsToShowAnswer: 0.0,
-        questionAction: 0,
-        answerAction: 0,
-        waitForAudio: true,
+        secondsToShowAnswer: 0,
+        secondsToShowQuestion: 0,
         sm2Retention: 0.9,
+        stopTimerOnAnswer: false,
+        timer: 0,
+        usn: 0,
+        waitForAudio: true,
         weightSearch: "",
       },
     });
@@ -148,9 +148,9 @@ describe("anki db test", () => {
       mod: Math.floor(Date.now() / 1000),
       usn: 0,
       tags: "",
-      flds: "Front Field\u001fBack Field",
+      flds: "Front Field\u001FBack Field",
       sfld: "Front Field",
-      csum: 123456,
+      csum: 123_456,
       flags: 0,
       data: "",
     };
@@ -251,25 +251,25 @@ describe("anki db test", () => {
 
   it("should add deck via addDeck()", async () => {
     const deckData = {
-      id: 12345,
-      mod: Math.floor(Date.now() / 1000),
-      name: "Test Deck",
-      usn: 0,
-      lrnToday: [0, 0] as [number, number],
-      revToday: [0, 0] as [number, number],
-      newToday: [0, 0] as [number, number],
-      timeToday: [0, 0] as [number, number],
-      collapsed: false,
       browserCollapsed: false,
+      collapsed: false,
+      conf: 1,
       desc: "Test deck description",
       dyn: 0,
-      conf: 1,
       extendNew: 0,
       extendRev: 0,
-      reviewLimit: null,
+      id: 12_345,
+      lrnToday: [0, 0] as [number, number],
+      mod: Math.floor(Date.now() / 1000),
+      name: "Test Deck",
       newLimit: null,
-      reviewLimitToday: null,
       newLimitToday: null,
+      newToday: [0, 0] as [number, number],
+      revToday: [0, 0] as [number, number],
+      reviewLimit: null,
+      reviewLimitToday: null,
+      timeToday: [0, 0] as [number, number],
+      usn: 0,
     };
 
     await db.addDeck(deckData);
@@ -288,53 +288,53 @@ describe("anki db test", () => {
 
     // Add a note and card first
     const noteData = {
-      id: Date.now(),
+      csum: 123_456,
+      data: "",
+      flags: 0,
+      flds: "Test Front\u001FTest Back",
       guid: "test-guid-fromDump",
+      id: Date.now(),
       mid: 1,
       mod: Math.floor(Date.now() / 1000),
-      usn: 0,
-      tags: "",
-      flds: "Test Front\u001fTest Back",
       sfld: "Test Front",
-      csum: 123456,
-      flags: 0,
-      data: "",
+      tags: "",
+      usn: 0,
     };
     await testDb.addNote(noteData);
 
     const cardData = {
-      id: Date.now() + 1,
-      nid: noteData.id,
+      data: "",
       did: 1,
-      ord: 0,
-      mod: Math.floor(Date.now() / 1000),
-      usn: 0,
-      type: 0,
-      queue: 0,
       due: 1,
-      ivl: 0,
       factor: 2500,
-      reps: 0,
+      flags: 0,
+      id: Date.now() + 1,
+      ivl: 0,
       lapses: 0,
       left: 0,
-      odue: 0,
+      mod: Math.floor(Date.now() / 1000),
+      nid: noteData.id,
       odid: 0,
-      flags: 0,
-      data: "",
+      odue: 0,
+      ord: 0,
+      queue: 0,
+      reps: 0,
+      type: 0,
+      usn: 0,
     };
     await testDb.addCard(cardData);
 
     // Add a review (revlog entry)
     const reviewData = {
-      id: Date.now() + 2,
       cid: cardData.id,
-      usn: 0,
       ease: 3,
+      factor: 2500,
+      id: Date.now() + 2,
       ivl: 1,
       lastIvl: 0,
-      factor: 2500,
       time: 5000,
       type: 0,
+      usn: 0,
     };
     await testDb.addRevlog(reviewData);
 
@@ -367,12 +367,12 @@ describe("anki db test", () => {
         {
           usn: 1,
           type: 0, // Note type
-          oid: 12345, // Original ID of deleted item
+          oid: 12_345, // Original ID of deleted item
         },
         {
           usn: 2,
           type: 1, // Card type
-          oid: 67890,
+          oid: 67_890,
         },
       ],
     };
@@ -383,8 +383,8 @@ describe("anki db test", () => {
     // Verify the deleted items were inserted
     const graves = await newDb.getGraves();
     expect(graves.length).toBeGreaterThanOrEqual(2);
-    expect(graves.find((g) => g.oid === 12345)).toBeDefined();
-    expect(graves.find((g) => g.oid === 67890)).toBeDefined();
+    expect(graves.find((g) => g.oid === 12_345)).toBeDefined();
+    expect(graves.find((g) => g.oid === 67_890)).toBeDefined();
 
     await newDb.close();
   });

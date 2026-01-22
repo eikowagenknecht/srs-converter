@@ -1,4 +1,6 @@
-import archiver, { type ZipEntryData } from "archiver";
+import type { ZipEntryData } from "archiver";
+
+import archiver from "archiver";
 import fs from "node:fs";
 import path from "node:path";
 import { v7 as uuidv7 } from "uuid";
@@ -24,7 +26,7 @@ function base91(num: bigint): string {
 
   while (currentNum) {
     const mod = currentNum % BigInt(encodingTable.length);
-    currentNum = currentNum / BigInt(encodingTable.length);
+    currentNum /= BigInt(encodingTable.length);
     const char = encodingTable.charAt(Number(mod));
     buf = char + buf;
   }
@@ -59,7 +61,7 @@ export function generateUnixTimeInMilliseconds(): number {
 }
 
 export function sanitizeFilename(filename: string): string {
-  return filename.replace(/[^a-z0-9.-]/gi, "_");
+  return filename.replaceAll(/[^a-z0-9.-]/gi, "_");
 }
 
 export function omitFields<T extends object, K extends keyof T>(obj: T, ...keys: K[]): Omit<T, K> {
@@ -86,7 +88,7 @@ export function generateUuid(): `${string}-${string}-${string}-${string}-${strin
  */
 export function extractTimestampFromUuid(uuid: string): number {
   // Remove hyphens and convert to binary
-  const hex = uuid.replace(/-/g, "");
+  const hex = uuid.replaceAll("-", "");
 
   // Extract the timestamp portion (first 48 bits)
   const timestampHex = hex.slice(0, 12);
@@ -102,12 +104,12 @@ export function extractTimestampFromUuid(uuid: string): number {
  */
 export function generateUniqueIdFromUuid(uuid: string): number {
   let hash = 0;
-  const str = uuid.replace(/-/g, ""); // Remove hyphens
+  const str = uuid.replaceAll("-", ""); // Remove hyphens
 
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
     hash = (hash << 5) - hash + char;
-    hash = hash & hash; // Convert to 32-bit integer
+    hash &= hash; // Convert to 32-bit integer
   }
 
   // Ensure positive number and reasonable size for Anki
@@ -176,11 +178,11 @@ export async function createSelectiveZip(outputPath: string, files: FileConfig[]
 }
 
 export function joinAnkiFields(fields: string[]): string {
-  return fields.join("\u001f");
+  return fields.join("\u001F");
 }
 
 export function splitAnkiFields(fieldString: string): string[] {
-  return fieldString.split("\u001f");
+  return fieldString.split("\u001F");
 }
 
 /**
@@ -205,7 +207,7 @@ export function serializeWithBigInts(obj: unknown, space?: string | number): str
     (_key, value: unknown) =>
       typeof value === "bigint" ? `__BIGINT__${String(value)}__BIGINT__` : value,
     space,
-  ).replace(/"__BIGINT__(\d+)__BIGINT__"/g, "$1");
+  ).replaceAll(/"__BIGINT__(\d+)__BIGINT__"/g, "$1");
 }
 
 /**
@@ -279,8 +281,8 @@ function validateTargetFieldsAreNumeric(parsedValue: unknown, targetPaths: strin
     const values = getValuesAtPath(parsedValue, path);
     for (const value of values) {
       if (typeof value !== "number") {
-        const pathParts = path.replace(/\[\]/g, "").split(".");
-        const fieldName = pathParts[pathParts.length - 1] ?? "unknown";
+        const pathParts = path.replaceAll("[]", "").split(".");
+        const fieldName = pathParts.at(-1) ?? "unknown";
         const valueStr = typeof value === "string" ? `"${value}"` : String(value);
         throw new Error(
           `Field '${fieldName}' (from path '${path}') contains non-numeric value ${valueStr}. Expected unquoted numeric value.`,
@@ -306,7 +308,9 @@ function getValuesAtPath(obj: unknown, path: string): unknown[] {
     }
 
     const [currentPart, ...remainingParts] = pathParts;
-    if (!currentPart) return;
+    if (!currentPart) {
+      return;
+    }
 
     // Check if this part indicates array traversal
     if (currentPart.endsWith("[]")) {
@@ -357,7 +361,7 @@ function getValuesAtPath(obj: unknown, path: string): unknown[] {
  */
 function quoteNumbersForFieldName(jsonString: string, path: string): string {
   const pathParts = path.split(".");
-  const lastField = pathParts[pathParts.length - 1];
+  const lastField = pathParts.at(-1);
 
   if (!lastField) {
     return jsonString;
@@ -365,7 +369,7 @@ function quoteNumbersForFieldName(jsonString: string, path: string): string {
 
   // Quote all occurrences of this field name with numeric values
   // Pattern matches: "fieldName": 123 -> "fieldName": "123"
-  return jsonString.replace(
+  return jsonString.replaceAll(
     new RegExp(`"${lastField}"\\s*:\\s*(\\d+)`, "g"),
     `"${lastField}":"$1"`,
   );

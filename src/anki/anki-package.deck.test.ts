@@ -44,15 +44,15 @@ describe("Create Deck", () => {
       // Create Basic note 1 with its card (new card)
       const basicNote1 = createTestAnkiNote(
         {
-          noteTypeId: basicModel.id,
           fields: ["What is the largest planet in our solar system?", "Jupiter"],
+          noteTypeId: basicModel.id,
         },
         getTimestamp,
       );
       ankiPackage.addNote(basicNote1);
 
       const basicCard1 = createTestAnkiCard(
-        { noteId: basicNote1.id, deckId: customDeck.id },
+        { deckId: customDeck.id, noteId: basicNote1.id },
         getTimestamp,
       );
       ankiPackage.addCard(basicCard1);
@@ -60,8 +60,8 @@ describe("Create Deck", () => {
       // Create Basic note 2 with learning card and review
       const basicNote2 = createTestAnkiNote(
         {
-          noteTypeId: basicModel.id,
           fields: ["Who wrote '1984'?", "George Orwell"],
+          noteTypeId: basicModel.id,
         },
         getTimestamp,
       );
@@ -97,8 +97,8 @@ describe("Create Deck", () => {
       // Create Bidirectional note with 2 cards and reviews
       const bidirectionalNote = createTestAnkiNote(
         {
-          noteTypeId: basicAndReversedCardModel.id,
           fields: ["Photosynthesis", "The process by which plants convert sunlight into energy"],
+          noteTypeId: basicAndReversedCardModel.id,
         },
         getTimestamp,
       );
@@ -112,7 +112,7 @@ describe("Create Deck", () => {
           templateIndex: 0,
           type: 2, // Review card
           queue: 2, // Review queue
-          due: Math.floor(Date.now() / 1000 / 86400) + 3, // Due in 3 days
+          due: Math.floor(Date.now() / 1000 / 86_400) + 3, // Due in 3 days
           interval: 7,
           reps: 2,
         },
@@ -157,7 +157,7 @@ describe("Create Deck", () => {
           templateIndex: 1,
           type: 2, // Review card
           queue: 2, // Review queue
-          due: Math.floor(Date.now() / 1000 / 86400) + 5, // Due in 5 days
+          due: Math.floor(Date.now() / 1000 / 86_400) + 5, // Due in 5 days
           interval: 14,
           factor: 2600,
           reps: 3,
@@ -174,7 +174,7 @@ describe("Create Deck", () => {
             ease: 1 as Ease, // Again
             interval: -600, // Back to learning
             factor: 2300, // Factor decreased due to lapse
-            time: 12000, // 12 seconds (struggled)
+            time: 12_000, // 12 seconds (struggled)
             type: 1, // Review
           },
           getTimestamp,
@@ -184,11 +184,11 @@ describe("Create Deck", () => {
       // Create Cloze note with 2 cards
       const clozeNote = createTestAnkiNote(
         {
-          noteTypeId: clozeModel.id,
           fields: [
             "The {{c1::speed of light}} in vacuum is approximately {{c2::299,792,458}} meters per second.",
             "", // Second field for cloze notes
           ],
+          noteTypeId: clozeModel.id,
         },
         getTimestamp,
       );
@@ -302,7 +302,7 @@ describe("Create Deck", () => {
     } finally {
       await ankiPackage.cleanup();
     }
-  }, 30000); // Increase timeout for comprehensive test
+  }, 30_000); // Increase timeout for comprehensive test
 });
 
 describe("Data Management", () => {
@@ -397,7 +397,7 @@ describe("Data Management", () => {
           }
 
           // Then remove the entire temp directory - this must succeed
-          await fs.rm(tempDirPath, { recursive: true, force: true });
+          await fs.rm(tempDirPath, { force: true, recursive: true });
         }
       }
     });

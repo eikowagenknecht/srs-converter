@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createCompleteDeckStructure, createNoteType, SrsReviewScore } from "@/srs-package";
+import { SrsReviewScore, createCompleteDeckStructure, createNoteType } from "@/srs-package";
 
 import { AnkiPackage } from "./anki-package";
 import { expectSuccess, setupTempDir } from "./anki-package.fixtures";
@@ -12,61 +12,61 @@ describe("Utilities and Helper Functions", () => {
   describe("createCompleteDeckStructure()", () => {
     it("should create a new package with some sample data in one big call", () => {
       const basicNoteType = createNoteType({
-        name: "Basic Test Note Type",
         fields: [
           { id: 0, name: "Question" },
           { id: 1, name: "Answer" },
         ],
+        name: "Basic Test Note Type",
         templates: [
           {
+            answerTemplate: "{{Answer}}",
             id: 0,
             name: "Question > Answer",
             questionTemplate: "{{Question}}",
-            answerTemplate: "{{Answer}}",
           },
         ],
       });
 
       const advancedNoteType = createNoteType({
-        name: "Advanced Test Note Type",
         fields: [
           { id: 0, name: "Front" },
           { id: 1, name: "Back" },
         ],
+        name: "Advanced Test Note Type",
         templates: [
           {
+            answerTemplate: "{{Answer}}",
             id: 1,
             name: "Question > Answer",
             questionTemplate: "{{Question}}",
-            answerTemplate: "{{Answer}}",
           },
         ],
       });
 
       const completeDeck = createCompleteDeckStructure({
         deck: {
-          name: "Test Deck",
           description: "Test Deck Description",
+          name: "Test Deck",
         },
         noteTypes: [
           {
             ...basicNoteType,
             notes: [
               {
+                cards: [
+                  {
+                    reviews: [
+                      {
+                        score: SrsReviewScore.Normal,
+                        timestamp: Date.now(),
+                      },
+                    ],
+                    templateId: 0,
+                  },
+                ],
                 fieldValues: [
                   ["Question", "What is 猫 in English?"],
                   ["Answer", "Cat"],
-                ],
-                cards: [
-                  {
-                    templateId: 0,
-                    reviews: [
-                      {
-                        timestamp: Date.now(),
-                        score: SrsReviewScore.Normal,
-                      },
-                    ],
-                  },
                 ],
               },
             ],
@@ -75,20 +75,20 @@ describe("Utilities and Helper Functions", () => {
             ...advancedNoteType,
             notes: [
               {
+                cards: [
+                  {
+                    reviews: [
+                      {
+                        score: SrsReviewScore.Normal,
+                        timestamp: Date.now(),
+                      },
+                    ],
+                    templateId: 0,
+                  },
+                ],
                 fieldValues: [
                   ["Front", "What is 猫 in English?"],
                   ["Back", "Cat"],
-                ],
-                cards: [
-                  {
-                    templateId: 0,
-                    reviews: [
-                      {
-                        timestamp: Date.now(),
-                        score: SrsReviewScore.Normal,
-                      },
-                    ],
-                  },
                 ],
               },
             ],
@@ -298,7 +298,7 @@ describe("Utilities and Helper Functions", () => {
         reviews.map((review) => review.id).filter((id): id is number => id !== null),
       );
 
-      return { deckIds, noteTypeIds, noteIds, cardIds, reviewIds };
+      return { cardIds, deckIds, noteIds, noteTypeIds, reviewIds };
     }
 
     /**
@@ -312,8 +312,8 @@ describe("Utilities and Helper Functions", () => {
       converted: Set<number>,
       entityType: string,
     ): void {
-      const originalArray = Array.from(original).sort((a, b) => a - b);
-      const convertedArray = Array.from(converted).sort((a, b) => a - b);
+      const originalArray = [...original].sort((a, b) => a - b);
+      const convertedArray = [...converted].sort((a, b) => a - b);
 
       expect(
         convertedArray,
@@ -355,12 +355,8 @@ describe("Utilities and Helper Functions", () => {
             const idsAfterCycle2 = extractAllIds(convertedAnki2);
 
             // Filter out default deck (ID=1) from all sets
-            const cycle1NonDefault = new Set(
-              Array.from(idsAfterCycle1.deckIds).filter((id) => id !== 1),
-            );
-            const cycle2NonDefault = new Set(
-              Array.from(idsAfterCycle2.deckIds).filter((id) => id !== 1),
-            );
+            const cycle1NonDefault = new Set([...idsAfterCycle1.deckIds].filter((id) => id !== 1));
+            const cycle2NonDefault = new Set([...idsAfterCycle2.deckIds].filter((id) => id !== 1));
 
             // Focus on Note Type, Note, Card, and Review IDs which should be stable
             compareIdSets(
@@ -405,62 +401,62 @@ describe("Utilities and Helper Functions", () => {
       it("should do a full round-trip conversion: SRS -> Anki -> SRS", async () => {
         // Create an SRS package with sample data
         const basicNoteType = createNoteType({
-          name: "Basic Test Note Type",
           fields: [
             { id: 0, name: "Question" },
             { id: 1, name: "Answer" },
           ],
+          name: "Basic Test Note Type",
           templates: [
             {
+              answerTemplate: "{{Answer}}",
               id: 0,
               name: "Question > Answer",
               questionTemplate: "{{Question}}",
-              answerTemplate: "{{Answer}}",
             },
           ],
         });
 
         const originalSrsPackage = createCompleteDeckStructure({
           deck: {
-            name: "Round Trip Test Deck",
             description: "Test deck for round-trip conversion",
+            name: "Round Trip Test Deck",
           },
           noteTypes: [
             {
               ...basicNoteType,
               notes: [
                 {
+                  cards: [
+                    {
+                      reviews: [
+                        {
+                          score: SrsReviewScore.Normal,
+                          timestamp: Date.now(),
+                        },
+                      ],
+                      templateId: 0,
+                    },
+                  ],
                   fieldValues: [
                     ["Question", "What is the capital of France?"],
                     ["Answer", "Paris"],
                   ],
-                  cards: [
-                    {
-                      templateId: 0,
-                      reviews: [
-                        {
-                          timestamp: Date.now(),
-                          score: SrsReviewScore.Normal,
-                        },
-                      ],
-                    },
-                  ],
                 },
                 {
+                  cards: [
+                    {
+                      reviews: [
+                        {
+                          score: SrsReviewScore.Easy,
+                          timestamp: Date.now(),
+                        },
+                      ],
+                      templateId: 0,
+                    },
+                  ],
                   fieldValues: [
                     ["Question", "What is 2 + 2?"],
                     ["Answer", "4"],
-                  ],
-                  cards: [
-                    {
-                      templateId: 0,
-                      reviews: [
-                        {
-                          timestamp: Date.now(),
-                          score: SrsReviewScore.Easy,
-                        },
-                      ],
-                    },
                   ],
                 },
               ],
@@ -605,151 +601,157 @@ describe("Utilities and Helper Functions", () => {
         const ankiPackage = await AnkiPackage.fromDefault();
         expect(ankiPackage.status).toBe("success");
         const pkg = ankiPackage.data;
-        if (!pkg) throw new Error("Package creation failed");
+        if (!pkg) {
+          throw new Error("Package creation failed");
+        }
 
         try {
           // Add a basic deck
           pkg.addDeck({
-            id: 1,
-            mod: 0,
-            name: "Test Deck",
-            usn: 0,
-            lrnToday: [0, 0],
-            revToday: [0, 0],
-            newToday: [0, 0],
-            timeToday: [0, 0],
-            collapsed: false,
             browserCollapsed: false,
+            collapsed: false,
+            conf: 1,
             desc: "",
             dyn: 0,
-            conf: 1,
             extendNew: 0,
             extendRev: 0,
-            reviewLimit: null,
+            id: 1,
+            lrnToday: [0, 0],
+            mod: 0,
+            name: "Test Deck",
             newLimit: null,
-            reviewLimitToday: null,
             newLimitToday: null,
+            newToday: [0, 0],
+            revToday: [0, 0],
+            reviewLimit: null,
+            reviewLimitToday: null,
+            timeToday: [0, 0],
+            usn: 0,
           });
 
           // Add note type
           pkg.addNoteType({
-            id: 1,
-            name: "Basic",
-            type: 0,
-            mod: 0,
-            usn: 0,
-            sortf: 0,
+            css: ".card { font-family: arial; }",
             did: 1,
+            flds: [
+              {
+                collapsed: false,
+                description: "",
+                excludeFromSearch: false,
+                font: "Arial",
+                id: 0n,
+                name: "Front",
+                ord: 0,
+                plainText: false,
+                preventDeletion: false,
+                rtl: false,
+                size: 20,
+                sticky: false,
+                tag: null,
+              },
+              {
+                collapsed: false,
+                description: "",
+                excludeFromSearch: false,
+                font: "Arial",
+                id: 1n,
+                name: "Back",
+                ord: 1,
+                plainText: false,
+                preventDeletion: false,
+                rtl: false,
+                size: 20,
+                sticky: false,
+                tag: null,
+              },
+            ],
+            id: 1,
+            latexPost: "",
+            latexPre: "",
+            latexsvg: false,
+            mod: 0,
+            name: "Basic",
+            originalStockKind: 1,
+            req: [[0, "any", [0]]],
+            sortf: 0,
             tmpls: [
               {
-                id: BigInt(0),
+                afmt: "{{Back}}",
+                bafmt: "",
+                bfont: "",
+                bqfmt: "",
+                bsize: 0,
+                did: null,
+                id: 0n,
                 name: "Card 1",
                 ord: 0,
                 qfmt: "{{Front}}",
-                afmt: "{{Back}}",
-                bqfmt: "",
-                bafmt: "",
-                did: null,
-                bfont: "",
-                bsize: 0,
               },
             ],
-            flds: [
-              {
-                id: BigInt(0),
-                name: "Front",
-                ord: 0,
-                sticky: false,
-                rtl: false,
-                font: "Arial",
-                size: 20,
-                description: "",
-                plainText: false,
-                collapsed: false,
-                excludeFromSearch: false,
-                tag: null,
-                preventDeletion: false,
-              },
-              {
-                id: BigInt(1),
-                name: "Back",
-                ord: 1,
-                sticky: false,
-                rtl: false,
-                font: "Arial",
-                size: 20,
-                description: "",
-                plainText: false,
-                collapsed: false,
-                excludeFromSearch: false,
-                tag: null,
-                preventDeletion: false,
-              },
-            ],
-            css: ".card { font-family: arial; }",
-            latexPre: "",
-            latexPost: "",
-            latexsvg: false,
-            req: [[0, "any", [0]]],
-            originalStockKind: 1,
+            type: 0,
+            usn: 0,
           });
 
           // Add note with plugin data
           const pluginDataForNote = JSON.stringify({
-            pluginName: "test-addon",
             customField: "custom value",
+            pluginName: "test-addon",
           });
           pkg.addNote({
-            id: 1,
+            csum: 0,
+            data: pluginDataForNote,
+            flags: 0,
+            flds: "Front text\x1FBack text",
             guid: "abcdefghij",
+            id: 1,
             mid: 1,
             mod: 0,
-            usn: 0,
-            tags: "",
-            flds: "Front text\x1fBack text",
             sfld: "Front text",
-            csum: 0,
-            flags: 0,
-            data: pluginDataForNote,
+            tags: "",
+            usn: 0,
           });
 
           // Add card with plugin data
           const pluginDataForCard = JSON.stringify({
-            pluginName: "card-addon",
             customSetting: "card value",
+            pluginName: "card-addon",
           });
           pkg.addCard({
-            id: 1,
-            nid: 1,
+            data: pluginDataForCard,
             did: 1,
-            ord: 0,
-            mod: 0,
-            usn: 0,
-            type: 0,
-            queue: 0,
             due: 0,
-            ivl: 0,
             factor: 0,
-            reps: 0,
+            flags: 0,
+            id: 1,
+            ivl: 0,
             lapses: 0,
             left: 0,
-            odue: 0,
+            mod: 0,
+            nid: 1,
             odid: 0,
-            flags: 0,
-            data: pluginDataForCard,
+            odue: 0,
+            ord: 0,
+            queue: 0,
+            reps: 0,
+            type: 0,
+            usn: 0,
           });
 
           // Convert Anki -> SRS
           const srsResult = pkg.toSrsPackage();
           expect(srsResult.status).toBe("success");
           const srsPackage = srsResult.data;
-          if (!srsPackage) throw new Error("SRS conversion failed");
+          if (!srsPackage) {
+            throw new Error("SRS conversion failed");
+          }
 
           // Convert SRS -> Anki
           const ankiResult = await AnkiPackage.fromSrsPackage(srsPackage);
           expect(ankiResult.status).toBe("success");
           const convertedAnki = ankiResult.data;
-          if (!convertedAnki) throw new Error("Anki conversion failed");
+          if (!convertedAnki) {
+            throw new Error("Anki conversion failed");
+          }
 
           try {
             // Get the converted notes and cards using public methods
@@ -761,12 +763,16 @@ describe("Utilities and Helper Functions", () => {
 
             // Verify note plugin data is preserved
             const convertedNote = convertedNotes[0];
-            if (!convertedNote) throw new Error("Note not found");
+            if (!convertedNote) {
+              throw new Error("Note not found");
+            }
             expect(convertedNote.data).toBe(pluginDataForNote);
 
             // Verify card plugin data is preserved
             const convertedCard = convertedCards[0];
-            if (!convertedCard) throw new Error("Card not found");
+            if (!convertedCard) {
+              throw new Error("Card not found");
+            }
             expect(convertedCard.data).toBe(pluginDataForCard);
           } finally {
             await convertedAnki.cleanup();

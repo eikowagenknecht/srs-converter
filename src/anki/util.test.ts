@@ -163,7 +163,7 @@ describe("generateUniqueIdFromUuid", () => {
   it("should return numbers that fit in 32-bit signed integer range", () => {
     const uuid = "ffffffff-ffff-ffff-ffff-ffffffffffff";
     const id = generateUniqueIdFromUuid(uuid);
-    expect(id).toBeLessThanOrEqual(2147483647); // Max 32-bit signed int
+    expect(id).toBeLessThanOrEqual(2_147_483_647); // Max 32-bit signed int
     expect(id).toBeGreaterThanOrEqual(0);
   });
 });
@@ -179,7 +179,7 @@ describe("createSelectiveZip archiver warning handling", () => {
   });
 
   afterEach(async () => {
-    await fs.promises.rm(tempDir, { recursive: true, force: true });
+    await fs.promises.rm(tempDir, { force: true, recursive: true });
   });
 
   it("should handle archiver ENOENT warning", async () => {
@@ -191,7 +191,7 @@ describe("createSelectiveZip archiver warning handling", () => {
     const nonExistentFile = path.join(tempDir, "nonexistent.txt");
 
     try {
-      await createSelectiveZip(outputPath, [{ path: nonExistentFile, compress: true }]);
+      await createSelectiveZip(outputPath, [{ compress: true, path: nonExistentFile }]);
     } catch {
       // Expected to fail, but we want to test the warning handling
     }
@@ -204,12 +204,12 @@ describe("createSelectiveZip archiver warning handling", () => {
     // Use a Windows-compatible invalid path
     const invalidOutputPath =
       process.platform === "win32"
-        ? "Z:\\nonexistent\\path\\test.zip" // Invalid drive on Windows
+        ? String.raw`Z:\nonexistent\path\test.zip` // Invalid drive on Windows
         : "/root/cannot-write-here/test.zip"; // Invalid path on Unix
 
     let error: unknown;
     try {
-      await createSelectiveZip(invalidOutputPath, [{ path: testFile, compress: true }]);
+      await createSelectiveZip(invalidOutputPath, [{ compress: true, path: testFile }]);
     } catch (err) {
       error = err;
     }
@@ -241,7 +241,7 @@ describe("createSelectiveZip archiver warning handling", () => {
 
     // Expect the function to reject due to file/directory conflict
     await expect(
-      createSelectiveZip(outputPath, [{ path: testFile, compress: true }]),
+      createSelectiveZip(outputPath, [{ compress: true, path: testFile }]),
     ).rejects.toThrow();
 
     // This tests the cleanup in the catch block
@@ -309,27 +309,27 @@ describe("omitFields", () => {
 
 describe("serializeWithBigInts", () => {
   it("should serialize regular objects without BigInt", () => {
-    const obj = { name: "test", count: 42, active: true };
+    const obj = { active: true, count: 42, name: "test" };
     const result = serializeWithBigInts(obj);
 
     expect(result).toBe('{"name":"test","count":42,"active":true}');
   });
 
   it("should serialize BigInt values as unquoted numbers", () => {
-    const obj = { id: BigInt(123456789), name: "test" };
+    const obj = { id: 123_456_789n, name: "test" };
     const result = serializeWithBigInts(obj);
 
     expect(result).toBe('{"id":123456789,"name":"test"}');
   });
 
   it("should handle really large BigInt numbers", () => {
-    const largeNumber = BigInt("18446744073709551615"); // 2^64 - 1
-    const veryLargeNumber = BigInt("340282366920938463463374607431768211455"); // 2^128 - 1
+    const largeNumber = 18_446_744_073_709_551_615n; // 2^64 - 1
+    const veryLargeNumber = 340_282_366_920_938_463_463_374_607_431_768_211_455n; // 2^128 - 1
 
     const obj = {
       large: largeNumber,
-      veryLarge: veryLargeNumber,
       regular: 42,
+      veryLarge: veryLargeNumber,
     };
 
     const result = serializeWithBigInts(obj);
@@ -340,15 +340,15 @@ describe("serializeWithBigInts", () => {
 
   it("should handle nested objects with BigInt values", () => {
     const obj = {
-      user: {
-        id: BigInt(9007199254740992), // Beyond MAX_SAFE_INTEGER
-        profile: {
-          timestamp: BigInt(1699123456789),
-          score: 100,
-        },
-      },
       metadata: {
-        version: BigInt(1),
+        version: 1n,
+      },
+      user: {
+        id: 9_007_199_254_740_992n, // Beyond MAX_SAFE_INTEGER
+        profile: {
+          score: 100,
+          timestamp: 1_699_123_456_789n,
+        },
       },
     };
 
@@ -360,7 +360,7 @@ describe("serializeWithBigInts", () => {
 
   it("should handle arrays with BigInt values", () => {
     const obj = {
-      ids: [BigInt(1), BigInt(2), BigInt(9007199254740992)],
+      ids: [1n, 2n, 9_007_199_254_740_992n],
       names: ["a", "b", "c"],
     };
 
@@ -370,11 +370,11 @@ describe("serializeWithBigInts", () => {
 
   it("should handle mixed data types including null and undefined", () => {
     const obj = {
-      bigIntValue: BigInt(123),
-      nullValue: null,
-      stringValue: "test",
-      numberValue: 42,
+      bigIntValue: 123n,
       booleanValue: true,
+      nullValue: null,
+      numberValue: 42,
+      stringValue: "test",
       undefinedValue: undefined,
     };
 
@@ -385,7 +385,7 @@ describe("serializeWithBigInts", () => {
   });
 
   it("should format with indentation when space parameter is provided", () => {
-    const obj = { id: BigInt(123), name: "test" };
+    const obj = { id: 123n, name: "test" };
     const result = serializeWithBigInts(obj, 2);
 
     const expected = `{
@@ -402,7 +402,7 @@ describe("parseWithBigInts", () => {
     const result = parseWithBigInts(jsonString, ["id"]);
 
     expect(result).toEqual({
-      id: BigInt(123456789),
+      id: 123_456_789n,
       name: "test",
     });
   });
@@ -413,8 +413,8 @@ describe("parseWithBigInts", () => {
     const result = parseWithBigInts(jsonString, ["largeId", "veryLargeId"]);
 
     expect(result).toEqual({
-      largeId: BigInt("9007199254740993"),
-      veryLargeId: BigInt("340282366920938463463374607431768211455"),
+      largeId: 9_007_199_254_740_993n,
+      veryLargeId: 340_282_366_920_938_463_463_374_607_431_768_211_455n,
     });
   });
 
@@ -423,7 +423,7 @@ describe("parseWithBigInts", () => {
     const result = parseWithBigInts(jsonString, ["id"]);
 
     expect(result).toEqual({
-      id: BigInt(123),
+      id: 123n,
       otherId: 456, // Should remain as number
       name: "test",
     });
@@ -435,14 +435,14 @@ describe("parseWithBigInts", () => {
     const result = parseWithBigInts(jsonString, ["user.id", "user.profile.timestamp"]);
 
     expect(result).toEqual({
-      user: {
-        id: BigInt(123456),
-        profile: {
-          timestamp: BigInt(1699123456789),
-        },
-      },
       metadata: {
         version: 1, // Should remain as number
+      },
+      user: {
+        id: 123_456n,
+        profile: {
+          timestamp: 1_699_123_456_789n,
+        },
       },
     });
   });
@@ -452,11 +452,11 @@ describe("parseWithBigInts", () => {
     const result = parseWithBigInts(jsonString, ["users[].id"]);
 
     expect(result).toEqual({
+      count: 2,
       users: [
-        { id: BigInt(123), name: "Alice" },
-        { id: BigInt(456), name: "Bob" },
-      ],
-      count: 2, // Should remain as number
+        { id: 123n, name: "Alice" },
+        { id: 456n, name: "Bob" },
+      ], // Should remain as number
     });
   });
 
@@ -469,7 +469,7 @@ describe("parseWithBigInts", () => {
     expect(result).toEqual({
       id: 100, // Should remain as number - not targeted by path
       user: {
-        id: BigInt(200), // Should be BigInt - specifically targeted by "user.id"
+        id: 200n, // Should be BigInt - specifically targeted by "user.id"
       },
       admin: {
         id: 300, // Should remain as number - not targeted by path
@@ -499,14 +499,14 @@ describe("parseWithBigInts", () => {
 
     expect(result).toEqual({
       level1: {
+        id: 111,
         level2: {
           level3: {
-            id: BigInt(123456789),
-            timestamp: BigInt(1699123456789),
+            id: 123_456_789n,
+            timestamp: 1_699_123_456_789n,
           },
           otherId: 999, // Should remain as number
-        },
-        id: 111, // Should remain as number
+        }, // Should remain as number
       },
       topId: 222, // Should remain as number
     });
@@ -525,11 +525,11 @@ describe("parseWithBigInts", () => {
 
     // All matching fields in array should be converted consistently
     expect(result).toEqual({
+      meta: { totalCount: 2 },
       records: [
-        { id: BigInt(123), data: { timestamp: BigInt(1699123456789) } },
-        { id: BigInt(456), data: { timestamp: BigInt(1699123456790) } }, // Should convert ALL instances
-      ],
-      meta: { totalCount: 2 }, // Should remain as number
+        { data: { timestamp: 1_699_123_456_789n }, id: 123n },
+        { data: { timestamp: 1_699_123_456_790n }, id: 456n }, // Should convert ALL instances
+      ], // Should remain as number
     });
   });
 
@@ -538,9 +538,9 @@ describe("parseWithBigInts", () => {
     const result = parseWithBigInts(jsonString, ["id"]);
 
     expect(result).toEqual({
-      users: [],
       admin: null,
-      id: BigInt(123),
+      id: 123n,
+      users: [],
     });
   });
 
@@ -549,26 +549,26 @@ describe("parseWithBigInts", () => {
     const result = parseWithBigInts(jsonString, ["id", "timestamp"]);
 
     expect(result).toEqual({
-      id: BigInt(123),
+      id: 123n,
       code: "ABC123", // Should remain as string
-      timestamp: BigInt(1699123456789),
+      timestamp: 1_699_123_456_789n,
     });
   });
 
   it("should handle serialization and parsing round-trip", () => {
     const originalData = {
-      user: {
-        id: BigInt("9007199254740992"),
-        profile: {
-          timestamp: BigInt("1699123456789"),
-          score: 100,
-        },
-      },
       metadata: {
-        version: BigInt(1),
-        created: BigInt("1699000000000"),
+        created: 1_699_000_000_000n,
+        version: 1n,
       },
       tags: ["important", "user-data"],
+      user: {
+        id: 9_007_199_254_740_992n,
+        profile: {
+          score: 100,
+          timestamp: 1_699_123_456_789n,
+        },
+      },
     };
 
     const serialized = serializeWithBigInts(originalData);
@@ -606,12 +606,12 @@ describe("parseWithBigInts", () => {
     expect(result).toEqual({
       id: 100, // Should remain as number
       users: [
-        { id: BigInt(200), profile: { id: 300 } }, // Only user.id converted, not profile.id
-        { id: BigInt(400), profile: { id: 500 } }, // Only user.id converted, not profile.id
+        { id: 200n, profile: { id: 300 } }, // Only user.id converted, not profile.id
+        { id: 400n, profile: { id: 500 } }, // Only user.id converted, not profile.id
       ],
       admin: {
         id: 600, // Should remain as number
-        settings: { id: BigInt(700) }, // Only this specific path converted
+        settings: { id: 700n }, // Only this specific path converted
       },
     });
   });
@@ -644,15 +644,15 @@ describe("parseWithBigInts", () => {
         {
           id: 1, // Should remain as number
           employees: [
-            { id: BigInt(100), managerId: 50 }, // Only employee.id converted
-            { id: BigInt(101), managerId: 51 }, // Only employee.id converted
+            { id: 100n, managerId: 50 }, // Only employee.id converted
+            { id: 101n, managerId: 51 }, // Only employee.id converted
           ],
         },
         {
           id: 2, // Should remain as number
           employees: [
-            { id: BigInt(200), managerId: 52 }, // Only employee.id converted
-            { id: BigInt(201), managerId: 53 }, // Only employee.id converted
+            { id: 200n, managerId: 52 }, // Only employee.id converted
+            { id: 201n, managerId: 53 }, // Only employee.id converted
           ],
         },
       ],
@@ -697,38 +697,38 @@ describe("parseWithBigInts", () => {
 
   it("should distinguish between object field and array traversal paths", () => {
     const jsonObject = {
-      users: {
-        id: 100, // Direct field on users object
-      },
       teams: [
         { id: 200 }, // Field in array items
         { id: 300 },
       ],
+      users: {
+        id: 100, // Direct field on users object
+      },
     };
     const jsonString = JSON.stringify(jsonObject);
 
     // Test 1: users.id should target the direct field, not array items
     const result1 = parseWithBigInts(jsonString, ["users.id"]);
     expect(result1).toEqual({
-      users: {
-        id: BigInt(100), // Should be converted
-      },
       teams: [
         { id: 200 }, // Should remain as number
         { id: 300 }, // Should remain as number
       ],
+      users: {
+        id: 100n, // Should be converted
+      },
     });
 
     // Test 2: teams[].id should target array items, not direct field
     const result2 = parseWithBigInts(jsonString, ["teams[].id"]);
     expect(result2).toEqual({
+      teams: [
+        { id: 200n }, // Should be converted
+        { id: 300n }, // Should be converted
+      ],
       users: {
         id: 100, // Should remain as number
       },
-      teams: [
-        { id: BigInt(200) }, // Should be converted
-        { id: BigInt(300) }, // Should be converted
-      ],
     });
 
     // Test 3: Attempting users[].id should find no values since users is not an array

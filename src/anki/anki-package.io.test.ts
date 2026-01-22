@@ -118,11 +118,11 @@ describe("Import / Export", () => {
     it("should create valid .apkg files", async () => {
       const tempDir = getTempDir();
       const { srsPackage } = createBasicSrsPackage({
-        deckName: "Test Export Deck",
-        deckDescription: "A test deck for export validation",
-        noteTypeName: "Basic Export",
-        frontValue: "Export Test Question",
         backValue: "Export Test Answer",
+        deckDescription: "A test deck for export validation",
+        deckName: "Test Export Deck",
+        frontValue: "Export Test Question",
+        noteTypeName: "Basic Export",
       });
 
       // Convert to Anki and export
@@ -168,8 +168,8 @@ describe("Import / Export", () => {
       const tempDir = getTempDir();
       // Test that the export method creates necessary directories if they don't exist
       const { srsPackage } = createBasicSrsPackage({
-        deckName: "Test Deck for Directory Creation",
         deckDescription: "Testing directory creation",
+        deckName: "Test Deck for Directory Creation",
       });
 
       const ankiResult = await AnkiPackage.fromSrsPackage(srsPackage);

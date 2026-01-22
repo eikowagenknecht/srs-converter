@@ -20,7 +20,7 @@ describe("Anki Export Documentation Examples", () => {
   });
 
   afterEach(async () => {
-    await rm(tempDir, { recursive: true, force: true });
+    await rm(tempDir, { force: true, recursive: true });
   });
 
   // Code Sample: Basic Anki Export
@@ -47,39 +47,39 @@ describe("Anki Export Documentation Examples", () => {
 
     // Add a test note and card
     const testNote = {
+      csum: 0,
+      data: "",
+      flags: 0,
+      flds: "What does this test verify?\x1FThat Anki export functionality works correctly",
+      guid: `ExportNote_${Date.now().toFixed(0)}`,
       id: Date.now(),
-      guid: `ExportNote_${Date.now().toFixed()}`,
       mid: basicModel.id,
       mod: Math.floor(Date.now() / 1000),
-      usn: -1,
-      tags: "export test",
-      flds: "What does this test verify?\x1fThat Anki export functionality works correctly",
       sfld: "What does this test verify?",
-      csum: 0,
-      flags: 0,
-      data: "",
+      tags: "export test",
+      usn: -1,
     };
     ankiPackage.addNote(testNote);
 
     const testCard = {
-      id: Date.now() + 1,
-      nid: testNote.id,
+      data: "",
       did: testDeck.id,
-      ord: 0,
-      mod: Math.floor(Date.now() / 1000),
-      usn: -1,
-      type: 0,
-      queue: 0,
       due: 1,
-      ivl: 0,
       factor: 0,
-      reps: 0,
+      flags: 0,
+      id: Date.now() + 1,
+      ivl: 0,
       lapses: 0,
       left: 0,
-      odue: 0,
+      mod: Math.floor(Date.now() / 1000),
+      nid: testNote.id,
       odid: 0,
-      flags: 0,
-      data: "",
+      odue: 0,
+      ord: 0,
+      queue: 0,
+      reps: 0,
+      type: 0,
+      usn: -1,
     };
     ankiPackage.addCard(testCard);
 

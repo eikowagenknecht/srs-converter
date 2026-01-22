@@ -58,74 +58,74 @@ async function createAnalysisTestPackage(tempDir: string): Promise<string> {
 
   // Geography note
   const geoNote = {
+    csum: 0,
+    data: "",
+    flags: 0,
+    flds: "Capital of Italy\x1FRome",
+    guid: `GeoNote_${noteId.toFixed(0)}`,
     id: ++noteId,
-    guid: `GeoNote_${noteId.toFixed()}`,
     mid: basicModel.id,
     mod: Math.floor(Date.now() / 1000),
-    usn: -1,
-    tags: "geography",
-    flds: "Capital of Italy\x1fRome",
     sfld: "Capital of Italy",
-    csum: 0,
-    flags: 0,
-    data: "",
+    tags: "geography",
+    usn: -1,
   };
   ankiPackage.addNote(geoNote);
   ankiPackage.addCard({
-    id: ++cardId,
-    nid: geoNote.id,
+    data: "",
     did: deck1.id,
-    ord: 0,
-    mod: Math.floor(Date.now() / 1000),
-    usn: -1,
-    type: 0,
-    queue: 0,
     due: 1,
-    ivl: 0,
     factor: 0,
-    reps: 0,
+    flags: 0,
+    id: ++cardId,
+    ivl: 0,
     lapses: 0,
     left: 0,
-    odue: 0,
+    mod: Math.floor(Date.now() / 1000),
+    nid: geoNote.id,
     odid: 0,
-    flags: 0,
-    data: "",
+    odue: 0,
+    ord: 0,
+    queue: 0,
+    reps: 0,
+    type: 0,
+    usn: -1,
   });
 
   // Math note
   const mathNote = {
+    csum: 0,
+    data: "",
+    flags: 0,
+    flds: "2 + 2 = ?\x1F4",
+    guid: `MathNote_${noteId.toFixed(0)}`,
     id: ++noteId,
-    guid: `MathNote_${noteId.toFixed()}`,
     mid: basicModel.id,
     mod: Math.floor(Date.now() / 1000),
-    usn: -1,
-    tags: "mathematics",
-    flds: "2 + 2 = ?\x1f4",
     sfld: "2 + 2 = ?",
-    csum: 0,
-    flags: 0,
-    data: "",
+    tags: "mathematics",
+    usn: -1,
   };
   ankiPackage.addNote(mathNote);
   ankiPackage.addCard({
-    id: ++cardId,
-    nid: mathNote.id,
+    data: "",
     did: deck2.id,
-    ord: 0,
-    mod: Math.floor(Date.now() / 1000),
-    usn: -1,
-    type: 0,
-    queue: 0,
     due: 2,
-    ivl: 0,
     factor: 0,
-    reps: 0,
+    flags: 0,
+    id: ++cardId,
+    ivl: 0,
     lapses: 0,
     left: 0,
-    odue: 0,
+    mod: Math.floor(Date.now() / 1000),
+    nid: mathNote.id,
     odid: 0,
-    flags: 0,
-    data: "",
+    odue: 0,
+    ord: 0,
+    queue: 0,
+    reps: 0,
+    type: 0,
+    usn: -1,
   });
 
   const testPath = join(tempDir, "analysis-test.apkg");
@@ -141,7 +141,7 @@ describe("Anki Reading Documentation Examples", () => {
   });
 
   afterEach(async () => {
-    await rm(tempDir, { recursive: true, force: true });
+    await rm(tempDir, { force: true, recursive: true });
   });
 
   // Code Sample: Basic Anki Import

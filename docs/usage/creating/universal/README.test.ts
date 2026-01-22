@@ -9,12 +9,12 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  SrsPackage,
   createCard,
   createCompleteDeckStructure,
   createDeck,
   createNote,
   createNoteType,
-  SrsPackage,
 } from "@/srs-package";
 
 describe("Universal SRS Package Creation Documentation Examples", () => {
@@ -25,7 +25,7 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
   });
 
   afterEach(async () => {
-    await rm(tempDir, { recursive: true, force: true });
+    await rm(tempDir, { force: true, recursive: true });
   });
 
   // Code Sample: Prerequisites Import
@@ -80,17 +80,17 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
 
     // Test the documentation example: Basic Note Type Creation
     const basicNoteType = createNoteType({
-      name: "Basic",
       fields: [
         { id: 0, name: "Front" },
         { id: 1, name: "Back" },
       ],
+      name: "Basic",
       templates: [
         {
+          answerTemplate: "{{Front}} - {{Back}}",
           id: 0,
           name: "Card 1",
           questionTemplate: "{{Front}}",
-          answerTemplate: "{{Front}} - {{Back}}",
         },
       ],
     });
@@ -119,23 +119,23 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
 
     // Test the documentation example: Bidirectional Note Type Creation
     const basicReversedNoteType = createNoteType({
-      name: "Basic (and reversed card)",
       fields: [
         { id: 0, name: "Front" },
         { id: 1, name: "Back" },
       ],
+      name: "Basic (and reversed card)",
       templates: [
         {
+          answerTemplate: "{{Front}} - {{Back}}",
           id: 0,
           name: "Card 1",
           questionTemplate: "{{Front}}",
-          answerTemplate: "{{Front}} - {{Back}}",
         },
         {
+          answerTemplate: "{{Back}} - {{Front}}",
           id: 1,
           name: "Card 2",
           questionTemplate: "{{Back}}",
-          answerTemplate: "{{Back}} - {{Front}}",
         },
       ],
     });
@@ -168,17 +168,17 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
 
     // Test the documentation example: Cloze Note Type Creation
     const clozeNoteType = createNoteType({
-      name: "Cloze",
       fields: [
         { id: 0, name: "Text" },
         { id: 1, name: "Extra" },
       ],
+      name: "Cloze",
       templates: [
         {
+          answerTemplate: "{{cloze:Text}} - {{Extra}}",
           id: 0,
           name: "Cloze",
           questionTemplate: "{{cloze:Text}}",
-          answerTemplate: "{{cloze:Text}} - {{Extra}}",
         },
       ],
     });
@@ -206,8 +206,8 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
 
     // Test the documentation example: Simple Deck Creation
     const deck = createDeck({
-      name: "My Study Deck",
       description: "A deck created using universal SRS package creation",
+      name: "My Study Deck",
     });
 
     srsPackage.addDeck(deck);
@@ -224,25 +224,25 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
     const srsPackage = new SrsPackage();
 
     const basicNoteType = createNoteType({
-      name: "Basic",
       fields: [
         { id: 0, name: "Front" },
         { id: 1, name: "Back" },
       ],
+      name: "Basic",
       templates: [
         {
+          answerTemplate: "{{Front}} - {{Back}}",
           id: 0,
           name: "Card 1",
           questionTemplate: "{{Front}}",
-          answerTemplate: "{{Front}} - {{Back}}",
         },
       ],
     });
     srsPackage.addNoteType(basicNoteType);
 
     const deck = createDeck({
-      name: "Test Deck",
       description: "For testing notes",
+      name: "Test Deck",
     });
     srsPackage.addDeck(deck);
 
@@ -250,24 +250,24 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
     // Create basic notes
     const basicNote1 = createNote(
       {
-        noteTypeId: basicNoteType.id,
         deckId: deck.id,
         fieldValues: [
           ["Front", "What is the capital of France?"],
           ["Back", "Paris"],
         ],
+        noteTypeId: basicNoteType.id,
       },
       basicNoteType,
     );
 
     const basicNote2 = createNote(
       {
-        noteTypeId: basicNoteType.id,
         deckId: deck.id,
         fieldValues: [
           ["Front", "What is 2 + 2?"],
           ["Back", "4"],
         ],
+        noteTypeId: basicNoteType.id,
       },
       basicNoteType,
     );
@@ -302,43 +302,43 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
     const srsPackage = new SrsPackage();
 
     const basicReversedNoteType = createNoteType({
-      name: "Basic (and reversed card)",
       fields: [
         { id: 0, name: "Front" },
         { id: 1, name: "Back" },
       ],
+      name: "Basic (and reversed card)",
       templates: [
         {
+          answerTemplate: "{{Front}} - {{Back}}",
           id: 0,
           name: "Card 1",
           questionTemplate: "{{Front}}",
-          answerTemplate: "{{Front}} - {{Back}}",
         },
         {
+          answerTemplate: "{{Back}} - {{Front}}",
           id: 1,
           name: "Card 2",
           questionTemplate: "{{Back}}",
-          answerTemplate: "{{Back}} - {{Front}}",
         },
       ],
     });
     srsPackage.addNoteType(basicReversedNoteType);
 
     const deck = createDeck({
-      name: "Bidirectional Test",
       description: "Testing bidirectional notes",
+      name: "Bidirectional Test",
     });
     srsPackage.addDeck(deck);
 
     // Test the documentation example: Bidirectional Notes Creation
     const biNote = createNote(
       {
-        noteTypeId: basicReversedNoteType.id,
         deckId: deck.id,
         fieldValues: [
           ["Front", "Hello"],
           ["Back", "Hola"],
         ],
+        noteTypeId: basicReversedNoteType.id,
       },
       basicReversedNoteType,
     );
@@ -364,37 +364,37 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
     const srsPackage = new SrsPackage();
 
     const clozeNoteType = createNoteType({
-      name: "Cloze",
       fields: [
         { id: 0, name: "Text" },
         { id: 1, name: "Extra" },
       ],
+      name: "Cloze",
       templates: [
         {
+          answerTemplate: "{{cloze:Text}} - {{Extra}}",
           id: 0,
           name: "Cloze",
           questionTemplate: "{{cloze:Text}}",
-          answerTemplate: "{{cloze:Text}} - {{Extra}}",
         },
       ],
     });
     srsPackage.addNoteType(clozeNoteType);
 
     const deck = createDeck({
-      name: "Cloze Test",
       description: "Testing cloze notes",
+      name: "Cloze Test",
     });
     srsPackage.addDeck(deck);
 
     // Test the documentation example: Cloze Notes Creation
     const clozeNote = createNote(
       {
-        noteTypeId: clozeNoteType.id,
         deckId: deck.id,
         fieldValues: [
           ["Text", "The {{c1::mitochondria}} is the {{c2::powerhouse}} of the cell."],
           ["Extra", "This is a fundamental concept in biology."],
         ],
+        noteTypeId: clozeNoteType.id,
       },
       clozeNoteType,
     );
@@ -419,25 +419,17 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
     // Test the documentation example: Complete Deck Structure Helper
     const completeDeck = createCompleteDeckStructure({
       deck: {
-        name: "Quick Language Deck",
         description: "Basic vocabulary",
+        name: "Quick Language Deck",
       },
       noteTypes: [
         {
-          id: "language-basic-note-type",
-          name: "Language Basic",
           fields: [
             { id: 0, name: "Native" },
             { id: 1, name: "Foreign" },
           ],
-          templates: [
-            {
-              id: 0,
-              name: "Native → Foreign",
-              questionTemplate: "{{Native}}",
-              answerTemplate: "{{Native}} - {{Foreign}}",
-            },
-          ],
+          id: "language-basic-note-type",
+          name: "Language Basic",
           notes: [
             {
               fieldValues: [
@@ -456,6 +448,14 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
                 ["Native", "Thank you"],
                 ["Foreign", "Gracias"],
               ],
+            },
+          ],
+          templates: [
+            {
+              answerTemplate: "{{Native}} - {{Foreign}}",
+              id: 0,
+              name: "Native → Foreign",
+              questionTemplate: "{{Native}}",
             },
           ],
         },
@@ -505,31 +505,31 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
 
       // Create deck
       const deck = createDeck({
-        name: "Spanish Learning",
         description: "Spanish learning deck",
+        name: "Spanish Learning",
       });
       srsPackage.addDeck(deck);
 
       // Basic vocabulary note type
       const vocabNoteType = createNoteType({
-        name: "Vocabulary",
         fields: [
           { id: 0, name: "English" },
           { id: 1, name: "Spanish" },
           { id: 2, name: "Example" },
         ],
+        name: "Vocabulary",
         templates: [
           {
+            answerTemplate: "{{English}} - {{Spanish}} - {{Example}}",
             id: 0,
             name: "English → Spanish",
             questionTemplate: "{{English}}",
-            answerTemplate: "{{English}} - {{Spanish}} - {{Example}}",
           },
           {
+            answerTemplate: "{{Spanish}} - {{English}} - {{Example}}",
             id: 1,
             name: "Spanish → English",
             questionTemplate: "{{Spanish}}",
-            answerTemplate: "{{Spanish}} - {{English}} - {{Example}}",
           },
         ],
       });
@@ -537,17 +537,17 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
 
       // Sentence practice note type
       const sentenceNoteType = createNoteType({
-        name: "Sentence Practice",
         fields: [
           { id: 0, name: "Spanish" },
           { id: 1, name: "English" },
         ],
+        name: "Sentence Practice",
         templates: [
           {
+            answerTemplate: "{{Spanish}} - {{English}}",
             id: 0,
             name: "Translate",
             questionTemplate: "Translate: {{Spanish}}",
-            answerTemplate: "{{Spanish}} - {{English}}",
           },
         ],
       });
@@ -555,25 +555,25 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
 
       // Add vocabulary notes
       const vocabData = [
-        { english: "House", spanish: "Casa", example: "Mi casa es grande." },
-        { english: "Water", spanish: "Agua", example: "Necesito agua fría." },
+        { english: "House", example: "Mi casa es grande.", spanish: "Casa" },
+        { english: "Water", example: "Necesito agua fría.", spanish: "Agua" },
         {
           english: "Food",
-          spanish: "Comida",
           example: "La comida está deliciosa.",
+          spanish: "Comida",
         },
       ];
 
       for (const vocab of vocabData) {
         const note = createNote(
           {
-            noteTypeId: vocabNoteType.id,
             deckId: deck.id,
             fieldValues: [
               ["English", vocab.english],
               ["Spanish", vocab.spanish],
               ["Example", vocab.example],
             ],
+            noteTypeId: vocabNoteType.id,
           },
           vocabNoteType,
         );
@@ -584,12 +584,12 @@ describe("Universal SRS Package Creation Documentation Examples", () => {
       // Add sentence notes
       const sentenceNote = createNote(
         {
-          noteTypeId: sentenceNoteType.id,
           deckId: deck.id,
           fieldValues: [
             ["Spanish", "¿Cómo estás?"],
             ["English", "How are you?"],
           ],
+          noteTypeId: sentenceNoteType.id,
         },
         sentenceNoteType,
       );

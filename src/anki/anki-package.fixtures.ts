@@ -8,16 +8,9 @@ import { Open } from "unzipper";
 import { afterEach, beforeEach, expect } from "vitest";
 
 import type { ConversionResult } from "@/error-handling";
+import type { SrsNoteTemplate, SrsNoteType } from "@/srs-package";
 
-import {
-  createCard,
-  createDeck,
-  createNote,
-  createNoteType,
-  type SrsNoteTemplate,
-  type SrsNoteType,
-  SrsPackage,
-} from "@/srs-package";
+import { SrsPackage, createCard, createDeck, createNote, createNoteType } from "@/srs-package";
 
 import type { CardsTable, Ease, NotesTable, RevlogTable } from "./types";
 
@@ -79,17 +72,17 @@ export function createTestAnkiNote(
   const nowSeconds = Math.floor(now / 1000);
   const id = options.id ?? (getTimestamp ? getTimestamp() : now);
   return {
-    id,
+    csum: 0,
+    data: "",
+    flags: 0,
+    flds: joinAnkiFields(options.fields),
     guid: options.guid ?? guid64(),
+    id,
     mid: typeof options.noteTypeId === "bigint" ? Number(options.noteTypeId) : options.noteTypeId,
     mod: nowSeconds,
-    usn: -1,
-    tags: (options.tags ?? []).join(" "),
-    flds: joinAnkiFields(options.fields),
     sfld: options.fields[0] ?? "",
-    csum: 0,
-    flags: 0,
-    data: "",
+    tags: (options.tags ?? []).join(" "),
+    usn: -1,
   };
 }
 
@@ -114,24 +107,24 @@ export function createTestAnkiCard(
   const now = Date.now();
   const nowSeconds = Math.floor(now / 1000);
   return {
-    id: options.id ?? (getTimestamp ? getTimestamp() : now),
-    nid: options.noteId,
+    data: "",
     did: options.deckId,
-    ord: options.templateIndex ?? 0,
-    mod: nowSeconds,
-    usn: -1,
-    type: options.type ?? 0,
-    queue: options.queue ?? 0,
     due: options.due ?? 1,
-    ivl: options.interval ?? 0,
     factor: options.factor ?? 2500,
-    reps: options.reps ?? 0,
+    flags: 0,
+    id: options.id ?? (getTimestamp ? getTimestamp() : now),
+    ivl: options.interval ?? 0,
     lapses: options.lapses ?? 0,
     left: 1001,
-    odue: 0,
+    mod: nowSeconds,
+    nid: options.noteId,
     odid: 0,
-    flags: 0,
-    data: "",
+    odue: 0,
+    ord: options.templateIndex ?? 0,
+    queue: options.queue ?? 0,
+    reps: options.reps ?? 0,
+    type: options.type ?? 0,
+    usn: -1,
   };
 }
 
@@ -152,34 +145,34 @@ export function createTestAnkiReview(
 ): RevlogTable & { id: number } {
   const now = Date.now();
   return {
-    id: options.id ?? (getTimestamp ? getTimestamp() : now),
     cid: options.cardId,
-    usn: -1,
     ease: options.ease,
+    factor: options.factor ?? 2500,
+    id: options.id ?? (getTimestamp ? getTimestamp() : now),
     ivl: options.interval ?? 0,
     lastIvl: options.lastInterval ?? 0,
-    factor: options.factor ?? 2500,
     time: options.time ?? 5000,
     type: options.type ?? 0,
+    usn: -1,
   };
 }
 
 export function createBasicTemplate(id = 0, name = "Card 1"): SrsNoteTemplate {
   return {
+    answerTemplate: "{{Back}}",
     id,
     name,
     questionTemplate: "{{Front}}",
-    answerTemplate: "{{Back}}",
   };
 }
 
 export function createBasicNoteType(name = "Basic"): SrsNoteType {
   return createNoteType({
-    name,
     fields: [
       { id: 0, name: "Front" },
       { id: 1, name: "Back" },
     ],
+    name,
     templates: [createBasicTemplate()],
   });
 }
@@ -208,16 +201,16 @@ export function createBasicSrsPackage(
   } = options;
 
   const srsPackage = new SrsPackage();
-  const deck = createDeck({ name: deckName, description: deckDescription });
+  const deck = createDeck({ description: deckDescription, name: deckName });
   const noteType = createBasicNoteType(noteTypeName);
   const note = createNote(
     {
-      noteTypeId: noteType.id,
       deckId: deck.id,
       fieldValues: [
         ["Front", frontValue],
         ["Back", backValue],
       ],
+      noteTypeId: noteType.id,
     },
     noteType,
   );
@@ -231,7 +224,7 @@ export function createBasicSrsPackage(
   srsPackage.addNote(note);
   srsPackage.addCard(card);
 
-  return { srsPackage, deck, noteType, note, card };
+  return { card, deck, note, noteType, srsPackage };
 }
 
 export function createMultiCardPackage(noteCount = 10): SrsPackage {
@@ -240,12 +233,12 @@ export function createMultiCardPackage(noteCount = 10): SrsPackage {
   for (let i = 1; i < noteCount; i++) {
     const note = createNote(
       {
-        noteTypeId: noteType.id,
         deckId: deck.id,
         fieldValues: [
           ["Front", `Question ${(i + 1).toString()}`],
           ["Back", `Answer ${(i + 1).toString()}`],
         ],
+        noteTypeId: noteType.id,
       },
       noteType,
     );
@@ -293,10 +286,14 @@ export async function createTestZip(
 // Helper to get a valid Anki database buffer from the fixture (cached)
 let cachedValidDb: Buffer | null = null;
 export async function getValidAnkiDatabaseBuffer(): Promise<Buffer> {
-  if (cachedValidDb) return cachedValidDb;
+  if (cachedValidDb) {
+    return cachedValidDb;
+  }
   const zip = await Open.file("./tests/fixtures/anki/empty-legacy-2.apkg");
   const dbEntry = zip.files.find((f) => f.path === "collection.anki21");
-  if (!dbEntry) throw new Error("Database not found in fixture");
+  if (!dbEntry) {
+    throw new Error("Database not found in fixture");
+  }
   cachedValidDb = await dbEntry.buffer();
   return cachedValidDb;
 }
@@ -306,7 +303,7 @@ export function createTimestampGenerator() {
   let nextTimestamp = Date.now();
   return (hoursAgo?: number) => {
     nextTimestamp += 1;
-    return nextTimestamp - (hoursAgo ? hoursAgo * 3600000 : 0);
+    return nextTimestamp - (hoursAgo ? hoursAgo * 3_600_000 : 0);
   };
 }
 
@@ -434,159 +431,159 @@ export async function createAnkiDatabaseWithData(options: {
   // Default model (note type) - needed for notes to be valid
   const defaultModels = options.models ?? {
     "1234567890123": {
-      id: 1234567890123,
-      name: "Basic",
-      type: 0,
-      mod: Math.floor(now / 1000),
-      usn: -1,
-      sortf: 0,
+      css: "",
       did: null,
+      flds: [
+        {
+          collapsed: false,
+          description: "",
+          excludeFromSearch: false,
+          font: "Arial",
+          name: "Front",
+          ord: 0,
+          plainText: false,
+          preventDeletion: false,
+          rtl: false,
+          size: 20,
+          sticky: false,
+          tag: null,
+        },
+        {
+          collapsed: false,
+          description: "",
+          excludeFromSearch: false,
+          font: "Arial",
+          name: "Back",
+          ord: 1,
+          plainText: false,
+          preventDeletion: false,
+          rtl: false,
+          size: 20,
+          sticky: false,
+          tag: null,
+        },
+      ],
+      id: 1_234_567_890_123,
+      latexPost: "",
+      latexPre: "",
+      latexsvg: false,
+      mod: Math.floor(now / 1000),
+      name: "Basic",
+      originalStockKind: null,
+      req: [],
+      sortf: 0,
       tmpls: [
         {
+          afmt: "{{Back}}",
+          bafmt: "",
+          bfont: "",
+          bqfmt: "",
+          bsize: 0,
+          did: null,
           name: "Card 1",
           ord: 0,
           qfmt: "{{Front}}",
-          afmt: "{{Back}}",
-          bqfmt: "",
-          bafmt: "",
-          did: null,
-          bfont: "",
-          bsize: 0,
         },
       ],
-      flds: [
-        {
-          name: "Front",
-          ord: 0,
-          sticky: false,
-          rtl: false,
-          font: "Arial",
-          size: 20,
-          description: "",
-          plainText: false,
-          collapsed: false,
-          excludeFromSearch: false,
-          tag: null,
-          preventDeletion: false,
-        },
-        {
-          name: "Back",
-          ord: 1,
-          sticky: false,
-          rtl: false,
-          font: "Arial",
-          size: 20,
-          description: "",
-          plainText: false,
-          collapsed: false,
-          excludeFromSearch: false,
-          tag: null,
-          preventDeletion: false,
-        },
-      ],
-      css: "",
-      latexPre: "",
-      latexPost: "",
-      latexsvg: false,
-      req: [],
-      originalStockKind: null,
+      type: 0,
+      usn: -1,
     },
   };
 
   const defaultDecks = options.decks ?? {
     "1": {
-      id: 1,
-      name: "Default",
-      mod: Math.floor(now / 1000),
-      usn: -1,
-      lrnToday: [0, 0],
-      revToday: [0, 0],
-      newToday: [0, 0],
-      timeToday: [0, 0],
-      collapsed: false,
       browserCollapsed: false,
+      collapsed: false,
+      conf: 1,
       desc: "",
       dyn: 0,
-      conf: 1,
       extendNew: 0,
       extendRev: 0,
-      reviewLimit: null,
+      id: 1,
+      lrnToday: [0, 0],
+      mod: Math.floor(now / 1000),
+      name: "Default",
       newLimit: null,
-      reviewLimitToday: null,
       newLimitToday: null,
+      newToday: [0, 0],
+      revToday: [0, 0],
+      reviewLimit: null,
+      reviewLimitToday: null,
+      timeToday: [0, 0],
+      usn: -1,
     },
   };
 
   const defaultConf = {
-    schedVer: 2,
-    collapseTime: 1200,
-    estTimes: true,
-    dueCounts: true,
-    curDeck: 1,
-    newSpread: 0,
-    curModel: 1234567890123,
-    dayLearnFirst: false,
-    timeLim: 0,
     activeDecks: [1],
-    sortType: "noteFld",
-    nextPos: 1,
-    sortBackwards: false,
     addToCur: true,
+    collapseTime: 1200,
     creationOffset: 0,
+    curDeck: 1,
+    curModel: 1_234_567_890_123,
+    dayLearnFirst: false,
+    dueCounts: true,
+    estTimes: true,
+    newSpread: 0,
+    nextPos: 1,
     sched2021: true,
+    schedVer: 2,
+    sortBackwards: false,
+    sortType: "noteFld",
+    timeLim: 0,
   };
 
   const defaultDconf = {
     "1": {
+      answerAction: 0,
+      autoplay: true,
+      buryInterdayLearning: false,
+      desiredRetention: 0.9,
+      dyn: false,
+      fsrsWeights: [],
       id: 1,
-      name: "Default",
-      new: {
-        delays: [1, 10],
-        ints: [1, 4, 0],
-        initialFactor: 2500,
-        order: 1,
-        perDay: 20,
-        bury: false,
-      },
-      rev: {
-        perDay: 200,
-        ease4: 1.3,
-        ivlFct: 1,
-        maxIvl: 36500,
-        bury: false,
-        hardFactor: 1.2,
-      },
+      ignoreRevlogsBeforeDate: "",
+      interdayLearningMix: 0,
       lapse: {
         delays: [10],
-        mult: 0,
-        minInt: 1,
-        leechFails: 8,
         leechAction: 0,
+        leechFails: 8,
+        minInt: 1,
+        mult: 0,
       },
-      dyn: false,
       maxTaken: 60,
-      timer: 0,
-      autoplay: true,
-      replayq: true,
       mod: 0,
-      usn: 0,
+      name: "Default",
+      new: {
+        bury: false,
+        delays: [1, 10],
+        initialFactor: 2500,
+        ints: [1, 4, 0],
+        order: 1,
+        perDay: 20,
+      },
+      newGatherPriority: 0,
       newMix: 0,
       newPerDayMinimum: 0,
-      interdayLearningMix: 0,
-      reviewOrder: 0,
       newSortOrder: 0,
-      newGatherPriority: 0,
-      buryInterdayLearning: false,
-      fsrsWeights: [],
-      desiredRetention: 0.9,
-      ignoreRevlogsBeforeDate: "",
-      stopTimerOnAnswer: false,
-      secondsToShowQuestion: 0.0,
-      secondsToShowAnswer: 0.0,
       questionAction: 0,
-      answerAction: 0,
-      waitForAudio: true,
+      replayq: true,
+      rev: {
+        bury: false,
+        ease4: 1.3,
+        hardFactor: 1.2,
+        ivlFct: 1,
+        maxIvl: 36_500,
+        perDay: 200,
+      },
+      reviewOrder: 0,
+      secondsToShowAnswer: 0,
+      secondsToShowQuestion: 0,
       sm2Retention: 0.9,
+      stopTimerOnAnswer: false,
+      timer: 0,
+      usn: 0,
+      waitForAudio: true,
       weightSearch: "",
     },
   };
@@ -618,7 +615,7 @@ export async function createAnkiDatabaseWithData(options: {
         -1,
         "",
         note.flds,
-        note.flds.split("\u001f")[0] ?? "",
+        note.flds.split("\u001F")[0] ?? "",
         0,
         0,
         "",

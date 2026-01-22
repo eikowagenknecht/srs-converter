@@ -35,8 +35,8 @@ export class IssueCollector {
 
   addError(message: string, context?: ConversionIssue["context"]): void {
     const issue: ConversionIssue = {
-      severity: "error",
       message,
+      severity: "error",
     };
     if (context !== undefined) {
       issue.context = context;
@@ -46,8 +46,8 @@ export class IssueCollector {
 
   addWarning(message: string, context?: ConversionIssue["context"]): void {
     const issue: ConversionIssue = {
-      severity: "warning",
       message,
+      severity: "warning",
     };
     if (context !== undefined) {
       issue.context = context;
@@ -57,8 +57,8 @@ export class IssueCollector {
 
   addCritical(message: string, context?: ConversionIssue["context"]): void {
     const issue: ConversionIssue = {
-      severity: "critical",
       message,
+      severity: "critical",
     };
     if (context !== undefined) {
       issue.context = context;
@@ -103,21 +103,21 @@ export class IssueCollector {
     const issues = this.getIssues();
 
     if (this.hasCriticalIssues()) {
-      return { status: "failure", issues };
+      return { issues, status: "failure" };
     }
 
     if (this.hasRecoverableErrors()) {
       if (this.options.errorHandling === "strict") {
-        return { status: "failure", issues };
+        return { issues, status: "failure" };
       }
-      return { status: "partial", data, issues };
+      return { data, issues, status: "partial" };
     }
 
-    return { status: "success", data, issues };
+    return { data, issues, status: "success" };
   }
 
   createFailureResult<T>(): ConversionResult<T> {
     const issues = this.getIssues();
-    return { status: "failure", issues };
+    return { issues, status: "failure" };
   }
 }

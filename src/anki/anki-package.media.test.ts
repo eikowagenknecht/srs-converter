@@ -50,7 +50,7 @@ describe("Media File APIs", () => {
       try {
         const size = await pkg.getMediaFileSize(EXPECTED_FILENAME);
 
-        expect(size).toBe(10701); // Known size from the test file
+        expect(size).toBe(10_701); // Known size from the test file
       } finally {
         await pkg.cleanup();
       }
@@ -85,7 +85,7 @@ describe("Media File APIs", () => {
         }
 
         const buffer = Buffer.concat(chunks);
-        expect(buffer.length).toBe(10701); // Known size
+        expect(buffer.length).toBe(10_701); // Known size
 
         // Verify it's a valid JPEG by checking magic bytes
         expect(buffer[0]).toBe(0xff);
@@ -129,7 +129,7 @@ describe("Media File APIs", () => {
 
         // Verify we can retrieve it (test image is 21053 bytes)
         const size = await pkg.getMediaFileSize(TEST_IMAGE_NAME);
-        expect(size).toBe(21053);
+        expect(size).toBe(21_053);
       } finally {
         await pkg.cleanup();
       }
@@ -342,7 +342,7 @@ describe("Media File APIs", () => {
 
         // Verify we can access it (test image is 21053 bytes)
         const size = await pkg.getMediaFileSize(TEST_IMAGE_NAME);
-        expect(size).toBe(21053);
+        expect(size).toBe(21_053);
 
         // Remove it
         await pkg.removeMediaFile(TEST_IMAGE_NAME);
@@ -516,8 +516,8 @@ describe("Media File APIs", () => {
         // Add a note that references some media
         pkg.addNote(
           createTestAnkiNote({
-            noteTypeId: basicModel.id,
             fields: ['<img src="referenced-image.png">', "[sound:referenced-sound.mp3]"],
+            noteTypeId: basicModel.id,
           }),
         );
 
@@ -553,20 +553,20 @@ describe("Media File APIs", () => {
         // Add notes with different img tag formats
         pkg.addNote(
           createTestAnkiNote({
-            noteTypeId: basicModel.id,
             fields: ['<img src="with-quotes.png">', "Back"],
+            noteTypeId: basicModel.id,
           }),
         );
         pkg.addNote(
           createTestAnkiNote({
-            noteTypeId: basicModel.id,
             fields: ["<img src=without-quotes.png>", "Back"],
+            noteTypeId: basicModel.id,
           }),
         );
         pkg.addNote(
           createTestAnkiNote({
-            noteTypeId: basicModel.id,
             fields: ["<img src='single-quotes.png'>", "Back"],
+            noteTypeId: basicModel.id,
           }),
         );
 
@@ -594,8 +594,8 @@ describe("Media File APIs", () => {
 
         pkg.addNote(
           createTestAnkiNote({
-            noteTypeId: basicModel.id,
             fields: ["Front", "[sound:audio1.mp3] [sound:audio2.mp3]"],
+            noteTypeId: basicModel.id,
           }),
         );
 
@@ -623,8 +623,8 @@ describe("Media File APIs", () => {
         // Anki uses [sound:] syntax for both audio and video files
         pkg.addNote(
           createTestAnkiNote({
-            noteTypeId: basicModel.id,
             fields: ["Front", "[sound:video1.mp4] [sound:video2.mp4]"],
+            noteTypeId: basicModel.id,
           }),
         );
 
@@ -649,8 +649,8 @@ describe("Media File APIs", () => {
 
         pkg.addNote(
           createTestAnkiNote({
-            noteTypeId: basicModel.id,
             fields: ['<img src="referenced.png">', "Back"],
+            noteTypeId: basicModel.id,
           }),
         );
 
@@ -676,8 +676,8 @@ describe("Media File APIs", () => {
 
         pkg.addNote(
           createTestAnkiNote({
-            noteTypeId: basicModel.id,
             fields: ["Front without media", "Back without media"],
+            noteTypeId: basicModel.id,
           }),
         );
 
@@ -701,8 +701,8 @@ describe("Media File APIs", () => {
       try {
         pkg.addNote(
           createTestAnkiNote({
-            noteTypeId: basicModel.id,
             fields: ["Front", "Back"],
+            noteTypeId: basicModel.id,
           }),
         );
 
@@ -728,8 +728,8 @@ describe("Media File APIs", () => {
         // Note with media in different fields
         pkg.addNote(
           createTestAnkiNote({
-            noteTypeId: basicModel.id,
             fields: ['<img src="in-field1.png">', "[sound:in-field2.mp3]"],
+            noteTypeId: basicModel.id,
           }),
         );
 
@@ -757,11 +757,11 @@ describe("Media File APIs", () => {
 
         pkg.addNote(
           createTestAnkiNote({
-            noteTypeId: basicModel.id,
             fields: [
               '<div><img src="img1.png" alt="test"><img src="img2.png"></div>',
               "Text before [sound:sound1.mp3] text after",
             ],
+            noteTypeId: basicModel.id,
           }),
         );
 

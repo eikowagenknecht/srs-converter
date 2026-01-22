@@ -28,7 +28,9 @@ describe("Creation", () => {
         // The deck should match the default deck
         const decks = ankiPackage.getDecks();
         expect(decks.length).toBe(1);
-        if (!decks[0]) throw new Error("Default deck not found");
+        if (!decks[0]) {
+          throw new Error("Default deck not found");
+        }
         expect(decks[0]).toEqual(defaultDeck);
 
         // The config should match the default config

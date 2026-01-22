@@ -41,39 +41,39 @@ async function createTestAnkiPackage(namePrefix = "Test"): Promise<AnkiPackage> 
   ankiPackage.addDeck(testDeck);
 
   const testNote = {
+    csum: 0,
+    data: "",
+    flags: 0,
+    flds: `${namePrefix} Question\u001F${namePrefix} Answer`,
+    guid: `${namePrefix}Note_${Date.now().toFixed(0)}`,
     id: Date.now(),
-    guid: `${namePrefix}Note_${Date.now().toFixed()}`,
     mid: basicModel.id,
     mod: Math.floor(Date.now() / 1000),
-    usn: -1,
-    tags: "",
-    flds: `${namePrefix} Question\x1f${namePrefix} Answer`,
     sfld: `${namePrefix} Question`,
-    csum: 0,
-    flags: 0,
-    data: "",
+    tags: "",
+    usn: -1,
   };
   ankiPackage.addNote(testNote);
 
   const testCard = {
-    id: Date.now() + 1,
-    nid: testNote.id,
+    data: "",
     did: testDeck.id,
-    ord: 0,
-    mod: Math.floor(Date.now() / 1000),
-    usn: -1,
-    type: 0,
-    queue: 0,
     due: 1,
-    ivl: 0,
     factor: 0,
-    reps: 0,
+    flags: 0,
+    id: Date.now() + 1,
+    ivl: 0,
     lapses: 0,
     left: 0,
-    odue: 0,
+    mod: Math.floor(Date.now() / 1000),
+    nid: testNote.id,
     odid: 0,
-    flags: 0,
-    data: "",
+    odue: 0,
+    ord: 0,
+    queue: 0,
+    reps: 0,
+    type: 0,
+    usn: -1,
   };
   ankiPackage.addCard(testCard);
 
@@ -88,7 +88,7 @@ describe("Anki to SRS Conversion Documentation Examples", () => {
   });
 
   afterEach(async () => {
-    await rm(tempDir, { recursive: true, force: true });
+    await rm(tempDir, { force: true, recursive: true });
   });
 
   // Code Sample 1.1: Basic Conversion
@@ -179,7 +179,9 @@ describe("Anki to SRS Conversion Documentation Examples", () => {
     const result = await AnkiPackage.fromDefault();
     expect(result.status).toBe("success");
     const ankiPackage = result.data;
-    if (!ankiPackage) throw new Error("Package creation failed");
+    if (!ankiPackage) {
+      throw new Error("Package creation failed");
+    }
 
     try {
       // Set up basic structure
@@ -193,48 +195,48 @@ describe("Anki to SRS Conversion Documentation Examples", () => {
 
       // Add note with plugin data
       const pluginData = JSON.stringify({
-        pluginName: "test-addon",
         customField: "custom value",
+        pluginName: "test-addon",
       });
       const testNote = {
+        csum: 0,
+        data: pluginData,
+        flags: 0,
+        flds: "Front text\u001FBack text",
+        guid: `TestNote_${Date.now().toFixed(0)}`,
         id: Date.now(),
-        guid: `TestNote_${Date.now().toFixed()}`,
         mid: basicModel.id,
         mod: Math.floor(Date.now() / 1000),
-        usn: -1,
-        tags: "",
-        flds: "Front text\x1fBack text",
         sfld: "Front text",
-        csum: 0,
-        flags: 0,
-        data: pluginData,
+        tags: "",
+        usn: -1,
       };
       ankiPackage.addNote(testNote);
 
       // Add card with plugin data
       const cardPluginData = JSON.stringify({
-        pluginName: "card-addon",
         customSetting: "card value",
+        pluginName: "card-addon",
       });
       const testCard = {
-        id: Date.now() + 1,
-        nid: testNote.id,
+        data: cardPluginData,
         did: testDeck.id,
-        ord: 0,
-        mod: Math.floor(Date.now() / 1000),
-        usn: -1,
-        type: 0,
-        queue: 0,
         due: 1,
-        ivl: 0,
         factor: 0,
-        reps: 0,
+        flags: 0,
+        id: Date.now() + 1,
+        ivl: 0,
         lapses: 0,
         left: 0,
-        odue: 0,
+        mod: Math.floor(Date.now() / 1000),
+        nid: testNote.id,
         odid: 0,
-        flags: 0,
-        data: cardPluginData,
+        odue: 0,
+        ord: 0,
+        queue: 0,
+        reps: 0,
+        type: 0,
+        usn: -1,
       };
       ankiPackage.addCard(testCard);
 
@@ -242,7 +244,9 @@ describe("Anki to SRS Conversion Documentation Examples", () => {
       const srsResult = ankiPackage.toSrsPackage();
       expect(srsResult.status).toBe("success");
       const srsPackage = srsResult.data;
-      if (!srsPackage) throw new Error("SRS conversion failed");
+      if (!srsPackage) {
+        throw new Error("SRS conversion failed");
+      }
 
       // Plugin data is now stored in applicationSpecificData.ankiData
       const notes = srsPackage.getNotes();
@@ -265,7 +269,9 @@ describe("Anki to SRS Conversion Documentation Examples", () => {
       const reconvertedResult = await AnkiPackage.fromSrsPackage(srsPackage);
       expect(reconvertedResult.status).toBe("success");
       const reconvertedAnki = reconvertedResult.data;
-      if (!reconvertedAnki) throw new Error("Anki conversion failed");
+      if (!reconvertedAnki) {
+        throw new Error("Anki conversion failed");
+      }
 
       try {
         // Original plugin data is restored to the data field

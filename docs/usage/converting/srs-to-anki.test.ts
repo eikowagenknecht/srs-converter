@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { AnkiPackage } from "@/anki/anki-package";
-import { createDeck, createNote, createNoteType, SrsPackage } from "@/srs-package";
+import { SrsPackage, createDeck, createNote, createNoteType } from "@/srs-package";
 
 /**
  * Helper function to create a test SRS package with sample data
@@ -23,17 +23,17 @@ function createTestSrsPackage(namePrefix = "Test"): SrsPackage {
 
   // Create a basic note type
   const noteType = createNoteType({
-    name: `${namePrefix} Note Type`,
     fields: [
       { id: 0, name: "Front" },
       { id: 1, name: "Back" },
     ],
+    name: `${namePrefix} Note Type`,
     templates: [
       {
+        answerTemplate: "{{FrontSide}}<hr id='answer'>{{Back}}",
         id: 0,
         name: "Card 1",
         questionTemplate: "{{Front}}",
-        answerTemplate: "{{FrontSide}}<hr id='answer'>{{Back}}",
       },
     ],
   });
@@ -41,20 +41,20 @@ function createTestSrsPackage(namePrefix = "Test"): SrsPackage {
 
   // Create a test deck
   const deck = createDeck({
-    name: `${namePrefix} Deck`,
     description: `${namePrefix} deck for conversion testing`,
+    name: `${namePrefix} Deck`,
   });
   srsPackage.addDeck(deck);
 
   // Create test notes
   const testNote = createNote(
     {
-      noteTypeId: noteType.id,
       deckId: deck.id,
       fieldValues: [
         ["Front", `${namePrefix} Question`],
         ["Back", `${namePrefix} Answer`],
       ],
+      noteTypeId: noteType.id,
     },
     noteType,
   );
@@ -71,7 +71,7 @@ describe("SRS to Anki Conversion Documentation Examples", () => {
   });
 
   afterEach(async () => {
-    await rm(tempDir, { recursive: true, force: true });
+    await rm(tempDir, { force: true, recursive: true });
   });
 
   // Code Sample 1.1: Basic Conversion

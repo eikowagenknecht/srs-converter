@@ -94,7 +94,7 @@ export class SrsPackage {
     const note = this.notes.find((n) => n.id === card.noteId);
     const noteType = this.noteTypes.find((nt) => nt.id === note?.noteTypeId);
     if (!noteType) {
-      throw new Error(`Note type not found for template ID ${card.templateId.toFixed()}.`);
+      throw new Error(`Note type not found for template ID ${card.templateId.toFixed(0)}.`);
     }
 
     // Check if this is a cloze note type by looking at template content
@@ -108,7 +108,7 @@ export class SrsPackage {
     // For regular note types, templateId must be within templates bounds
     if (!isClozeNoteType && card.templateId >= noteType.templates.length) {
       throw new Error(
-        `Invalid template ID ${card.templateId.toFixed()} for note type "${noteType.name}". Expected 0-${(noteType.templates.length - 1).toFixed()}.`,
+        `Invalid template ID ${card.templateId.toFixed(0)} for note type "${noteType.name}". Expected 0-${(noteType.templates.length - 1).toFixed(0)}.`,
       );
     }
 
@@ -329,7 +329,7 @@ export function createNote<T extends SrsNoteType>(
 
   if (
     providedFields.size !== requiredFields.size ||
-    !Array.from(providedFields).every((field) => requiredFields.has(field))
+    ![...providedFields].every((field) => requiredFields.has(field))
   ) {
     throw new Error("Field names do not match the note type exactly");
   }
@@ -363,55 +363,55 @@ export function createReview(input: Omit<SrsReview, "id"> & { id?: string }): Sr
 }
 
 export const BasicNote = {
-  id: "019343de-833d-736d-bcda-a75874b2e5a8",
-  name: "Basic (srs-converter)",
   fields: [
     { id: 0, name: "Question" },
     { id: 1, name: "Answer" },
   ],
+  id: "019343de-833d-736d-bcda-a75874b2e5a8",
+  name: "Basic (srs-converter)",
   templates: [
     {
+      answerTemplate: "{{Answer}}",
       id: 0,
       name: "Question > Answer",
       questionTemplate: "{{Question}}",
-      answerTemplate: "{{Answer}}",
     },
   ],
 } as const satisfies SrsNoteType;
 
 export const BasicAndReverseNote = {
-  id: "019343de-833d-736d-bcda-a97a136df584",
-  name: "Basic and reverse (srs-converter)",
   fields: [
     { id: 0, name: "Front" },
     { id: 1, name: "Back" },
   ],
+  id: "019343de-833d-736d-bcda-a97a136df584",
+  name: "Basic and reverse (srs-converter)",
   templates: [
     {
+      answerTemplate: "{{Back}}",
       id: 0,
       name: "Front > Back",
       questionTemplate: "{{Front}}",
-      answerTemplate: "{{Back}}",
     },
     {
+      answerTemplate: "{{Back}}",
       id: 1,
       name: "Back > Front",
       questionTemplate: "{{Front}}",
-      answerTemplate: "{{Back}}",
     },
   ],
 } as const satisfies SrsNoteType;
 
 export const ClozeNote = {
+  fields: [{ id: 0, name: "Text" }],
   id: "019343de-833d-736d-bcda-af3d2c567ea3",
   name: "Cloze (srs-converter)",
-  fields: [{ id: 0, name: "Text" }],
   templates: [
     {
+      answerTemplate: "{{cloze:Text}}",
       id: 0,
       name: "Cloze",
       questionTemplate: "{{cloze:Text}}",
-      answerTemplate: "{{cloze:Text}}",
     },
   ],
 } as const satisfies SrsNoteType;

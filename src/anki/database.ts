@@ -6,6 +6,23 @@ import InitSqlJs from "sql.js";
 
 import type { ConversionIssue } from "@/error-handling";
 
+import type {
+  CardsTable,
+  ColTable,
+  Config,
+  DatabaseDump,
+  DBTables,
+  Deck,
+  DeckConfigs,
+  Decks,
+  NotesTable,
+  NoteTypes,
+  RevlogTable,
+} from "./types";
+
+import { ankiDbSchema, ankiDefaultCollectionInsert } from "./constants";
+import { parseWithBigInts, serializeWithBigInts } from "./util";
+
 /**
  * Error types for AnkiDatabase operations
  */
@@ -30,23 +47,6 @@ export class AnkiDatabaseError extends Error {
     this.missingTables = missingTables;
   }
 }
-
-import type {
-  CardsTable,
-  ColTable,
-  Config,
-  DatabaseDump,
-  DBTables,
-  Deck,
-  DeckConfigs,
-  Decks,
-  NotesTable,
-  NoteTypes,
-  RevlogTable,
-} from "./types";
-
-import { ankiDbSchema, ankiDefaultCollectionInsert } from "./constants";
-import { parseWithBigInts, serializeWithBigInts } from "./util";
 
 export class AnkiDatabase {
   private db: Kysely<DBTables>;
@@ -245,11 +245,11 @@ export class AnkiDatabase {
    */
   async toObject(): Promise<DatabaseDump> {
     const dump: DatabaseDump = {
-      collection: await this.getCollection(),
       cards: await this.getCards(),
+      collection: await this.getCollection(),
+      deletedItems: await this.getGraves(),
       notes: await this.getNotes(),
       reviews: await this.getRevlog(),
-      deletedItems: await this.getGraves(),
     };
     return dump;
   }
@@ -272,7 +272,7 @@ export class AnkiDatabase {
           severity: "critical", // Schema setup issues are critical
           message: `Failed to execute query: ${statement}`,
           context: {
-            originalData: { statement, error },
+            originalData: { error, statement },
           },
         });
       }

@@ -9,6 +9,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import type { CardsTable, Deck, NotesTable, RevlogTable } from "@/index";
+
 import { AnkiPackage } from "@/anki/anki-package";
 import {
   basicAndReversedCardModel,
@@ -19,16 +21,7 @@ import {
   defaultDeck,
   imageOcclusionModel,
 } from "@/anki/constants";
-import {
-  type CardsTable,
-  CardType,
-  type Deck,
-  DeckDynamicity,
-  type NotesTable,
-  NoteTypeKind,
-  QueueType,
-  type RevlogTable,
-} from "@/index";
+import { CardType, DeckDynamicity, NoteTypeKind, QueueType } from "@/index";
 
 describe("Raw Anki Methods Creation Documentation Examples", () => {
   let tempDir: string;
@@ -38,7 +31,7 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
   });
 
   afterEach(async () => {
-    await rm(tempDir, { recursive: true, force: true });
+    await rm(tempDir, { force: true, recursive: true });
   });
 
   // Code Sample 4.1: Prerequisites Import
@@ -191,67 +184,67 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
 
     // Test the documentation example: Creating Custom Note Type
     const customNoteType = {
-      id: 1640000000000, // Use timestamp-based ID
+      id: 1_640_000_000_000, // Use timestamp-based ID
       name: "Custom Note Type",
       flds: [
         {
+          collapsed: false,
+          description: "",
+          excludeFromSearch: false,
+          font: "Arial",
           id: null,
           name: "Question",
           ord: 0,
-          sticky: false,
-          rtl: false,
-          font: "Arial",
-          size: 20,
-          description: "",
           plainText: false,
-          collapsed: false,
-          excludeFromSearch: false,
-          tag: null,
           preventDeletion: false,
+          rtl: false,
+          size: 20,
+          sticky: false,
+          tag: null,
         },
         {
+          collapsed: false,
+          description: "",
+          excludeFromSearch: false,
+          font: "Arial",
           id: null,
           name: "Answer",
           ord: 1,
-          sticky: false,
-          rtl: false,
-          font: "Arial",
-          size: 20,
-          description: "",
           plainText: false,
-          collapsed: false,
-          excludeFromSearch: false,
-          tag: null,
           preventDeletion: false,
+          rtl: false,
+          size: 20,
+          sticky: false,
+          tag: null,
         },
         {
+          collapsed: false,
+          description: "",
+          excludeFromSearch: false,
+          font: "Arial",
           id: null,
           name: "Extra",
           ord: 2,
-          sticky: false,
-          rtl: false,
-          font: "Arial",
-          size: 20,
-          description: "",
           plainText: false,
-          collapsed: false,
-          excludeFromSearch: false,
-          tag: null,
           preventDeletion: false,
+          rtl: false,
+          size: 20,
+          sticky: false,
+          tag: null,
         },
       ],
       tmpls: [
         {
+          afmt: "{{Question}}<hr>{{Answer}}<br><br>{{Extra}}",
+          bafmt: "",
+          bfont: "",
+          bqfmt: "",
+          bsize: 0,
+          did: null,
           id: null,
           name: "Card 1",
           ord: 0,
           qfmt: "<div>{{Question}}</div>",
-          afmt: "{{Question}}<hr>{{Answer}}<br><br>{{Extra}}",
-          bqfmt: "",
-          bafmt: "",
-          did: null,
-          bfont: "",
-          bsize: 0,
         },
       ],
       css: `.card {
@@ -306,12 +299,12 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
     // Create a basic note
     const basicNote: NotesTable = {
       id: getUniqueTimestamp(),
-      guid: `BasicNote_${Date.now().toFixed()}`,
+      guid: `BasicNote_${Date.now().toFixed(0)}`,
       mid: basicModel.id,
       mod: Math.floor(Date.now() / 1000),
       usn: -1,
       tags: "",
-      flds: "What is the capital of France?\x1fParis", // Fields separated by \x1f
+      flds: "What is the capital of France?\x1FParis", // Fields separated by \x1f
       sfld: "What is the capital of France?", // Sort field (first field typically)
       csum: 0,
       flags: 0,
@@ -375,12 +368,12 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
     // Create a bidirectional note (generates 2 cards)
     const biNote: NotesTable = {
       id: getUniqueTimestamp(),
-      guid: `BiNote_${Date.now().toFixed()}`,
+      guid: `BiNote_${Date.now().toFixed(0)}`,
       mid: basicAndReversedCardModel.id,
       mod: Math.floor(Date.now() / 1000),
       usn: -1,
       tags: "",
-      flds: "Apple\x1fPomme", // English \x1f French
+      flds: "Apple\x1FPomme", // English \x1f French
       sfld: "Apple",
       csum: 0,
       flags: 0,
@@ -470,12 +463,12 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
     // Create a cloze note
     const clozeNote: NotesTable = {
       id: getUniqueTimestamp(),
-      guid: `ClozeNote_${Date.now().toFixed()}`,
+      guid: `ClozeNote_${Date.now().toFixed(0)}`,
       mid: clozeModel.id,
       mod: Math.floor(Date.now() / 1000),
       usn: -1,
       tags: "",
-      flds: "The {{c1::capital}} of France is {{c2::Paris}}\x1fExtra info about France",
+      flds: "The {{c1::capital}} of France is {{c2::Paris}}\x1FExtra info about France",
       sfld: "The capital of France is Paris", // Sorting text without cloze markers
       csum: 0,
       flags: 0,
@@ -562,38 +555,38 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
     const getUniqueTimestamp = () => ++nextTimestamp;
 
     const testNote = {
+      csum: 0,
+      data: "",
+      flags: 0,
+      flds: "Test question for review\x1FTest answer",
+      guid: `ReviewNote_${Date.now().toFixed(0)}`,
       id: getUniqueTimestamp(),
-      guid: `ReviewNote_${Date.now().toFixed()}`,
       mid: basicModel.id,
       mod: Math.floor(Date.now() / 1000),
-      usn: -1,
-      tags: "",
-      flds: "Test question for review\x1fTest answer",
       sfld: "Test question for review",
-      csum: 0,
-      flags: 0,
-      data: "",
+      tags: "",
+      usn: -1,
     };
 
     const testCard = {
-      id: getUniqueTimestamp(),
-      nid: testNote.id,
+      data: "",
       did: defaultDeck.id,
-      ord: 0,
-      mod: Math.floor(Date.now() / 1000),
-      usn: -1,
-      type: 0,
-      queue: 0,
       due: 1,
-      ivl: 0,
       factor: 0,
-      reps: 0,
+      flags: 0,
+      id: getUniqueTimestamp(),
+      ivl: 0,
       lapses: 0,
       left: 0,
-      odue: 0,
+      mod: Math.floor(Date.now() / 1000),
+      nid: testNote.id,
       odid: 0,
-      flags: 0,
-      data: "",
+      odue: 0,
+      ord: 0,
+      queue: 0,
+      reps: 0,
+      type: 0,
+      usn: -1,
     };
 
     ankiPackage.addNote(testNote);
@@ -709,17 +702,17 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
 
     // Add a note that references some media
     const note: NotesTable = {
+      csum: 0,
+      data: "",
+      flags: 0,
+      flds: '<img src="referenced-image.png">\x1F[sound:referenced-sound.mp3]',
+      guid: `TestNote_${Date.now().toFixed(0)}`,
       id: Date.now(),
-      guid: `TestNote_${Date.now().toFixed()}`,
       mid: basicModel.id,
       mod: Math.floor(Date.now() / 1000),
-      usn: -1,
-      tags: "",
-      flds: '<img src="referenced-image.png">\x1f[sound:referenced-sound.mp3]',
       sfld: "Test",
-      csum: 0,
-      flags: 0,
-      data: "",
+      tags: "",
+      usn: -1,
     };
     ankiPackage.addNote(note);
 
@@ -730,7 +723,7 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
     // Test the documentation example: Remove all media files that aren't referenced in note fields
     const removedFiles = await ankiPackage.removeUnreferencedMediaFiles();
 
-    console.log(`Removed ${removedFiles.length.toFixed()} unreferenced files:`);
+    console.log(`Removed ${removedFiles.length.toFixed(0)} unreferenced files:`);
     console.log(removedFiles); // Array of filenames that were removed
 
     // Verify only unreferenced files were removed

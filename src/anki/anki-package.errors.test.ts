@@ -152,8 +152,8 @@ describe("Error Handling and Edge Cases", () => {
       const zipPath = join(tempDir, "missing-meta.apkg");
       // Create ZIP with media and database, but no meta file
       await createTestZip(zipPath, [
-        { name: "media", content: "{}" },
-        { name: "collection.anki21", content: Buffer.alloc(100) }, // Dummy database
+        { content: "{}", name: "media" },
+        { content: Buffer.alloc(100), name: "collection.anki21" }, // Dummy database
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath);
@@ -171,8 +171,8 @@ describe("Error Handling and Edge Cases", () => {
       const zipPath = join(tempDir, "missing-media.apkg");
       // Create ZIP with valid meta and database, but no media file
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "collection.anki21", content: Buffer.alloc(100) }, // Dummy database
+        { content: validMetaV2, name: "meta" },
+        { content: Buffer.alloc(100), name: "collection.anki21" }, // Dummy database
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath);
@@ -190,8 +190,8 @@ describe("Error Handling and Edge Cases", () => {
       const zipPath = join(tempDir, "missing-database.apkg");
       // Create ZIP with valid meta and media, but no database file
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: "{}" },
+        { content: validMetaV2, name: "meta" },
+        { content: "{}", name: "media" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath);
@@ -208,7 +208,7 @@ describe("Error Handling and Edge Cases", () => {
       const tempDir = getTempDir();
       const zipPath = join(tempDir, "missing-multiple.apkg");
       // Create ZIP with only valid meta, missing media and database
-      await createTestZip(zipPath, [{ name: "meta", content: validMetaV2 }]);
+      await createTestZip(zipPath, [{ content: validMetaV2, name: "meta" }]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath);
 
@@ -244,8 +244,8 @@ describe("Error Handling and Edge Cases", () => {
       const zipPath = join(tempDir, "missing-files-guidance.apkg");
       // Create ZIP with valid meta and database, but missing media file
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "collection.anki21", content: Buffer.alloc(100) },
+        { content: validMetaV2, name: "meta" },
+        { content: Buffer.alloc(100), name: "collection.anki21" },
         // Missing media file
       ]);
 
@@ -271,9 +271,9 @@ describe("Error Handling and Edge Cases", () => {
         Array.from({ length: 100 }, () => Math.floor(Math.random() * 256)),
       );
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: "{}" },
-        { name: "collection.anki21", content: randomBytes },
+        { content: validMetaV2, name: "meta" },
+        { content: "{}", name: "media" },
+        { content: randomBytes, name: "collection.anki21" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath);
@@ -291,9 +291,9 @@ describe("Error Handling and Edge Cases", () => {
       const zipPath = join(tempDir, "empty-db.apkg");
       // Create an empty database file (0 bytes)
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: "{}" },
-        { name: "collection.anki21", content: Buffer.alloc(0) },
+        { content: validMetaV2, name: "meta" },
+        { content: "{}", name: "media" },
+        { content: Buffer.alloc(0), name: "collection.anki21" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath);
@@ -316,9 +316,9 @@ describe("Error Handling and Edge Cases", () => {
       const truncatedContent = Buffer.concat([truncatedDb, Buffer.alloc(10)]);
 
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: "{}" },
-        { name: "collection.anki21", content: truncatedContent },
+        { content: validMetaV2, name: "meta" },
+        { content: "{}", name: "media" },
+        { content: truncatedContent, name: "collection.anki21" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath);
@@ -343,9 +343,9 @@ describe("Error Handling and Edge Cases", () => {
 
       const zipPath = join(tempDir, "missing-tables-db.apkg");
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: "{}" },
-        { name: "collection.anki21", content: dbBuffer },
+        { content: validMetaV2, name: "meta" },
+        { content: "{}", name: "media" },
+        { content: dbBuffer, name: "collection.anki21" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath);
@@ -367,9 +367,9 @@ describe("Error Handling and Edge Cases", () => {
       const tinyContent = Buffer.from("SQLite"); // Only 6 bytes
 
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: "{}" },
-        { name: "collection.anki21", content: tinyContent },
+        { content: validMetaV2, name: "meta" },
+        { content: "{}", name: "media" },
+        { content: tinyContent, name: "collection.anki21" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath);
@@ -389,9 +389,9 @@ describe("Error Handling and Edge Cases", () => {
       const invalidContent = Buffer.from("This is not a database file!");
 
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: "{}" },
-        { name: "collection.anki21", content: invalidContent },
+        { content: validMetaV2, name: "meta" },
+        { content: "{}", name: "media" },
+        { content: invalidContent, name: "collection.anki21" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath);
@@ -413,9 +413,9 @@ describe("Error Handling and Edge Cases", () => {
       const malformedJson = '{ "0": "image.png", "1": }'; // Missing value
 
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: malformedJson },
-        { name: "collection.anki21", content: validDb },
+        { content: validMetaV2, name: "meta" },
+        { content: malformedJson, name: "media" },
+        { content: validDb, name: "collection.anki21" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath);
@@ -436,9 +436,9 @@ describe("Error Handling and Edge Cases", () => {
       const arrayJson = '["image.png", "audio.mp3"]';
 
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: arrayJson },
-        { name: "collection.anki21", content: validDb },
+        { content: validMetaV2, name: "meta" },
+        { content: arrayJson, name: "media" },
+        { content: validDb, name: "collection.anki21" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath);
@@ -459,9 +459,9 @@ describe("Error Handling and Edge Cases", () => {
       const emptyContent = "";
 
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: emptyContent },
-        { name: "collection.anki21", content: validDb },
+        { content: validMetaV2, name: "meta" },
+        { content: emptyContent, name: "media" },
+        { content: validDb, name: "collection.anki21" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath);
@@ -469,7 +469,9 @@ describe("Error Handling and Edge Cases", () => {
       // Should succeed - empty media file is valid
       expect(result.status).toBe("success");
       expect(result.data).toBeDefined();
-      if (result.data === undefined) throw new Error("Expected data");
+      if (result.data === undefined) {
+        throw new Error("Expected data");
+      }
       const mediaFiles = result.data.listMediaFiles();
       expect(mediaFiles).toHaveLength(0);
     });
@@ -482,9 +484,9 @@ describe("Error Handling and Edge Cases", () => {
       const emptyObjectJson = "{}";
 
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: emptyObjectJson },
-        { name: "collection.anki21", content: validDb },
+        { content: validMetaV2, name: "meta" },
+        { content: emptyObjectJson, name: "media" },
+        { content: validDb, name: "collection.anki21" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath);
@@ -492,7 +494,9 @@ describe("Error Handling and Edge Cases", () => {
       // Should succeed - empty object is valid
       expect(result.status).toBe("success");
       expect(result.data).toBeDefined();
-      if (result.data === undefined) throw new Error("Expected data");
+      if (result.data === undefined) {
+        throw new Error("Expected data");
+      }
       const mediaFiles = result.data.listMediaFiles();
       expect(mediaFiles).toHaveLength(0);
     });
@@ -505,9 +509,9 @@ describe("Error Handling and Edge Cases", () => {
       const invalidValueJson = '{ "0": 12345 }';
 
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: invalidValueJson },
-        { name: "collection.anki21", content: validDb },
+        { content: validMetaV2, name: "meta" },
+        { content: invalidValueJson, name: "media" },
+        { content: validDb, name: "collection.anki21" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath);
@@ -528,9 +532,9 @@ describe("Error Handling and Edge Cases", () => {
       const nullValueJson = '{ "0": null }';
 
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: nullValueJson },
-        { name: "collection.anki21", content: validDb },
+        { content: validMetaV2, name: "meta" },
+        { content: nullValueJson, name: "media" },
+        { content: validDb, name: "collection.anki21" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath);
@@ -551,9 +555,9 @@ describe("Error Handling and Edge Cases", () => {
       const brokenJson = "not valid json at all {{{";
 
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: brokenJson },
-        { name: "collection.anki21", content: validDb },
+        { content: validMetaV2, name: "meta" },
+        { content: brokenJson, name: "media" },
+        { content: validDb, name: "collection.anki21" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath);
@@ -573,37 +577,37 @@ describe("Error Handling and Edge Cases", () => {
 
       // Create database with 2 valid notes and 1 note referencing non-existent note type
       const validDb = await createAnkiDatabaseWithData({
+        cards: [
+          { did: 1, id: 100, nid: 1000 }, // Valid card for valid note
+          { did: 1, id: 200, nid: 2000 }, // Valid card for valid note
+          { did: 1, id: 300, nid: 3000 }, // Card for invalid note (should be skipped)
+        ],
         notes: [
           {
             id: 1000,
             guid: "valid1",
-            mid: 1234567890123, // Valid note type
-            flds: "Front 1\u001fBack 1",
+            mid: 1_234_567_890_123, // Valid note type
+            flds: "Front 1\u001FBack 1",
           },
           {
             id: 2000,
             guid: "valid2",
-            mid: 1234567890123, // Valid note type
-            flds: "Front 2\u001fBack 2",
+            mid: 1_234_567_890_123, // Valid note type
+            flds: "Front 2\u001FBack 2",
           },
           {
             id: 3000,
             guid: "invalid",
-            mid: 9999999999999, // Non-existent note type
-            flds: "Invalid\u001fNote",
+            mid: 9_999_999_999_999, // Non-existent note type
+            flds: "Invalid\u001FNote",
           },
-        ],
-        cards: [
-          { id: 100, nid: 1000, did: 1 }, // Valid card for valid note
-          { id: 200, nid: 2000, did: 1 }, // Valid card for valid note
-          { id: 300, nid: 3000, did: 1 }, // Card for invalid note (should be skipped)
         ],
       });
 
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: "{}" },
-        { name: "collection.anki21", content: validDb },
+        { content: validMetaV2, name: "meta" },
+        { content: "{}", name: "media" },
+        { content: validDb, name: "collection.anki21" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath, {
@@ -638,27 +642,27 @@ describe("Error Handling and Edge Cases", () => {
 
       // Create database with a note referencing non-existent note type
       const validDb = await createAnkiDatabaseWithData({
+        cards: [{ did: 1, id: 100, nid: 1000 }],
         notes: [
           {
-            id: 1000,
+            flds: "Front\u001FBack",
             guid: "valid",
-            mid: 1234567890123,
-            flds: "Front\u001fBack",
+            id: 1000,
+            mid: 1_234_567_890_123,
           },
           {
             id: 2000,
             guid: "invalid",
-            mid: 9999999999999, // Non-existent note type
-            flds: "Invalid\u001fNote",
+            mid: 9_999_999_999_999, // Non-existent note type
+            flds: "Invalid\u001FNote",
           },
         ],
-        cards: [{ id: 100, nid: 1000, did: 1 }],
       });
 
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: "{}" },
-        { name: "collection.anki21", content: validDb },
+        { content: validMetaV2, name: "meta" },
+        { content: "{}", name: "media" },
+        { content: validDb, name: "collection.anki21" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath, {
@@ -681,24 +685,24 @@ describe("Error Handling and Edge Cases", () => {
 
       // Create database with card referencing non-existent deck
       const validDb = await createAnkiDatabaseWithData({
+        cards: [
+          { did: 1, id: 100, nid: 1000 }, // Valid deck
+          { did: 99_999, id: 200, nid: 1000 }, // Non-existent deck
+        ],
         notes: [
           {
-            id: 1000,
+            flds: "Front\u001FBack",
             guid: "note1",
-            mid: 1234567890123,
-            flds: "Front\u001fBack",
+            id: 1000,
+            mid: 1_234_567_890_123,
           },
-        ],
-        cards: [
-          { id: 100, nid: 1000, did: 1 }, // Valid deck
-          { id: 200, nid: 1000, did: 99999 }, // Non-existent deck
         ],
       });
 
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: "{}" },
-        { name: "collection.anki21", content: validDb },
+        { content: validMetaV2, name: "meta" },
+        { content: "{}", name: "media" },
+        { content: validDb, name: "collection.anki21" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath, {
@@ -727,25 +731,25 @@ describe("Error Handling and Edge Cases", () => {
 
       // Create database with review referencing non-existent card
       const validDb = await createAnkiDatabaseWithData({
+        cards: [{ did: 1, id: 100, nid: 1000 }],
         notes: [
           {
-            id: 1000,
+            flds: "Front\u001FBack",
             guid: "note1",
-            mid: 1234567890123,
-            flds: "Front\u001fBack",
+            id: 1000,
+            mid: 1_234_567_890_123,
           },
         ],
-        cards: [{ id: 100, nid: 1000, did: 1 }],
         reviews: [
-          { id: 1001, cid: 100 }, // Valid card reference
-          { id: 1002, cid: 99999 }, // Non-existent card
+          { cid: 100, id: 1001 }, // Valid card reference
+          { cid: 99_999, id: 1002 }, // Non-existent card
         ],
       });
 
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: "{}" },
-        { name: "collection.anki21", content: validDb },
+        { content: validMetaV2, name: "meta" },
+        { content: "{}", name: "media" },
+        { content: validDb, name: "collection.anki21" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath, {
@@ -772,36 +776,36 @@ describe("Error Handling and Edge Cases", () => {
 
       // Create database with multiple types of issues
       const validDb = await createAnkiDatabaseWithData({
+        cards: [
+          { did: 1, id: 100, nid: 1000 },
+          { did: 1, id: 200, nid: 2000 }, // Will be orphaned when note is skipped
+          { did: 77_777, id: 300, nid: 1000 }, // Non-existent deck
+        ],
         notes: [
           {
-            id: 1000,
+            flds: "Front\u001FBack",
             guid: "valid",
-            mid: 1234567890123,
-            flds: "Front\u001fBack",
+            id: 1000,
+            mid: 1_234_567_890_123,
           },
           {
-            id: 2000,
+            flds: "Bad\u001FNote",
             guid: "invalid-model",
-            mid: 8888888888888,
-            flds: "Bad\u001fNote",
+            id: 2000,
+            mid: 8_888_888_888_888,
           },
         ],
-        cards: [
-          { id: 100, nid: 1000, did: 1 },
-          { id: 200, nid: 2000, did: 1 }, // Will be orphaned when note is skipped
-          { id: 300, nid: 1000, did: 77777 }, // Non-existent deck
-        ],
         reviews: [
-          { id: 1001, cid: 100 },
-          { id: 1002, cid: 300 }, // Will be orphaned when card is skipped
-          { id: 1003, cid: 66666 }, // Non-existent card
+          { cid: 100, id: 1001 },
+          { cid: 300, id: 1002 }, // Will be orphaned when card is skipped
+          { cid: 66_666, id: 1003 }, // Non-existent card
         ],
       });
 
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: "{}" },
-        { name: "collection.anki21", content: validDb },
+        { content: validMetaV2, name: "meta" },
+        { content: "{}", name: "media" },
+        { content: validDb, name: "collection.anki21" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath, {
@@ -835,9 +839,9 @@ describe("Error Handling and Edge Cases", () => {
       });
 
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: mediaMapping },
-        { name: "collection.anki21", content: validDb },
+        { content: validMetaV2, name: "meta" },
+        { content: mediaMapping, name: "media" },
+        { content: validDb, name: "collection.anki21" },
         // Note: NOT including the actual media files "0" and "1"
       ]);
 
@@ -864,22 +868,22 @@ describe("Error Handling and Edge Cases", () => {
 
       // Create a completely valid database
       const validDb = await createAnkiDatabaseWithData({
+        cards: [{ did: 1, id: 100, nid: 1000 }],
         notes: [
           {
-            id: 1000,
+            flds: "Front 1\u001FBack 1",
             guid: "note1",
-            mid: 1234567890123,
-            flds: "Front 1\u001fBack 1",
+            id: 1000,
+            mid: 1_234_567_890_123,
           },
         ],
-        cards: [{ id: 100, nid: 1000, did: 1 }],
-        reviews: [{ id: 1001, cid: 100 }],
+        reviews: [{ cid: 100, id: 1001 }],
       });
 
       await createTestZip(zipPath, [
-        { name: "meta", content: validMetaV2 },
-        { name: "media", content: "{}" },
-        { name: "collection.anki21", content: validDb },
+        { content: validMetaV2, name: "meta" },
+        { content: "{}", name: "media" },
+        { content: validDb, name: "collection.anki21" },
       ]);
 
       const result = await AnkiPackage.fromAnkiExport(zipPath, {
