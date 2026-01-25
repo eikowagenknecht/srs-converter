@@ -207,15 +207,10 @@ describe("createSelectiveZip archiver warning handling", () => {
         ? String.raw`Z:\nonexistent\path\test.zip` // Invalid drive on Windows
         : "/root/cannot-write-here/test.zip"; // Invalid path on Unix
 
-    let error: unknown;
-    try {
-      await createSelectiveZip(invalidOutputPath, [{ compress: true, path: testFile }]);
-    } catch (err) {
-      error = err;
-    }
-
-    // Verify error was thrown - this tests the error cleanup path
-    expect(error).toBeDefined();
+    // Verify error is thrown - this tests the error cleanup path
+    await expect(
+      createSelectiveZip(invalidOutputPath, [{ compress: true, path: testFile }]),
+    ).rejects.toBeDefined();
   });
 
   it("should cleanup output stream when archive finalize fails", async () => {
