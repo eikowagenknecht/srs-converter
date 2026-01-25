@@ -334,7 +334,8 @@ describe("Error Handling and Edge Cases", () => {
     it("should detect and report database with missing required tables", async () => {
       const tempDir = getTempDir();
       // Create a valid SQLite database but without Anki's required tables
-      const InitSqlJs = (await import("sql.js")).default;
+      const sqlJsModule = await import("sql.js");
+      const InitSqlJs = sqlJsModule.default;
       const SQL = await InitSqlJs();
       const emptyDb = new SQL.Database();
       // Create a simple table that is NOT an Anki table

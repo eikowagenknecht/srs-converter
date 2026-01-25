@@ -352,7 +352,8 @@ export async function createAnkiDatabaseWithData(options: {
     cid: number;
   }[];
 }): Promise<Buffer> {
-  const InitSqlJs = (await import("sql.js")).default;
+  const sqlJsModule = await import("sql.js");
+  const InitSqlJs = sqlJsModule.default;
   const SQL = await InitSqlJs();
   const db = new SQL.Database();
 
