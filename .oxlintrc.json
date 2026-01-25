@@ -51,7 +51,6 @@
     "import/no-mutable-exports": "off",
     "unicorn/filename-case": "off",
     "unicorn/no-null": "off",
-    "unicorn/switch-case-braces": "off",
 
     // Pedantic Overwrites
     "max-lines-per-function": "off",

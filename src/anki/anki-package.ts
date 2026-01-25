@@ -658,23 +658,28 @@ export class AnkiPackage {
           if (error instanceof AnkiDatabaseError) {
             let userMessage: string;
             switch (error.type) {
-              case "empty":
+              case "empty": {
                 userMessage =
                   "The collection.anki21 database file is empty (0 bytes). This may indicate an incomplete export or file corruption. Please re-export your deck from Anki.";
                 break;
-              case "truncated":
+              }
+              case "truncated": {
                 userMessage =
                   "The collection.anki21 database file is truncated and too small to be valid. This may indicate an interrupted download or corrupted export. Please re-export your deck from Anki.";
                 break;
-              case "invalid_header":
+              }
+              case "invalid_header": {
                 userMessage =
                   "The collection.anki21 file is not a valid SQLite database. The file may have been corrupted or replaced with non-database content. Please re-export your deck from Anki.";
                 break;
-              case "corrupted":
+              }
+              case "corrupted": {
                 userMessage = `The collection.anki21 database is corrupted and cannot be opened. ${error.message} Please try re-exporting your deck from Anki, or check if your Anki installation is working correctly.`;
                 break;
-              default:
+              }
+              default: {
                 userMessage = `Database error: ${error.message}`;
+              }
             }
             collector.addCritical(userMessage);
             const cleanupIssues = await removeDirectory(instance.tempDir);
