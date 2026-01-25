@@ -303,19 +303,19 @@ export class AnkiDatabase {
     return collection;
   }
 
-  async getCards(): Promise<CardsTable[]> {
+  getCards(): Promise<CardsTable[]> {
     return this.db.selectFrom("cards").selectAll().execute();
   }
 
-  async getNotes(): Promise<NotesTable[]> {
+  getNotes(): Promise<NotesTable[]> {
     return this.db.selectFrom("notes").selectAll().execute();
   }
 
-  async getRevlog(): Promise<RevlogTable[]> {
+  getRevlog(): Promise<RevlogTable[]> {
     return this.db.selectFrom("revlog").selectAll().execute();
   }
 
-  async getGraves(): Promise<DBTables["graves"][]> {
+  getGraves(): Promise<DBTables["graves"][]> {
     return this.db.selectFrom("graves").selectAll().execute();
   }
 
@@ -330,15 +330,15 @@ export class AnkiDatabase {
       .execute();
   }
 
-  async addNote(note: NotesTable): Promise<NotesTable> {
+  addNote(note: NotesTable): Promise<NotesTable> {
     return this.db.insertInto("notes").values(note).returningAll().executeTakeFirstOrThrow();
   }
 
-  async addCard(card: CardsTable): Promise<CardsTable> {
+  addCard(card: CardsTable): Promise<CardsTable> {
     return this.db.insertInto("cards").values(card).returningAll().executeTakeFirstOrThrow();
   }
 
-  async addRevlog(revlog: RevlogTable): Promise<RevlogTable> {
+  addRevlog(revlog: RevlogTable): Promise<RevlogTable> {
     return this.db.insertInto("revlog").values(revlog).returningAll().executeTakeFirstOrThrow();
   }
 }

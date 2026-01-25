@@ -260,7 +260,7 @@ export function createMultiCardPackage(noteCount = 10): SrsPackage {
 // #region Helpers - Utilities
 
 // Helper function to create a ZIP file with specific contents for testing
-export async function createTestZip(
+export function createTestZip(
   zipPath: string,
   files: { name: string; content: string | Buffer }[],
 ): Promise<void> {
