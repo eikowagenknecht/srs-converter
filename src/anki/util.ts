@@ -107,7 +107,10 @@ export function generateUniqueIdFromUuid(uuid: string): number {
   const str = uuid.replaceAll("-", ""); // Remove hyphens
 
   for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
+    const char = str.codePointAt(i);
+    if (char === undefined) {
+      throw new Error(`Invalid index ${i} for string length ${str.length}`);
+    }
     hash = (hash << 5) - hash + char;
     hash &= hash; // Convert to 32-bit integer
   }
