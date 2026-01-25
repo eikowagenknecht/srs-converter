@@ -262,7 +262,9 @@ export class AnkiDatabase {
         .map((s) => s.trim())
         .filter((s) => s.length > 0);
 
-    const statements = Array.isArray(sql) ? sql.flatMap(prepareStatements) : prepareStatements(sql);
+    const statements = Array.isArray(sql)
+      ? sql.flatMap((s) => prepareStatements(s))
+      : prepareStatements(sql);
 
     for (const statement of statements) {
       try {

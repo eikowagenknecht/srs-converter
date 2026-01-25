@@ -50,7 +50,6 @@
     ],
     "unicorn/number-literal-case": "off", // Conflicts with oxfmt
     "unicorn/no-nested-ternary": "off", // Conflicts with oxfmt
-    "unicorn/no-array-callback-reference": "off",
     "unicorn/no-object-as-default-parameter": "off",
     "unicorn/prefer-code-point": "off",
     "unicorn/prefer-native-coercion-functions": "off",
