@@ -402,7 +402,7 @@ export class AnkiPackage {
     }
 
     // Extract front text from note fields
-    const fields = note.flds.split("\x1F");
+    const fields = note.flds.split("\u001F");
     // TODO: This needs some love to work with multiple fields, HTML etc.
     const frontText = fields[0] ?? note.sfld;
     const cleanText = frontText.replaceAll(/<[^>]*>/g, "").trim();

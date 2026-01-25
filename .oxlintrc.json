@@ -49,7 +49,6 @@
       }
     ],
     "unicorn/no-array-callback-reference": "off",
-    "unicorn/no-hex-escape": "off",
     "unicorn/no-object-as-default-parameter": "off",
     "unicorn/prefer-code-point": "off",
     "unicorn/prefer-native-coercion-functions": "off",

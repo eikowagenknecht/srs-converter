@@ -701,7 +701,7 @@ describe("Utilities and Helper Functions", () => {
             csum: 0,
             data: pluginDataForNote,
             flags: 0,
-            flds: "Front text\x1FBack text",
+            flds: "Front text\u001FBack text",
             guid: "abcdefghij",
             id: 1,
             mid: 1,

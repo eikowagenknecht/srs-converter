@@ -50,7 +50,7 @@ describe("Anki Export Documentation Examples", () => {
       csum: 0,
       data: "",
       flags: 0,
-      flds: "What does this test verify?\x1FThat Anki export functionality works correctly",
+      flds: "What does this test verify?\u001FThat Anki export functionality works correctly",
       guid: `ExportNote_${Date.now().toFixed(0)}`,
       id: Date.now(),
       mid: basicModel.id,

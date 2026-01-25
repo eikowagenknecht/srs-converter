@@ -74,7 +74,7 @@ describe("Conversion SRS → Anki", () => {
         }
         expect(ankiNote.id).toBe(extractTimestampFromUuid(srsNote.id));
         expect(ankiNote.mid).toBe(extractTimestampFromUuid(srsNoteType.id));
-        const fields = ankiNote.flds.split("\x1F");
+        const fields = ankiNote.flds.split("\u001F");
         expect(fields).toHaveLength(2);
         expect(fields[0]).toEqual("What is the capital of France?");
         expect(fields[1]).toEqual("Paris");
