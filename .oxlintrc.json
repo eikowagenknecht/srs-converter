@@ -34,8 +34,6 @@
     "max-depth": "off",
     "max-lines": "off",
     "max-classes-per-file": "off",
-    "no-negated-condition": "off",
-    "require-await": "off",
     "no-lonely-if": "off",
     "jsdoc/require-param-type": "off",
     "jsdoc/require-returns-type": "off",

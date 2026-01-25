@@ -293,7 +293,7 @@ function filterValidDatabaseItems(dump: DatabaseDump, collector: IssueCollector)
     if (validation.valid) {
       validCards.push(card);
     } else {
-      const cardId = card.id !== null ? card.id.toFixed(0) : "unknown";
+      const cardId = card.id === null ? "unknown" : card.id.toFixed(0);
       collector.addError(
         `Card ${cardId} is invalid: ${validation.error ?? "unknown error"}. This card will be skipped.`,
         { itemType: "card", originalData: card },
@@ -312,7 +312,7 @@ function filterValidDatabaseItems(dump: DatabaseDump, collector: IssueCollector)
     if (validation.valid) {
       validReviews.push(review);
     } else {
-      const reviewId = review.id !== null ? review.id.toFixed(0) : "unknown";
+      const reviewId = review.id === null ? "unknown" : review.id.toFixed(0);
       collector.addError(
         `Review ${reviewId} is invalid: ${validation.error ?? "unknown error"}. This review will be skipped.`,
         { itemType: "review", originalData: review },
