@@ -267,8 +267,8 @@ function filterValidDatabaseItems(dump: DatabaseDump, collector: IssueCollector)
     }
   }
 
-  const validDeckIds = new Set(Object.keys(validDecks).map((id) => Number(id)));
-  const validNoteTypeIds = new Set(Object.keys(validNoteTypes).map((id) => Number(id)));
+  const validDeckIds = new Set(Object.keys(validDecks).map(Number));
+  const validNoteTypeIds = new Set(Object.keys(validNoteTypes).map(Number));
 
   // Step 3: Validate notes
   const validNotes: NotesTable[] = [];

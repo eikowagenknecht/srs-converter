@@ -52,7 +52,6 @@
     "unicorn/no-nested-ternary": "off", // Conflicts with oxfmt
     "unicorn/no-object-as-default-parameter": "off",
     "unicorn/prefer-code-point": "off",
-    "unicorn/prefer-native-coercion-functions": "off",
 
     // Style Overwrites
     "max-statements": "off",
