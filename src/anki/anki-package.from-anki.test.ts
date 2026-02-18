@@ -9,8 +9,6 @@ import {
   createNoteType,
 } from "@/srs-package";
 
-import type { Ease } from "./types";
-
 import { AnkiPackage } from "./anki-package";
 import {
   createBasicSrsPackage,
@@ -18,6 +16,7 @@ import {
   expectSuccess,
   setupTempDir,
 } from "./anki-package.fixtures";
+import type { Ease } from "./types";
 
 setupTempDir();
 

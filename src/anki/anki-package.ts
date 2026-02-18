@@ -1,18 +1,17 @@
-import type { Readable } from "node:stream";
-import type { CentralDirectory } from "unzipper";
-
 import { createReadStream, createWriteStream } from "node:fs";
 import { copyFile, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+
 import protobuf from "protobufjs";
+import type { CentralDirectory } from "unzipper";
 import { Open } from "unzipper";
 
 import type { ConversionIssue, ConversionOptions, ConversionResult } from "@/error-handling";
-import type { SrsCard } from "@/srs-package";
-
 import { IssueCollector } from "@/error-handling";
+import type { SrsCard } from "@/srs-package";
 import {
   SrsPackage,
   SrsReviewScore,
@@ -23,6 +22,8 @@ import {
   createReview,
 } from "@/srs-package";
 
+import { defaultDeck } from "./constants";
+import { AnkiDatabase, AnkiDatabaseError } from "./database";
 import type {
   CardsTable,
   Config,
@@ -33,9 +34,6 @@ import type {
   NotesTable,
   RevlogTable,
 } from "./types";
-
-import { defaultDeck } from "./constants";
-import { AnkiDatabase, AnkiDatabaseError } from "./database";
 import { DeckDynamicity, Ease, ExportVersion, NoteTypeKind } from "./types";
 import {
   createSelectiveZip,
@@ -723,11 +721,11 @@ export class AnkiPackage {
         // Validate media file existence
         for (const [mediaId, filename] of Object.entries(instance.mediaFiles)) {
           const mediaPath = join(instance.tempDir, mediaId);
-          const mediaExists = await stat(mediaPath)
+          const mediaFileExists = await stat(mediaPath)
             .then(() => true)
             .catch(() => false);
 
-          if (!mediaExists) {
+          if (!mediaFileExists) {
             collector.addWarning(
               `Media file '${filename}' (ID: ${mediaId}) is listed in the media mapping but not found in the package. References to this file may be broken.`,
               { itemType: "media", originalData: { filename, mediaId } },
@@ -948,11 +946,11 @@ export class AnkiPackage {
       cardsByNote.set(card.noteId, noteCards);
     }
 
-    for (const [noteId, cards] of cardsByNote) {
+    for (const [noteId, noteCards] of cardsByNote) {
       // Find the note for these cards
       const note = srsPackage.getNotes().find((n) => n.id === noteId);
       if (!note) {
-        for (const card of cards) {
+        for (const card of noteCards) {
           collector.addError(
             "Cannot convert card because its note was not found. The note may not have been converted properly. This card will be skipped.",
             { itemType: "card", originalData: card },
@@ -963,7 +961,7 @@ export class AnkiPackage {
 
       const ankiNoteId = noteIDs.get(note.id);
       if (!ankiNoteId) {
-        for (const card of cards) {
+        for (const card of noteCards) {
           collector.addError(
             `Cannot convert card because note ID ${note.id} was not found. The note may have been skipped earlier. This card will be skipped.`,
             {
@@ -978,7 +976,7 @@ export class AnkiPackage {
       // TODO: Should probably be ankiDeckId, see below
       const deckId = deckIDs.get(note.deckId);
       if (!deckId) {
-        for (const card of cards) {
+        for (const card of noteCards) {
           collector.addError(
             `Cannot convert card because deck ID ${note.deckId} was not found. The deck may have been skipped earlier. This card will be skipped.`,
             {
@@ -1019,8 +1017,8 @@ export class AnkiPackage {
         // Map SRS cards to ordinals, ensuring we have all required ordinals
         cardsToCreate = requiredOrdinals.map((ord) => {
           // Try to find an existing SRS card with this ordinal
-          const existingCard = cards.find((c) => c.templateId === ord);
-          const fallbackCard = cards[0];
+          const existingCard = noteCards.find((c) => c.templateId === ord);
+          const fallbackCard = noteCards[0];
           if (!fallbackCard) {
             throw new Error(`No cards available for note ${note.id}`);
           }
@@ -1031,7 +1029,7 @@ export class AnkiPackage {
         });
       } else {
         // For regular note types, create cards as normal
-        cardsToCreate = cards.map((card) => ({
+        cardsToCreate = noteCards.map((card) => ({
           ord: card.templateId,
           srsCard: card,
         }));

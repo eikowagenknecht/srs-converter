@@ -1,5 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { AnkiDatabase } from "./database";
@@ -7,9 +8,9 @@ import { AnkiDatabase } from "./database";
 describe("anki db test", () => {
   let db: AnkiDatabase;
 
-  async function saveDatabase(db: AnkiDatabase, filepath: string) {
+  async function saveDatabase(database: AnkiDatabase, filepath: string) {
     await fs.mkdir(path.dirname(filepath), { recursive: true });
-    await fs.writeFile(filepath, db.toBuffer());
+    await fs.writeFile(filepath, database.toBuffer());
   }
 
   beforeEach(async () => {

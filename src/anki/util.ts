@@ -1,8 +1,8 @@
-import type { ZipEntryData } from "archiver";
-
-import archiver from "archiver";
 import fs from "node:fs";
 import path from "node:path";
+
+import type { ZipEntryData } from "archiver";
+import archiver from "archiver";
 import { v7 as uuidv7 } from "uuid";
 
 const NUMERIC_STRING_PATTERN = /^\d+$/;
@@ -257,8 +257,8 @@ export function parseWithBigInts(jsonString: string, bigintFieldPaths: string[])
 
   // Phase 2: Preprocessing - Quote numeric values based on field names to prevent precision loss
   let preprocessedJson = jsonString;
-  for (const path of bigintFieldPaths) {
-    preprocessedJson = quoteNumbersForFieldName(preprocessedJson, path);
+  for (const fieldPath of bigintFieldPaths) {
+    preprocessedJson = quoteNumbersForFieldName(preprocessedJson, fieldPath);
   }
 
   // Phase 3: Processing - Parse and convert only target paths to BigInt using precise matching
@@ -280,15 +280,15 @@ export function parseWithBigInts(jsonString: string, bigintFieldPaths: string[])
  * @throws {Error} When target fields contain any non-numeric values
  */
 function validateTargetFieldsAreNumeric(parsedValue: unknown, targetPaths: string[]): void {
-  for (const path of targetPaths) {
-    const values = getValuesAtPath(parsedValue, path);
+  for (const targetPath of targetPaths) {
+    const values = getValuesAtPath(parsedValue, targetPath);
     for (const value of values) {
       if (typeof value !== "number") {
-        const pathParts = path.replaceAll("[]", "").split(".");
+        const pathParts = targetPath.replaceAll("[]", "").split(".");
         const fieldName = pathParts.at(-1) ?? "unknown";
         const valueStr = typeof value === "string" ? `"${value}"` : String(value);
         throw new Error(
-          `Field '${fieldName}' (from path '${path}') contains non-numeric value ${valueStr}. Expected unquoted numeric value.`,
+          `Field '${fieldName}' (from path '${targetPath}') contains non-numeric value ${valueStr}. Expected unquoted numeric value.`,
         );
       }
     }
@@ -301,7 +301,7 @@ function validateTargetFieldsAreNumeric(parsedValue: unknown, targetPaths: strin
  * @param path - The path to get values from (may include [] notation like "users[].id")
  * @returns Array of values found at the path
  */
-function getValuesAtPath(obj: unknown, path: string): unknown[] {
+function getValuesAtPath(obj: unknown, fieldPath: string): unknown[] {
   const results: unknown[] = [];
 
   function traverse(current: unknown, pathParts: string[]) {
@@ -338,7 +338,7 @@ function getValuesAtPath(obj: unknown, path: string): unknown[] {
     }
   }
 
-  const pathParts = path.split(".");
+  const pathParts = fieldPath.split(".");
   traverse(obj, pathParts);
   return results;
 }
@@ -362,8 +362,8 @@ function getValuesAtPath(obj: unknown, path: string): unknown[] {
  * @param path - The field path (e.g., "user.id", "users.id")
  * @returns The JSON string with unquoted integer values quoted for the target field name
  */
-function quoteNumbersForFieldName(jsonString: string, path: string): string {
-  const pathParts = path.split(".");
+function quoteNumbersForFieldName(jsonString: string, fieldPath: string): string {
+  const pathParts = fieldPath.split(".");
   const lastField = pathParts.at(-1);
 
   if (!lastField) {
