@@ -1,11 +1,11 @@
-import type { Database } from "sql.js";
-
 import { CompiledQuery, Kysely } from "kysely";
 import { SqlJsDialect } from "kysely-wasm";
+import type { Database } from "sql.js";
 import InitSqlJs from "sql.js";
 
 import type { ConversionIssue } from "@/error-handling";
 
+import { ankiDbSchema, ankiDefaultCollectionInsert } from "./constants";
 import type {
   CardsTable,
   ColTable,
@@ -19,8 +19,6 @@ import type {
   NoteTypes,
   RevlogTable,
 } from "./types";
-
-import { ankiDbSchema, ankiDefaultCollectionInsert } from "./constants";
 import { parseWithBigInts, serializeWithBigInts } from "./util";
 
 /**

@@ -1,8 +1,7 @@
 import { access } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
 
-import type { Ease } from "./types";
+import { describe, expect, it } from "vitest";
 
 import { AnkiPackage } from "./anki-package";
 import {
@@ -14,6 +13,7 @@ import {
   setupTempDir,
 } from "./anki-package.fixtures";
 import { basicAndReversedCardModel, basicModel, clozeModel, defaultDeck } from "./constants";
+import type { Ease } from "./types";
 
 setupTempDir();
 

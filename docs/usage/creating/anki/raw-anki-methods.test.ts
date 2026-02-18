@@ -7,9 +7,8 @@ import { createReadStream } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { CardsTable, Deck, NotesTable, RevlogTable } from "@/index";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { AnkiPackage } from "@/anki/anki-package";
 import {
@@ -21,6 +20,7 @@ import {
   defaultDeck,
   imageOcclusionModel,
 } from "@/anki/constants";
+import type { CardsTable, Deck, NotesTable, RevlogTable } from "@/index";
 import { CardType, DeckDynamicity, NoteTypeKind, QueueType } from "@/index";
 
 describe("Raw Anki Methods Creation Documentation Examples", () => {

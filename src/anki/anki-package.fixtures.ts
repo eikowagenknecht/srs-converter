@@ -1,19 +1,18 @@
-import archiver from "archiver";
 import { Buffer } from "node:buffer";
 import { createWriteStream } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+import archiver from "archiver";
 import { Open } from "unzipper";
 import { afterEach, beforeEach, expect } from "vitest";
 
 import type { ConversionResult } from "@/error-handling";
 import type { SrsNoteTemplate, SrsNoteType } from "@/srs-package";
-
 import { SrsPackage, createCard, createDeck, createNote, createNoteType } from "@/srs-package";
 
 import type { CardsTable, Ease, NotesTable, RevlogTable } from "./types";
-
 import { guid64, joinAnkiFields } from "./util";
 
 // #region Helpers - Constants
