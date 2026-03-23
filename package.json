@@ -61,7 +61,7 @@
   },
   "dependencies": {
     "archiver": "7.0.1",
-    "kysely": "0.28.12",
+    "kysely": "0.28.14",
     "kysely-wasm": "1.2.1",
     "protobufjs": "8.0.0",
     "sql.js": "1.14.1",
@@ -76,7 +76,7 @@
     "@semantic-release/git": "10.0.1",
     "@types/archiver": "7.0.0",
     "@types/node": "24.10.1",
-    "@types/sql.js": "1.4.9",
+    "@types/sql.js": "1.4.10",
     "@types/unzipper": "0.10.11",
     "@vitest/coverage-v8": "3.2.4",
     "globals": "17.4.0",

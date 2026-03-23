@@ -12,11 +12,11 @@ importers:
         specifier: 7.0.1
         version: 7.0.1
       kysely:
-        specifier: 0.28.12
-        version: 0.28.12
+        specifier: 0.28.14
+        version: 0.28.14
       kysely-wasm:
         specifier: 1.2.1
-        version: 1.2.1(kysely@0.28.12)
+        version: 1.2.1(kysely@0.28.14)
       protobufjs:
         specifier: 8.0.0
         version: 8.0.0
@@ -52,8 +52,8 @@ importers:
         specifier: 24.10.1
         version: 24.10.1
       '@types/sql.js':
-        specifier: 1.4.9
-        version: 1.4.9
+        specifier: 1.4.10
+        version: 1.4.10
       '@types/unzipper':
         specifier: 0.10.11
         version: 0.10.11
@@ -1292,8 +1292,8 @@ packages:
   '@types/deep-eql@4.0.2':
     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
 
-  '@types/emscripten@1.41.2':
-    resolution: {integrity: sha512-0EVXosRnffZuF+rsMM1ZVbfpwpvL2/hWycYQ/0GaH/VaoSJvcSmMl6fiPel9TZXHL3EhANxzqKOVFC6NFXyn8A==}
+  '@types/emscripten@1.41.5':
+    resolution: {integrity: sha512-cMQm7pxu6BxtHyqJ7mQZ2kXWV5SLmugybFdHCBbJ5eHzOo6VhBckEgAT3//rP5FwPHNPeEiq4SmQ5ucBwsOo4Q==}
 
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
@@ -1313,8 +1313,8 @@ packages:
   '@types/sarif@2.1.7':
     resolution: {integrity: sha512-kRz0VEkJqWLf1LLVN4pT1cg1Z9wAuvI6L97V3m2f5B76Tg8d413ddvLBPTEHAZJlnn4XSvu0FkZtViCQGVyrXQ==}
 
-  '@types/sql.js@1.4.9':
-    resolution: {integrity: sha512-ep8b36RKHlgWPqjNG9ToUrPiwkhwh0AEzy883mO5Xnd+cL6VBH1EvSjBAAuxLUFF2Vn/moE3Me6v9E1Lo+48GQ==}
+  '@types/sql.js@1.4.10':
+    resolution: {integrity: sha512-E7XnsrWm01Uvp0/0+iRI9ZwO/BvKyiiHUpcVKJenVVH2pUdZndsgQ5BWXNxKaEO+bkKbvU29Ky9o21juMip1ww==}
 
   '@types/unzipper@0.10.11':
     resolution: {integrity: sha512-D25im2zjyMCcgL9ag6N46+wbtJBnXIr7SI4zHf9eJD2Dw2tEB5e+p5MYkrxKIVRscs5QV0EhtU9rgXSPx90oJg==}
@@ -2273,8 +2273,8 @@ packages:
     peerDependencies:
       kysely: '>=0.26'
 
-  kysely@0.28.12:
-    resolution: {integrity: sha512-kWiueDWXhbCchgiotwXkwdxZE/6h56IHAeFWg4euUfW0YsmO9sxbAxzx1KLLv2lox15EfuuxHQvgJ1qIfZuHGw==}
+  kysely@0.28.14:
+    resolution: {integrity: sha512-SU3lgh0rPvq7upc6vvdVrCsSMUG1h3ChvHVOY7wJ2fw4C9QEB7X3d5eyYEyULUX7UQtxZJtZXGuT6U2US72UYA==}
     engines: {node: '>=20.0.0'}
 
   lazystream@1.0.1:
@@ -4448,7 +4448,7 @@ snapshots:
 
   '@types/deep-eql@4.0.2': {}
 
-  '@types/emscripten@1.41.2': {}
+  '@types/emscripten@1.41.5': {}
 
   '@types/estree@1.0.8': {}
 
@@ -4466,9 +4466,9 @@ snapshots:
 
   '@types/sarif@2.1.7': {}
 
-  '@types/sql.js@1.4.9':
+  '@types/sql.js@1.4.10':
     dependencies:
-      '@types/emscripten': 1.41.2
+      '@types/emscripten': 1.41.5
       '@types/node': 24.10.1
 
   '@types/unzipper@0.10.11':
@@ -5461,16 +5461,16 @@ snapshots:
       yaml: 2.8.3
       zod: 4.3.6
 
-  kysely-generic-sqlite@1.2.1(kysely@0.28.12):
+  kysely-generic-sqlite@1.2.1(kysely@0.28.14):
     dependencies:
-      kysely: 0.28.12
+      kysely: 0.28.14
 
-  kysely-wasm@1.2.1(kysely@0.28.12):
+  kysely-wasm@1.2.1(kysely@0.28.14):
     dependencies:
-      kysely: 0.28.12
-      kysely-generic-sqlite: 1.2.1(kysely@0.28.12)
+      kysely: 0.28.14
+      kysely-generic-sqlite: 1.2.1(kysely@0.28.14)
 
-  kysely@0.28.12: {}
+  kysely@0.28.14: {}
 
   lazystream@1.0.1:
     dependencies:
