@@ -1053,7 +1053,7 @@ export class AnkiPackage {
           id: cardId,
           nid: ankiNoteId,
           did: ankiDeckId,
-          ord: ord, // Use the calculated ordinal
+          ord, // Use the calculated ordinal
           mod: 0,
           usn: 0,
           type: 0,
@@ -1126,7 +1126,7 @@ export class AnkiPackage {
         id: reviewId,
         cid: cardId,
         usn: 0,
-        ease: ease,
+        ease,
         ivl: 0, // TODO: Find out how to fill this and "lastIvl", "factor" and "type"
         lastIvl: 0,
         factor: 0,

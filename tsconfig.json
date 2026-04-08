@@ -24,7 +24,6 @@
 
     /* Paths */
     // Resolve @/ to the source root directory
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     },

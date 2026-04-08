@@ -565,7 +565,7 @@ describe("Conversion SRS → Anki", () => {
       const review = createReview({
         cardId: card.id,
         score: SrsReviewScore.Normal,
-        timestamp: timestamp,
+        timestamp,
       });
       srsPackage.addReview(review);
 
