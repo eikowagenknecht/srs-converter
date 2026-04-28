@@ -66,7 +66,7 @@
     "protobufjs": "8.0.1",
     "sql.js": "1.14.1",
     "unzipper": "0.12.3",
-    "uuid": "13.0.0"
+    "uuid": "14.0.0"
   },
   "devDependencies": {
     "@commitlint/cli": "20.5.0",
