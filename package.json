@@ -61,9 +61,9 @@
   },
   "dependencies": {
     "archiver": "7.0.1",
-    "kysely": "0.28.17",
+    "kysely": "0.29.0",
     "kysely-wasm": "1.2.1",
-    "protobufjs": "8.0.3",
+    "protobufjs": "8.2.0",
     "sql.js": "1.14.1",
     "unzipper": "0.12.3",
     "uuid": "14.0.0"
@@ -78,17 +78,17 @@
     "@types/node": "25.5.2",
     "@types/sql.js": "1.4.11",
     "@types/unzipper": "0.10.11",
-    "@vitest/coverage-v8": "4.1.5",
+    "@vitest/coverage-v8": "4.1.6",
     "globals": "17.6.0",
-    "jscpd": "4.0.9",
-    "knip": "6.11.0",
+    "jscpd": "4.1.0",
+    "knip": "6.12.2",
     "lefthook": "2.1.6",
-    "oxfmt": "0.47.0",
+    "oxfmt": "0.49.0",
     "oxlint": "^1.59.0",
     "semantic-release": "25.0.3",
-    "tsdown": "0.21.10",
+    "tsdown": "0.22.0",
     "typescript": "6.0.3",
-    "vitest": "4.1.5"
+    "vitest": "4.1.6"
   },
   "engines": {
     "node": ">=22.0.0",
