@@ -60,7 +60,7 @@
     "jscpd": "jscpd ./src"
   },
   "dependencies": {
-    "archiver": "7.0.1",
+    "archiver": "8.0.0",
     "kysely": "0.29.2",
     "kysely-wasm": "1.2.1",
     "protobufjs": "8.4.0",
