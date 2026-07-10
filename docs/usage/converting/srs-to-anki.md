@@ -23,7 +23,7 @@ const ankiResult = await AnkiPackage.fromSrsPackage(srsPackage);
 switch (ankiResult.status) {
   case "success":
     console.log("✅ Conversion successful!");
-    await ankiResult.data.exportToAnkiFile("./output.apkg");
+    await ankiResult.data.toAnkiExport("./output.apkg");
     break;
 
   case "partial":
@@ -32,7 +32,7 @@ switch (ankiResult.status) {
       console.warn(`${issue.severity}: ${issue.message}`);
     });
     // Still usable, but might miss some data
-    await ankiResult.data.exportToAnkiFile("./output-partial.apkg");
+    await ankiResult.data.toAnkiExport("./output-partial.apkg");
     break;
 
   case "failure":
@@ -60,7 +60,7 @@ const ankiResult = await AnkiPackage.fromSrsPackage(srsPackage, {
 switch (ankiResult.status) {
   case "success":
     console.log("✅ Conversion successful!");
-    await ankiResult.data.exportToAnkiFile("./output.apkg");
+    await ankiResult.data.toAnkiExport("./output.apkg");
     break;
 
   case "failure":
@@ -77,6 +77,8 @@ switch (ankiResult.status) {
 ## Plugin Data Restoration
 
 When converting from SRS to Anki format, plugin-specific data stored in `applicationSpecificData.ankiData` is automatically restored to the `data` field in notes and cards. This enables full round-trip preservation of Anki add-on data.
+
+For packages that originated from an Anki file, `fromSrsPackage` also restores the rest of the original Anki state (scheduling, review details, note/card timestamps, GUIDs, tags, note-type internals, deck options, and collection metadata) from the per-entity and package-level blobs captured during the Anki → SRS conversion. See the [Reading Anki Packages Guide](../reading/anki/README.md#plugin-data-handling) and [ADR-0003](../../decisions/0003-use-application-specific-data-for-data-preservation.md) for the full list of blob keys. The precedence for the `data` column is: `applicationSpecificData.ankiData` (if present) wins, otherwise the value from the captured blob, otherwise the default. Fields the universal format owns (field content, deck name, note-type name, review score) always win over the blob, so edits you make in SRS survive the round-trip.
 
 ```typescript
 import { AnkiPackage, createNote, SrsPackage } from "srs-converter";

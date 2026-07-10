@@ -88,9 +88,9 @@ SM-2 derivative (v2/v3 scheduler): ease factor per card (permille, floor 1300), 
 ## What This Library Currently Covers (ground truth, 2026-07-10)
 
 - Reads/writes legacy 2 only; `ExportVersion` 3 (zstd) unsupported.
-- Anki → SRS keeps: deck name/description, note type name/fields/templates (qfmt/afmt), field values, review timestamp + ease. Raw JSON escape-hatched into `applicationSpecificData` (`ankiDeckData`, `ankiTemplateData`, `ankiGuid`, `ankiTags`, `ankiDue`/`ankiQueue`/`ankiType`, `ankiData`, `originalAnkiId`).
-- The full fidelity audit (`docs/working/audit-2026-07-10-roundtrip.md`, issues in `docs/working/issues.md`) found the write-back path restores almost none of the escape-hatched data: scheduling state, review details, tags, GUIDs, media, CSS, deck presets, and collection metadata are all reset (findings F1–F5, F11–F13). The universal format must model these **natively** — the escape-hatch pattern (ADR-0003) demonstrably does not survive round-trips in practice.
-- `fromSrsPackage` currently requires exactly one deck per package (`src/anki/anki-package.ts:783`) — multi-deck export is a design gap, not just a bug.
+- Anki → SRS keeps deck name/description, note type name/fields/templates (qfmt/afmt), field values, and review score natively, and captures the **full original entity JSON** into `applicationSpecificData` blobs: per-entity `ankiNote`/`ankiCard`/`ankiReview`/`ankiDeck`/`ankiNoteType`, package-level `ankiCol`/`ankiDconf`/`ankiGraves`, plus `ankiData` (add-on `data` column) and `originalAnkiId`. Media files are copied into the `SrsPackage`.
+- The 2026-07-10 fidelity audit (`docs/working/audit-2026-07-10-roundtrip.md`) originally found the write-back path restored almost none of this. The fixes (work packages WP1–WP6 in `docs/working/fixplan-2026-07-10.md`) completed the `applicationSpecificData` approach (ADR-0003): `fromSrsPackage` now parses each blob as the base row and overlays the fields the universal format owns, so scheduling state, review details, tags, GUIDs, media, CSS, deck presets, and collection metadata (findings F1–F5, F11–F13) survive the round-trip — verified by `src/anki/anki-package.roundtrip.test.ts`. Migrating these universal fields to first-class SRS model fields remains future (Phase 5) work.
+- `fromSrsPackage` currently requires exactly one deck per package (`src/anki/anki-package.ts` `restoreDeck`/deck-count guard) — multi-deck export is a design gap, not just a bug.
 
 ## Modern Schema (Anki 23.10+ / schema 18)
 

@@ -153,7 +153,7 @@ You can pipe it to a file, process it in chunks, or convert it to a buffer.
 Anki add-ons can store custom data in notes and cards using the `data` field. This library preserves plugin data during operations:
 
 - **Direct Anki operations** (read/write without SRS conversion): Plugin data is fully preserved automatically
-- **Round-trip conversions** (Anki → SRS → Anki): Plugin data is stored in `applicationSpecificData.ankiData` and restored on conversion back to Anki
+- **Round-trip conversions** (Anki → SRS → Anki): The add-on `data` column is stored in `applicationSpecificData.ankiData` and restored on conversion back to Anki. In addition, the full original Anki entity JSON is captured in per-entity blobs (`ankiNote`, `ankiCard`, `ankiReview`, `ankiDeck`, `ankiNoteType`) and package-level blobs (`ankiCol`, `ankiDconf`, `ankiGraves`) on `applicationSpecificData`, so scheduling state, GUIDs, tags, note-type internals, deck options, and collection metadata all survive the round-trip. See [ADR-0003](../../../decisions/0003-use-application-specific-data-for-data-preservation.md) for the full blob-key list and restore precedence.
 
 **Important limitations:**
 

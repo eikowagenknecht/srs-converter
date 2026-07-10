@@ -24,19 +24,10 @@ When the issue is resolved, remove it from the "Current Issues" section again.
 
 ## Current Issues
 
-All issues below were found by the 2026-07-10 round-trip fidelity audit.
-Full analysis, executed repros, and a field-by-field mapping table:
-`docs/working/audit-2026-07-10-roundtrip.md` (finding numbers F1–F18, S1–S5
-referenced below).
+(No current issues)
 
-Fixes for all of these have been agreed with the maintainer and are specified
-in `docs/working/fixplan-2026-07-10.md` (work packages WP1–WP7 with a
-findings→WP mapping, decision log, and per-WP acceptance criteria). The
-executable repro harness is preserved in
-`docs/working/audit-2026-07-10-repros.md`. Remove entries here as the
-corresponding work packages complete.
-
-### (2026-07-10) Docs reference non-existent exportToAnkiFile method (Priority: Low)
-
-**Problem:** `docs/usage/converting/srs-to-anki.md` examples call `ankiResult.data.exportToAnkiFile(...)`; the actual method is `toAnkiExport`.
-**Impact:** Copy-pasted example code fails at runtime.
+The 2026-07-10 round-trip fidelity audit (findings F1–F18, S1–S5) has been fully
+resolved by work packages WP1–WP7 in `docs/working/fixplan-2026-07-10.md`. The
+full analysis and the executable repro harness are retained for reference in
+`docs/working/audit-2026-07-10-roundtrip.md` and
+`docs/working/audit-2026-07-10-repros.md`.

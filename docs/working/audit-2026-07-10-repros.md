@@ -1,5 +1,13 @@
 # Audit Repro Harness (2026-07-10)
 
+> [!note]
+> **Status: all findings fixed.** Every finding these repros demonstrate
+> (F1–F18, S1–S5) has been resolved by work packages WP1–WP7
+> (`docs/working/fixplan-2026-07-10.md`); regression tests asserting the
+> _correct_ behavior now live in the real suite (e.g.
+> `src/anki/anki-package.roundtrip.test.ts`). This file is retained for
+> reference only — the scripts below still assert the original _buggy_ values.
+
 Verbatim preservation of the executable repro scripts behind
 `docs/working/audit-2026-07-10-roundtrip.md`. They were run from a scratch
 directory (outside the repo) so the test suite and quality gates never see

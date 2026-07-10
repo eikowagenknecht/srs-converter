@@ -81,6 +81,8 @@ Once converted to SRS format, you can modify the data using the APIs of the SRS 
 
 When converting from Anki to SRS format, plugin-specific data stored in the `data` field of notes and cards is automatically preserved in the `applicationSpecificData.ankiData` field so that it survives round-trip conversions (Anki → SRS → Anki).
 
+Alongside `ankiData`, `toSrsPackage` captures the full original Anki entity JSON into per-entity blobs (`ankiNote`, `ankiCard`, `ankiReview`, `ankiDeck`, `ankiNoteType`) and package-level blobs (`ankiCol`, `ankiDconf`, `ankiGraves`, on `SrsPackage.getApplicationSpecificData()`). These carry the Anki-specific state the universal format does not yet model natively — scheduling, review details, GUIDs, tags, note-type internals, deck options, and collection metadata — so that `fromSrsPackage` can restore them. Any media files in the package are also copied into the `SrsPackage` (this is why `toSrsPackage` is async). See [ADR-0003](../../decisions/0003-use-application-specific-data-for-data-preservation.md) for the full blob-key list.
+
 ```typescript
 import { AnkiPackage } from "srs-converter";
 

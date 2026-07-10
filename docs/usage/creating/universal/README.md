@@ -258,6 +258,25 @@ const completeDeck = createCompleteDeckStructure({
 
 > 📋 **Test:** This example is tested in [`universal/README.test.ts`](README.test.ts) - "should use helper function to create complete deck structure in one call"
 
+## Media Files
+
+An `SrsPackage` can also carry media files (images, audio) that its notes
+reference. The API mirrors `AnkiPackage`: `addMediaFile(filename, source)`
+(source may be a file path, `Buffer`, or `Readable`), `getMediaFile(filename)`,
+`getMediaFileSize(filename)`, `listMediaFiles()`, and `removeMediaFile(filename)`.
+Media is stored in a temporary directory owned by the package, so once you are
+done you must call `await srsPackage.cleanup()` to release it. Converting to
+another format copies the media across, so the source and target packages have
+independent lifetimes and each must be cleaned up by its owner.
+
+## Application-Specific Data
+
+Collection-scoped data that has no per-entity home (for example the Anki
+`col`/`dconf`/`graves` blobs captured for a round-trip) lives on the package
+itself via `getApplicationSpecificData()` / `setApplicationSpecificData()`.
+Per-entity data continues to live on each entity's `applicationSpecificData`
+field. See [ADR-0003](../../../decisions/0003-use-application-specific-data-for-data-preservation.md).
+
 ## Complete Example
 
 Here's a complete example creating a deck with multiple note types:

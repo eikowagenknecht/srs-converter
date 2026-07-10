@@ -18,7 +18,7 @@ A TypeScript library for converting between different spaced repetition system (
 ## Features
 
 - **Anki Support**: Convert `.apkg` and `.colpkg` packages to a universal SRS format
-- **Complete Data**: Support for notes, cards, decks, and review history
+- **Complete Data**: Support for notes, cards, decks, review history, and media files
 - **Node.js Only**: Currently requires Node.js (browser support planned for future releases)
 - **Type-Safe**: Full TypeScript support with comprehensive type definitions
 - **Error Handling**: Robust validation and tri-state error reporting
@@ -90,7 +90,7 @@ The library development follows a phase-based approach. For detailed development
 | ------------------- | ------------------ | ---------- | ---------- | ---------- | -------------- |
 | **Read Support**    | ✅ Good            | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned     |
 | **Write Support**   | ✅ Good            | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned     |
-| **Round-trip**      | ✅ Working         | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned     |
+| **Round-trip**      | ✅ High-fidelity   | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned     |
 | **File Types**      | `.apkg`, `.colpkg` | -          | -          | -          | -              |
 | **Database Schema** | Legacy v2          | -          | -          | -          | -              |
 
@@ -98,18 +98,18 @@ The library development follows a phase-based approach. For detailed development
 
 For detailed technical information about the Anki package format, see: [Understanding the Anki .apkg Format (Legacy 2)](https://eikowagenknecht.com/posts/understanding-the-anki-apkg-format-legacy-2/)
 
-| Component              | Support Level | Notes                                                                                  |
-| ---------------------- | ------------- | -------------------------------------------------------------------------------------- |
-| **Decks**              | ✅ Full       | Name, description, configuration, hierarchy                                            |
-| **Note Types**         | ✅ Full       | Fields, templates, CSS styling, configuration                                          |
-| **Notes**              | ✅ Full       | Content in all fields, tags, modification timestamps                                   |
-| **Cards**              | ✅ Full       | Question/answer templates, due dates, intervals, ease factors                          |
-| **Review History**     | ✅ Full       | Complete review logs with timestamps and scores                                        |
-| **Media Files**        | ✅ Full       | List files, get file size, stream content, add files from paths/buffers/streams        |
-| **Formats**            | ⚠️ Partial    | Only Legacy v2 is supported for now                                                    |
-| **Plugin Data**        | ✅ Full       | Preserved in direct operations and round-trip conversions                              |
-| **Conversion Quality** | ⚠️ Partial    | Anki ↔ Universal SRS format conversion preserves basic data with round-trip capability |
-| **Advanced Features**  | ⚠️ Partial    | Complex note types (Cloze, Image Occlusion) are untested                               |
+| Component              | Support Level | Notes                                                                                                                                                                                                                    |
+| ---------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Decks**              | ✅ Full       | Name, description, configuration, hierarchy                                                                                                                                                                              |
+| **Note Types**         | ✅ Full       | Fields, templates, CSS styling, configuration                                                                                                                                                                            |
+| **Notes**              | ✅ Full       | Content in all fields, tags, modification timestamps                                                                                                                                                                     |
+| **Cards**              | ✅ Full       | Question/answer templates, due dates, intervals, ease factors                                                                                                                                                            |
+| **Review History**     | ✅ Full       | Complete review logs: timestamps, scores, intervals, factor, duration, and type                                                                                                                                          |
+| **Media Files**        | ✅ Full       | List files, get file size, stream content, add files from paths/buffers/streams; round-tripped through the universal format                                                                                              |
+| **Formats**            | ⚠️ Partial    | Only Legacy v2 is supported for now                                                                                                                                                                                      |
+| **Plugin Data**        | ✅ Full       | Preserved in direct operations and round-trip conversions                                                                                                                                                                |
+| **Conversion Quality** | ✅ Good       | Anki → SRS → Anki preserves scheduling, review history, GUIDs, tags, note-type internals, deck options, media, and collection metadata (verified by round-trip tests). SRS → Anki requires exactly one deck per package. |
+| **Advanced Features**  | ⚠️ Partial    | Cloze note types are supported and tested; Image Occlusion is untested                                                                                                                                                   |
 
 ## Maintainer
 

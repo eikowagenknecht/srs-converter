@@ -74,6 +74,8 @@ Universal SRS format implementation:
 - `SrsDeck`, `SrsNote`, `SrsCard`, `SrsReview` - Core data types
 - Factory functions for creating instances
 - Referential integrity validation
+- Media management mirroring `AnkiPackage`: `addMediaFile()`, `getMediaFile()`, `getMediaFileSize()`, `listMediaFiles()`, `removeMediaFile()`, and `cleanup()`. Media lives in a lazily-created temporary directory owned by the package; conversions copy content across, so source and target packages have independent lifetimes and each owner must call `cleanup()`.
+- Package-level `applicationSpecificData` (`getApplicationSpecificData()` / `setApplicationSpecificData()`) for collection-scoped metadata that has no per-entity home (e.g. the Anki `col`/`dconf`/`graves` blobs captured for round-trip restoration)
 
 ### `/src/anki/`
 
@@ -84,7 +86,7 @@ Anki format support module:
 - `AnkiPackage` class - Main interface for Anki data
 - Static factories: `fromAnkiExport()`, `fromSrsPackage()`, `fromDefault()`
 - Export method: `toAnkiExport()`
-- Conversion method: `toSrsPackage()`
+- Conversion method: `toSrsPackage()` (async — it copies media into the new `SrsPackage`)
 
 #### `database.ts`
 
