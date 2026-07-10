@@ -273,6 +273,42 @@ describe("Conversion Anki → SRS", () => {
       // TODO: Test the logic that associates notes with decks based on their cards
     });
 
+    it("warns about pruned empty decks but still succeeds (F15)", async () => {
+      // mixed-legacy-2.apkg has a "Default" deck with no notes alongside the
+      // real "Test - Mixed Types" deck. removeUnused() prunes the empty deck;
+      // the drop must now be surfaced as a warning without demoting the status.
+      const src = expectSuccess(
+        await AnkiPackage.fromAnkiExport("./tests/fixtures/anki/mixed-legacy-2.apkg"),
+      );
+
+      try {
+        const srsResult = await src.toSrsPackage();
+        const srs = expectSuccess(srsResult);
+
+        try {
+          // Only the deck that actually holds notes survives.
+          expect(srs.getDecks().map((deck) => deck.name)).toEqual(["Test - Mixed Types"]);
+
+          // The pruned "Default" deck is reported as a warning.
+          const deckWarnings = srsResult.issues.filter(
+            (issue) => issue.severity === "warning" && issue.context?.itemType === "deck",
+          );
+          expect(deckWarnings).toHaveLength(1);
+          expect(deckWarnings[0]?.message).toBe(
+            "Deck 'Default' contains no notes and was not converted.",
+          );
+
+          // Warnings do not demote the "success" status.
+          expect(srsResult.status).toBe("success");
+          expect(srsResult.issues.some((issue) => issue.severity !== "warning")).toBe(false);
+        } finally {
+          await srs.cleanup();
+        }
+      } finally {
+        await src.cleanup();
+      }
+    });
+
     it("should preserve field ordering", async () => {
       // Create an SRS package with specific field ordering
       const srsPackage = new SrsPackage();

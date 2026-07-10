@@ -36,13 +36,6 @@ executable repro harness is preserved in
 `docs/working/audit-2026-07-10-repros.md`. Remove entries here as the
 corresponding work packages complete.
 
-### (2026-07-10) Empty decks and card-less notes silently removed with status success (Priority: Medium)
-
-**Problem:** `removeUnused()` (`srs-package.ts:139-151`) is called in both `toSrsPackage` (`anki-package.ts:1766`) and `fromSrsPackage` (`anki-package.ts:778`) and drops decks without notes and notes without cards — no issue is emitted.
-**Steps to reproduce:** `toSrsPackage` on `tests/fixtures/anki/mixed-legacy-2.apkg` (2 decks) returns 1 deck, status success, issues []. SRS package with 2 notes / 1 card converts to 1 note, status success. (Audit F15)
-**Impact:** Empty decks (incl. structural parent decks) and card-less notes vanish silently.
-**Notes:** Should at least emit a warning issue per removed entity.
-
 ### (2026-07-10) Docs reference non-existent exportToAnkiFile method (Priority: Low)
 
 **Problem:** `docs/usage/converting/srs-to-anki.md` examples call `ankiResult.data.exportToAnkiFile(...)`; the actual method is `toAnkiExport`.

@@ -139,6 +139,46 @@ describe("Conversion SRS → Anki", () => {
       }
     });
 
+    it("warns about a pruned card-less note but still succeeds (F15)", async () => {
+      const { srsPackage, deck, noteType } = createBasicSrsPackage();
+
+      // A note with no card is dropped by removeUnused() before conversion.
+      // The drop must be surfaced as a warning naming the note, not silently.
+      const cardlessNote = createNote(
+        {
+          deckId: deck.id,
+          fieldValues: [
+            ["Front", "Orphan question"],
+            ["Back", "Orphan answer"],
+          ],
+          noteTypeId: noteType.id,
+        },
+        noteType,
+      );
+      srsPackage.addNote(cardlessNote);
+
+      const result = await AnkiPackage.fromSrsPackage(srsPackage);
+      const ankiPackage = expectSuccess(result);
+
+      try {
+        // Only the note that has a card reaches Anki.
+        expect(ankiPackage.getNotes()).toHaveLength(1);
+
+        const noteWarnings = result.issues.filter(
+          (issue) => issue.severity === "warning" && issue.context?.itemType === "note",
+        );
+        expect(noteWarnings).toHaveLength(1);
+        expect(noteWarnings[0]?.message).toBe(
+          "Note 'Orphan question' has no cards and was not converted.",
+        );
+
+        // Warnings do not demote the "success" status.
+        expect(result.status).toBe("success");
+      } finally {
+        await ankiPackage.cleanup();
+      }
+    });
+
     it("should handle empty SRS packages", async () => {
       const emptySrsPackage = new SrsPackage();
       const result = await AnkiPackage.fromSrsPackage(emptySrsPackage);

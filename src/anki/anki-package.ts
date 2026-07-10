@@ -492,6 +492,55 @@ function planClozeCards(
 }
 
 /**
+ * Builds a short, human-readable label for an SRS note from its first field
+ * value, falling back to the note id when the field is empty. Mirrors the
+ * HTML-stripping and truncation used by {@link AnkiPackage.getCardDescription}.
+ * @param note - The SRS note to describe
+ * @returns A trimmed, HTML-stripped preview of the first field, or the note id
+ */
+function describeSrsNote(note: SrsNote): string {
+  const firstValue = note.fieldValues[0]?.[1] ?? "";
+  const cleanText = firstValue.replaceAll(/<[^>]*>/gu, "").trim();
+  const preview = cleanText.length > 50 ? `${cleanText.slice(0, 47)}...` : cleanText;
+  return preview.length > 0 ? preview : note.id;
+}
+
+/**
+ * Turns the report from {@link SrsPackage.removeUnused} into warning issues so
+ * that pruned decks, note types, and card-less notes are surfaced to the caller
+ * instead of vanishing silently. Warnings do not demote a conversion's status.
+ * @param report - The entities removed by {@link SrsPackage.removeUnused}
+ * @param collector - Issue collector that receives one warning per removed entity
+ */
+function warnRemovedEntities(
+  report: {
+    removedDecks: SrsDeck[];
+    removedNoteTypes: SrsNoteType[];
+    removedNotes: SrsNote[];
+  },
+  collector: IssueCollector,
+): void {
+  for (const deck of report.removedDecks) {
+    collector.addWarning(`Deck '${deck.name}' contains no notes and was not converted.`, {
+      itemType: "deck",
+      originalData: deck,
+    });
+  }
+  for (const noteType of report.removedNoteTypes) {
+    collector.addWarning(
+      `Note type '${noteType.name}' is not used by any note and was not converted.`,
+      { itemType: "noteType", originalData: noteType },
+    );
+  }
+  for (const note of report.removedNotes) {
+    collector.addWarning(`Note '${describeSrsNote(note)}' has no cards and was not converted.`, {
+      itemType: "note",
+      originalData: note,
+    });
+  }
+}
+
+/**
  * Resolves an Anki ID from an SRS entity using a two-step strategy.
  *
  * Resolution strategy:
@@ -1311,8 +1360,9 @@ export class AnkiPackage {
     // Remove the default deck
     ankiPackage.removeDeck(defaultDeck.id);
 
-    // Compress the SRS package first to ensure it has no unused entities
-    srsPackage.removeUnused();
+    // Compress the SRS package first to ensure it has no unused entities. The
+    // pruning is intentional, but every dropped entity is surfaced as a warning.
+    warnRemovedEntities(srsPackage.removeUnused(), collector);
 
     // Convert decks
     const decks = srsPackage.getDecks();
@@ -2292,8 +2342,9 @@ export class AnkiPackage {
       }
     }
 
-    // Step 7: Clean up unused entities
-    srsPackage.removeUnused();
+    // Step 7: Clean up unused entities. Pruning is intentional, but every
+    // dropped entity is surfaced as a warning rather than vanishing silently.
+    warnRemovedEntities(srsPackage.removeUnused(), collector);
 
     // Step 8: Copy media files into the SRS package so they survive the round
     // trip. Content is copied, so the SRS package owns independent copies. A

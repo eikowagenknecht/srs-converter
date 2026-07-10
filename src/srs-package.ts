@@ -168,18 +168,37 @@ export class SrsPackage {
     this.reviews = this.reviews.filter((review) => review.id !== reviewId);
   }
 
-  public removeUnused() {
+  /**
+   * Removes entities that nothing references, keeping the package minimal for
+   * conversion: decks not referenced by any note, note types not referenced by
+   * any note, and notes not referenced by any card (a card-less note).
+   *
+   * The pruning is intentional, but callers need to know what was dropped so
+   * they can surface it (e.g. as warning issues during conversion). The
+   * returned report lists every entity that was removed.
+   * @returns The decks, note types, and notes that were removed
+   */
+  public removeUnused(): {
+    removedDecks: SrsDeck[];
+    removedNoteTypes: SrsNoteType[];
+    removedNotes: SrsNote[];
+  } {
     // Decks are used if they are referenced by any notes
     const usedDeckIds = new Set(this.notes.map((note) => note.deckId));
+    const removedDecks = this.decks.filter((deck) => !usedDeckIds.has(deck.id));
     this.decks = this.decks.filter((deck) => usedDeckIds.has(deck.id));
 
     // Note types are used if they are referenced by any notes
     const usedNoteTypeIds = new Set(this.notes.map((note) => note.noteTypeId));
+    const removedNoteTypes = this.noteTypes.filter((noteType) => !usedNoteTypeIds.has(noteType.id));
     this.noteTypes = this.noteTypes.filter((noteType) => usedNoteTypeIds.has(noteType.id));
 
     // Notes are used if they are referenced by any cards
     const usedNoteIds = new Set(this.cards.map((card) => card.noteId));
+    const removedNotes = this.notes.filter((note) => !usedNoteIds.has(note.id));
     this.notes = this.notes.filter((note) => usedNoteIds.has(note.id));
+
+    return { removedDecks, removedNoteTypes, removedNotes };
   }
 
   /**
