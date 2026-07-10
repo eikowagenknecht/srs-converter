@@ -17,6 +17,7 @@ import {
 
 import { AnkiPackage } from "./anki-package";
 import {
+  createBasicNoteType,
   createBasicSrsPackage,
   createBasicTemplate,
   expectFailure,
@@ -643,5 +644,174 @@ describe("Direct Anki → Anki models JSON fidelity (WP1)", () => {
     } finally {
       await pkg.cleanup();
     }
+  });
+});
+
+describe("SRS-authored input correctness (WP5)", () => {
+  // Reads the `revlog.id` column straight out of an exported .apkg so we can
+  // confirm both rows survived the SQLite primary-key constraint.
+  async function readRevlogIds(apkgPath: string): Promise<number[]> {
+    const zip = await Open.file(apkgPath);
+    const dbEntry = zip.files.find((f) => f.path === "collection.anki21");
+    if (!dbEntry) {
+      throw new Error("collection.anki21 missing");
+    }
+    const SQL = await InitSqlJs();
+    const db = new SQL.Database(Buffer.from(await dbEntry.buffer()));
+    const result = db.exec("SELECT id FROM revlog");
+    db.close();
+    return (result[0]?.values ?? []).map((row) => Number(row[0]));
+  }
+
+  it("writes flds in field order when createNote received reversed fieldValues (F8)", async () => {
+    const srsPackage = new SrsPackage();
+    const deck = createDeck({ name: "Deck" });
+    srsPackage.addDeck(deck);
+    const noteType = createBasicNoteType();
+    srsPackage.addNoteType(noteType);
+    const note = createNote(
+      {
+        deckId: deck.id,
+        fieldValues: [
+          ["Back", "back-value"],
+          ["Front", "front-value"],
+        ],
+        noteTypeId: noteType.id,
+      },
+      noteType,
+    );
+    srsPackage.addNote(note);
+    srsPackage.addCard(createCard({ noteId: note.id, templateId: 0 }));
+
+    const ankiPackage = expectSuccess(await AnkiPackage.fromSrsPackage(srsPackage));
+    try {
+      const fields = ankiPackage.getNotes()[0]?.flds.split("\u001F");
+      expect(fields).toEqual(["front-value", "back-value"]);
+    } finally {
+      await ankiPackage.cleanup();
+    }
+  });
+
+  it("maps flds by field name when a note's fieldValues are out of order (F8 defense-in-depth)", async () => {
+    const srsPackage = new SrsPackage();
+    const deck = createDeck({ name: "Deck" });
+    srsPackage.addDeck(deck);
+    const noteType = createBasicNoteType();
+    srsPackage.addNoteType(noteType);
+    const note = createNote(
+      {
+        deckId: deck.id,
+        fieldValues: [
+          ["Front", "front-value"],
+          ["Back", "back-value"],
+        ],
+        noteTypeId: noteType.id,
+      },
+      noteType,
+    );
+    // Force the stored values out of order to exercise restoreAnkiNote's
+    // name-based lookup; createNote itself would already have reordered them.
+    const reversed: [string, string][] = [
+      ["Back", "back-value"],
+      ["Front", "front-value"],
+    ];
+    srsPackage.addNote({ ...note, fieldValues: reversed });
+    srsPackage.addCard(createCard({ noteId: note.id, templateId: 0 }));
+
+    const ankiPackage = expectSuccess(await AnkiPackage.fromSrsPackage(srsPackage));
+    try {
+      const fields = ankiPackage.getNotes()[0]?.flds.split("\u001F");
+      expect(fields).toEqual(["front-value", "back-value"]);
+    } finally {
+      await ankiPackage.cleanup();
+    }
+  });
+
+  it("bumps colliding same-millisecond review ids and exports both rows (F16)", async () => {
+    const srsPackage = new SrsPackage();
+    const deck = createDeck({ name: "Deck" });
+    srsPackage.addDeck(deck);
+    const noteType = createBasicNoteType();
+    srsPackage.addNoteType(noteType);
+    const note = createNote(
+      {
+        deckId: deck.id,
+        fieldValues: [
+          ["Front", "Q"],
+          ["Back", "A"],
+        ],
+        noteTypeId: noteType.id,
+      },
+      noteType,
+    );
+    srsPackage.addNote(note);
+    const card = createCard({ noteId: note.id, templateId: 0 });
+    srsPackage.addCard(card);
+
+    // Two reviews in the exact same millisecond on the same card.
+    const timestamp = 1_650_000_040_000;
+    srsPackage.addReview(
+      createReview({ cardId: card.id, score: SrsReviewScore.Normal, timestamp }),
+    );
+    srsPackage.addReview(createReview({ cardId: card.id, score: SrsReviewScore.Easy, timestamp }));
+
+    const ankiPackage = expectSuccess(await AnkiPackage.fromSrsPackage(srsPackage));
+    try {
+      const reviews = ankiPackage.getReviews();
+      expect(reviews).toHaveLength(2);
+      const ids = reviews.map((review) => review.id ?? 0).sort((a, b) => a - b);
+      expect(ids).toEqual([timestamp, timestamp + 1]);
+
+      // Export must not throw `UNIQUE constraint failed: revlog.id`, and both
+      // rows must be present in the exported database.
+      const outPath = join(getTempDir(), "wp5-f16.apkg");
+      await ankiPackage.toAnkiExport(outPath);
+      const revlogIds = await readRevlogIds(outPath);
+      expect(revlogIds.sort((a, b) => a - b)).toEqual([timestamp, timestamp + 1]);
+    } finally {
+      await ankiPackage.cleanup();
+    }
+  });
+
+  it("derives a stable positive id from a non-UUID entity id (S5)", async () => {
+    async function ankiDeckIdFor(deckId: string): Promise<number> {
+      const srsPackage = new SrsPackage();
+      const deck = createDeck({ id: deckId, name: "Deck" });
+      srsPackage.addDeck(deck);
+      const noteType = createBasicNoteType();
+      srsPackage.addNoteType(noteType);
+      const note = createNote(
+        {
+          deckId: deck.id,
+          fieldValues: [
+            ["Front", "Q"],
+            ["Back", "A"],
+          ],
+          noteTypeId: noteType.id,
+        },
+        noteType,
+      );
+      srsPackage.addNote(note);
+      srsPackage.addCard(createCard({ noteId: note.id, templateId: 0 }));
+
+      const ankiPackage = expectSuccess(await AnkiPackage.fromSrsPackage(srsPackage));
+      try {
+        const id = ankiPackage.getDecks()[0]?.id;
+        if (id === undefined) {
+          throw new Error("deck id missing");
+        }
+        return id;
+      } finally {
+        await ankiPackage.cleanup();
+      }
+    }
+
+    const id1 = await ankiDeckIdFor("deck-1");
+    const id2 = await ankiDeckIdFor("deck-2");
+
+    expect(id1).toBeGreaterThan(0);
+    // The old extractTimestampFromUuid path hex-parsed "deck-1" into 3564.
+    expect(id1).not.toBe(3564);
+    expect(id1).not.toBe(id2);
   });
 });

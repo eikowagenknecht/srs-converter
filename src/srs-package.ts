@@ -431,7 +431,17 @@ export function createNote<T extends SrsNoteType>(
 
   const id = input.id ?? generateUuid();
 
-  return { ...input, id } as SrsNote<T>;
+  // Store field values in note-type field order regardless of the order the
+  // caller supplied them. Downstream consumers (e.g. joining into Anki's `flds`)
+  // rely on positional order, so accepting names-as-a-set but keeping the
+  // caller's order would silently swap field content. The set-equality check
+  // above guarantees every field name is present exactly once.
+  const orderedFieldValues = noteType.fields.map((field): [string, string] => {
+    const match = input.fieldValues.find(([name]) => name === field.name);
+    return [field.name, match?.[1] ?? ""];
+  });
+
+  return { ...input, fieldValues: orderedFieldValues, id } as SrsNote<T>;
 }
 
 /**
@@ -489,10 +499,10 @@ export const BasicAndReverseNote = {
       questionTemplate: "{{Front}}",
     },
     {
-      answerTemplate: "{{Back}}",
+      answerTemplate: "{{Front}}",
       id: 1,
       name: "Back > Front",
-      questionTemplate: "{{Front}}",
+      questionTemplate: "{{Back}}",
     },
   ],
 } as const satisfies SrsNoteType;

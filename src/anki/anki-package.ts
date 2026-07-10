@@ -49,6 +49,7 @@ import {
   extractMediaReferences,
   extractTimestampFromUuid,
   fieldChecksum,
+  generateUniqueIdFromUuid,
   guid64,
   joinAnkiFields,
   parseJsonWithBigInts,
@@ -517,6 +518,32 @@ function resolveAnkiId(
 }
 
 /**
+ * Matches a canonical UUID: 8-4-4-4-12 hyphen-separated hex groups. Deliberately
+ * not version-specific — any hyphenated hex UUID (v4, v7, …) yields a usable
+ * timestamp via {@link extractTimestampFromUuid}, whereas a hand-authored id
+ * like `"deck-1"` does not and must take the hash path instead.
+ */
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+
+/**
+ * Derives a stable Anki id from an SRS entity's string id, used as the fallback
+ * when no `originalAnkiId` was preserved.
+ *
+ * For UUIDs the embedded millisecond timestamp is extracted (UUIDv7 ids sort
+ * like Anki's own timestamp ids). For non-UUID ids,
+ * {@link extractTimestampFromUuid} would hex-parse arbitrary leading characters
+ * into a tiny, collision-prone number (e.g. `"deck-1"` → 3564), so a hash of the
+ * whole id is used instead.
+ * @param srsId - The SRS entity id (a UUID for library-generated entities)
+ * @returns A positive Anki id derived from the SRS id
+ */
+function srsIdToAnkiId(srsId: string): number {
+  return UUID_PATTERN.test(srsId)
+    ? extractTimestampFromUuid(srsId)
+    : generateUniqueIdFromUuid(srsId);
+}
+
+/**
  * Default CSS applied to note types that carry no captured Anki model (i.e.
  * SRS-authored packages). Mirrors Anki's stock styling.
  */
@@ -760,7 +787,14 @@ function restoreAnkiNote(
     collector,
   );
 
-  const fieldStrings = srsNote.fieldValues.map(([, value]) => value);
+  // Order the values by the note type's field order, looking each field up by
+  // name (positional fallback when the name is absent) rather than trusting the
+  // incoming array order. This keeps `flds`, `sfld` and `csum` correct even if a
+  // note's fieldValues arrived out of order.
+  const fieldStrings = noteType.flds.map((field, index) => {
+    const match = srsNote.fieldValues.find(([name]) => name === field.name);
+    return match ? match[1] : (srsNote.fieldValues[index]?.[1] ?? "");
+  });
   const flds = joinAnkiFields(fieldStrings);
   const sortIndex =
     noteType.sortf >= 0 && noteType.sortf < fieldStrings.length ? noteType.sortf : 0;
@@ -1293,13 +1327,15 @@ export class AnkiPackage {
     }
 
     const deckIDs = new Map<string, number>();
+    const usedDeckIds = new Set<number>();
     for (const deck of decks) {
-      let deckID = resolveAnkiId(deck.applicationSpecificData, extractTimestampFromUuid(deck.id));
+      let deckID = resolveAnkiId(deck.applicationSpecificData, srsIdToAnkiId(deck.id));
 
       // Keep incrementing until we find an unused ID
-      while ([...deckIDs.values()].includes(deckID)) {
+      while (usedDeckIds.has(deckID)) {
         deckID++;
       }
+      usedDeckIds.add(deckID);
 
       deckIDs.set(deck.id, deckID);
 
@@ -1309,18 +1345,17 @@ export class AnkiPackage {
     // Convert note types (restore-with-overlay; see restoreAnkiNoteType)
     const noteTypes = srsPackage.getNoteTypes();
     const noteTypeIDs = new Map<string, number>();
+    const usedNoteTypeIds = new Set<number>();
     const restoredNoteTypes = new Map<string, NoteType>();
     const firstDeckId = deckIDs.values().next().value ?? null;
     for (const noteType of noteTypes) {
-      let noteTypeId = resolveAnkiId(
-        noteType.applicationSpecificData,
-        extractTimestampFromUuid(noteType.id),
-      );
+      let noteTypeId = resolveAnkiId(noteType.applicationSpecificData, srsIdToAnkiId(noteType.id));
 
       // Keep incrementing until we find an unused ID
-      while ([...noteTypeIDs.values()].includes(noteTypeId)) {
+      while (usedNoteTypeIds.has(noteTypeId)) {
         noteTypeId++;
       }
+      usedNoteTypeIds.add(noteTypeId);
 
       noteTypeIDs.set(noteType.id, noteTypeId);
 
@@ -1331,13 +1366,15 @@ export class AnkiPackage {
 
     // Convert notes
     const noteIDs = new Map<string, number>();
+    const usedNoteIds = new Set<number>();
     for (const note of srsPackage.getNotes()) {
-      let noteId = resolveAnkiId(note.applicationSpecificData, extractTimestampFromUuid(note.id));
+      let noteId = resolveAnkiId(note.applicationSpecificData, srsIdToAnkiId(note.id));
 
       // Keep incrementing until we find an unused ID
-      while ([...noteIDs.values()].includes(noteId)) {
+      while (usedNoteIds.has(noteId)) {
         noteId++;
       }
+      usedNoteIds.add(noteId);
 
       noteIDs.set(note.id, noteId);
       const noteTypeId = noteTypeIDs.get(note.noteTypeId);
@@ -1439,7 +1476,7 @@ export class AnkiPackage {
 
         let cardId = resolveAnkiId(
           cardForRestore.applicationSpecificData,
-          extractTimestampFromUuid(cardForRestore.id),
+          srsIdToAnkiId(cardForRestore.id),
         );
 
         // Keep incrementing until we find an unused ID
@@ -1460,6 +1497,7 @@ export class AnkiPackage {
       }
     }
 
+    const usedReviewIds = new Set<number>();
     for (const review of srsPackage.getReviews()) {
       let ease: Ease;
 
@@ -1504,10 +1542,15 @@ export class AnkiPackage {
         continue;
       }
 
-      // Reviews use timestamp as fallback, not UUID extraction. The collision
-      // bump loop the other entities have is deferred to WP5/F16; adding it
-      // here would be a single `while (usedReviewIds.has(reviewId)) reviewId++`.
-      const reviewId = resolveAnkiId(review.applicationSpecificData, review.timestamp);
+      // Reviews use timestamp as fallback, not UUID extraction. `revlog.id` is
+      // the primary key, so bump until unique: two reviews in the same
+      // millisecond (realistic with second-granularity import sources) would
+      // otherwise collide and throw `UNIQUE constraint failed` at export time.
+      let reviewId = resolveAnkiId(review.applicationSpecificData, review.timestamp);
+      while (usedReviewIds.has(reviewId)) {
+        reviewId++;
+      }
+      usedReviewIds.add(reviewId);
 
       ankiPackage.addReview(restoreAnkiReview(review, reviewId, cardId, ease, collector));
     }
