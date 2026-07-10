@@ -6,23 +6,24 @@
 
 ### Story 5.0.1: Analyze Common Patterns Across All Implemented Formats
 
-**Status:** ⏳ Pending
+**Status:** 🧪 Testing (research complete 2026-07-10, awaiting maintainer verification)
 
 **Story:** As a developer, I want to analyze patterns across Anki, Mnemosyne, SuperMemo, and Mochi so I can design an effective universal format.
 
 **Acceptance Criteria:**
 
-- [ ] Document common data structures across all formats
-- [ ] Identify shared concepts (cards, scheduling, reviews)
-- [ ] Document unique features that need preservation
-- [ ] Analyze scheduling algorithm commonalities
-- [ ] Document media handling approaches
-- [ ] Create comprehensive format comparison matrix
+- [x] Document common data structures across all formats
+- [x] Identify shared concepts (cards, scheduling, reviews)
+- [x] Document unique features that need preservation
+- [x] Analyze scheduling algorithm commonalities
+- [x] Document media handling approaches
+- [x] Create comprehensive format comparison matrix
 
 **Implementation Notes:**
 
-- Only start after completing all format I/O implementations
+- ~~Only start after completing all format I/O implementations~~ Re-scoped 2026-07-10 with maintainer approval: analysis is research-based (format documentation, source code, sample files) so the universal format can be designed before Phases 2-4 are implemented
 - Comprehensive analysis of real usage patterns
+- Research findings are collected in `docs/formats/`
 - Document findings in blog posts like <https://eikowagenknecht.de/posts/understanding-the-anki-apkg-format/>
 
 **Testing:**

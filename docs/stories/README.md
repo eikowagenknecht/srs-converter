@@ -86,7 +86,8 @@ Implement reading and writing support for SuperMemo format.
 Design and document the universal SRS format specification.
 
 - **Phase 5.0**: Universal Format Specification
-  - Progress: 0/5 stories completed (0%) ⏳
+  - Progress: 0/5 stories completed (0%) 🔄
+  - Status: Story 5.0.1 (format analysis) in testing — research complete, deliverables in `docs/formats/`, awaiting maintainer verification. Re-scoped 2026-07-10 with maintainer approval: analysis is based on format documentation, source code, and sample files instead of waiting for the Phase 2-4 I/O implementations, so the universal format can be specified first.
 
 **[→ View Phase 5 Stories](phase-5.md)**
 
@@ -134,5 +135,5 @@ Implement cross-format conversion capabilities.
 - [Phase 2: Mnemosyne Format I/O](phase-2.md) ⏳
 - [Phase 3: Mochi Format I/O](phase-3.md) ⏳
 - [Phase 4: SuperMemo Format I/O](phase-4.md) ⏳
-- [Phase 5: Universal Format Design](phase-5.md) ⏳
+- [Phase 5: Universal Format Design](phase-5.md) 🔄
 - [Phase 6: Conversion Layer Implementation](phase-6.md) ⏳
