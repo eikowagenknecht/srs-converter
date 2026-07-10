@@ -223,7 +223,7 @@ describe("anki db test", () => {
     expect(Array.isArray(issues)).toBe(true);
     expect(issues.length).toBeGreaterThan(0);
     expect(issues[0]?.severity).toBe("critical"); // Database query failures are treated as critical
-    expect(issues[0]?.message).toMatch(/Failed to execute query/);
+    expect(issues[0]?.message).toMatch(/Failed to execute query/u);
   });
 
   it("should create database from dump and return instance", async () => {

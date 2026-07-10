@@ -456,9 +456,9 @@ describe("Conversion Anki → SRS", () => {
       const basicNoteType = srsNoteTypes.find((nt) => nt.name === "Basic");
 
       // Verify original Anki IDs are stored in applicationSpecificData
-      expect(testDeck?.applicationSpecificData?.["originalAnkiId"]).toBe(ankiDeckId?.toFixed());
+      expect(testDeck?.applicationSpecificData?.["originalAnkiId"]).toBe(ankiDeckId?.toFixed(0));
       expect(basicNoteType?.applicationSpecificData?.["originalAnkiId"]).toBe(
-        ankiNoteTypeId?.toFixed(),
+        ankiNoteTypeId?.toFixed(0),
       );
 
       await ankiPackage.cleanup();
@@ -573,7 +573,7 @@ describe("Conversion Anki → SRS", () => {
 
       // Verify that the invalid review was handled properly
       expect(convertedSrsResult.issues).toHaveLength(1);
-      expect(convertedSrsResult.issues[0]?.message).toMatch(/Unknown review score/);
+      expect(convertedSrsResult.issues[0]?.message).toMatch(/Unknown review score/u);
 
       // Verify that the invalid review was not added
       expect(convertedSrsPackage.getReviews()).toHaveLength(0);
@@ -610,7 +610,7 @@ describe("Conversion Anki → SRS", () => {
 
       // Verify that the review with null ID was handled properly
       expect(convertedSrsResult.issues).toHaveLength(1);
-      expect(convertedSrsResult.issues[0]?.message).toMatch(/Review ID is undefined/);
+      expect(convertedSrsResult.issues[0]?.message).toMatch(/Review ID is undefined/u);
 
       // Verify that the review with null ID was not added
       expect(convertedSrsPackage.getReviews()).toHaveLength(0);
@@ -677,7 +677,7 @@ describe("Conversion Anki → SRS", () => {
 
       // Verify that the review for non-existent card was handled properly
       expect(convertedSrsResult.issues).toHaveLength(1);
-      expect(convertedSrsResult.issues[0]?.message).toMatch(/Card not found for Review ID/);
+      expect(convertedSrsResult.issues[0]?.message).toMatch(/Card not found for Review ID/u);
 
       // Verify that the review for non-existent card was not added
       expect(convertedSrsPackage.getReviews()).toHaveLength(0);

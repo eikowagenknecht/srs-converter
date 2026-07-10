@@ -340,12 +340,12 @@ function filterValidDatabaseItems(dump: DatabaseDump, collector: IssueCollector)
 function analyzeClozeOrdinals(fieldContent: string): number[] {
   // Find valid cloze deletion patterns: {{c1::text}}, {{c2::text::hint}}, etc.
   // NOTE: {{c0::...}} is NOT a valid cloze deletion - clozes start from c1
-  const clozeRegex = /\{\{c([1-9]\d*)::[^}]*\}\}/g;
+  const clozeRegex = /\{\{c(?<ordinal>[1-9]\d*)::[^}]*\}\}/gu;
 
   const clozeNumbers = [...fieldContent.matchAll(clozeRegex)]
-    .map((match) => match[1])
+    .map((match) => match.groups?.["ordinal"])
     .filter((group): group is string => group !== undefined)
-    .map((group) => Number.parseInt(group, 10) - 1) // Convert to 0-based ordinals
+    .map((group) => Math.trunc(Number(group)) - 1) // Convert to 0-based ordinals
     .filter((ordinal, index, arr) => arr.indexOf(ordinal) === index) // Remove duplicates
     .sort((a, b) => a - b);
 
@@ -392,7 +392,7 @@ export class AnkiPackage {
   }
 
   private getCardDescription(card: CardsTable, note?: NotesTable, deck?: Deck): string {
-    const cardId = card.id?.toFixed() ?? "Unknown";
+    const cardId = card.id?.toFixed(0) ?? "Unknown";
     const deckName = deck?.name ?? "Unknown";
 
     if (!note) {
@@ -403,7 +403,7 @@ export class AnkiPackage {
     const fields = note.flds.split("\u001F");
     // TODO: This needs some love to work with multiple fields, HTML etc.
     const frontText = fields[0] ?? note.sfld;
-    const cleanText = frontText.replaceAll(/<[^>]*>/g, "").trim();
+    const cleanText = frontText.replaceAll(/<[^>]*>/gu, "").trim();
     const preview = cleanText.length > 50 ? `${cleanText.slice(0, 47)}...` : cleanText;
 
     return preview
@@ -417,7 +417,7 @@ export class AnkiPackage {
     note?: NotesTable,
     deck?: Deck,
   ): string {
-    const reviewId = review.id?.toFixed() ?? "Unknown";
+    const reviewId = review.id?.toFixed(0) ?? "Unknown";
     const reviewDate = review.id ? new Date(review.id).toLocaleDateString() : "Unknown";
 
     if (card && note) {
@@ -1364,7 +1364,7 @@ export class AnkiPackage {
     }
 
     // Generate unique media ID (next available number)
-    const existingIds = Object.keys(this.mediaFiles).map((id) => Number.parseInt(id, 10));
+    const existingIds = Object.keys(this.mediaFiles).map((id) => Math.trunc(Number(id)));
     const nextId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 0;
     const mediaId = nextId.toFixed(0);
 
@@ -1384,7 +1384,7 @@ export class AnkiPackage {
       }
 
       // Update media mapping
-      this.mediaFiles[Number.parseInt(mediaId, 10)] = filename;
+      this.mediaFiles[Math.trunc(Number(mediaId))] = filename;
     } catch (error) {
       throw new Error(
         `Failed to add media file '${filename}': ${error instanceof Error ? error.message : String(error)}`,
@@ -1414,9 +1414,9 @@ export class AnkiPackage {
       await rm(filePath);
 
       // Remove from media mapping by creating new object without the key
-      const numericId = Number.parseInt(mediaId, 10);
+      const numericId = Math.trunc(Number(mediaId));
       this.mediaFiles = Object.fromEntries(
-        Object.entries(this.mediaFiles).filter(([key]) => Number.parseInt(key, 10) !== numericId),
+        Object.entries(this.mediaFiles).filter(([key]) => Math.trunc(Number(key)) !== numericId),
       );
     } catch (error) {
       throw new Error(
@@ -1447,7 +1447,8 @@ export class AnkiPackage {
     // Matches:
     // - <img src="filename.ext"> and variants (with/without quotes)
     // - [sound:filename.ext] (used for both audio and video in Anki)
-    const mediaReferencePattern = /<img[^>]+src=["']?([^"'>\s]+)["']?|\[sound:([^\]]+)\]/gi;
+    const mediaReferencePattern =
+      /<img[^>]+src=["']?(?<imgSrc>[^"'>\s]+)["']?|\[sound:(?<soundFile>[^\]]+)\]/giu;
 
     // Collect all referenced filenames from all notes
     const referencedFiles = new Set<string>();
@@ -1458,8 +1459,7 @@ export class AnkiPackage {
       for (const field of fields) {
         // Use matchAll() to avoid lastIndex issues with global regex
         for (const match of field.matchAll(mediaReferencePattern)) {
-          // match[1] contains img src, match[2] contains sound filename
-          const filename = match[1] ?? match[2];
+          const filename = match.groups?.["imgSrc"] ?? match.groups?.["soundFile"];
           if (filename) {
             referencedFiles.add(filename);
           }
@@ -1651,7 +1651,7 @@ export class AnkiPackage {
             ankiDue: ankiCard.due.toFixed(0),
             ankiQueue: ankiCard.queue.toString(),
             ankiType: ankiCard.type.toString(),
-            originalAnkiId: ankiCard.id?.toFixed() ?? "",
+            originalAnkiId: ankiCard.id?.toFixed(0) ?? "",
           },
           noteId: srsNoteId,
           templateId: ankiCard.ord,

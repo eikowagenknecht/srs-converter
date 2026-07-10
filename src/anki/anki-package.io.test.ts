@@ -44,7 +44,7 @@ describe("Import / Export", () => {
     it("should reject non-legacy exports", async () => {
       const result = await AnkiPackage.fromAnkiExport("./tests/fixtures/anki/empty-latest.apkg");
       expectFailure(result);
-      expect(result.issues[0]?.message).toMatch(/Unsupported Anki export package version: 3./);
+      expect(result.issues[0]?.message).toMatch(/Unsupported Anki export package version: 3./u);
     });
 
     it("should reject corrupted .apkg files", async () => {
@@ -55,7 +55,7 @@ describe("Import / Export", () => {
       const result = await AnkiPackage.fromAnkiExport(corruptedFile);
       expectFailure(result);
       // Text content without ZIP magic bytes should be detected as "not a valid ZIP archive"
-      expect(result.issues[0]?.message).toMatch(/not a valid ZIP archive/i);
+      expect(result.issues[0]?.message).toMatch(/not a valid ZIP archive/iu);
     });
 
     it("should reject invalid file extensions", async () => {
@@ -65,7 +65,7 @@ describe("Import / Export", () => {
 
       const result = await AnkiPackage.fromAnkiExport(invalidPath);
       expectFailure(result);
-      expect(result.issues[0]?.message).toMatch(/Invalid file extension.*/);
+      expect(result.issues[0]?.message).toMatch(/Invalid file extension.*/u);
     });
 
     it("should reject non-existent files", async () => {

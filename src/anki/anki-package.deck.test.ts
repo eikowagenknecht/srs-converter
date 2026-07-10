@@ -358,9 +358,9 @@ describe("Data Management", () => {
       try {
         // First, get the temp directory path from toString output
         const packageString = pkg.toString();
-        const tempDirRegex = /Temp directory: (.+)$/m;
+        const tempDirRegex = /Temp directory: (?<path>.+)$/mu;
         const tempDirMatch = tempDirRegex.exec(packageString);
-        tempDirPath = tempDirMatch?.[1];
+        tempDirPath = tempDirMatch?.groups?.["path"];
 
         if (tempDirPath) {
           // Create a file inside the temp directory to prevent removal

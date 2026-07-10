@@ -136,7 +136,7 @@ describe("Conversion SRS → Anki", () => {
       const emptySrsPackage = new SrsPackage();
       const result = await AnkiPackage.fromSrsPackage(emptySrsPackage);
       expectFailure(result);
-      expect(result.issues[0]?.message).toMatch(/The package must contain exactly one deck/);
+      expect(result.issues[0]?.message).toMatch(/The package must contain exactly one deck/u);
     });
 
     it("should convert note types with multiple fields and templates", async () => {

@@ -61,14 +61,14 @@ describe("Creation", () => {
 
       try {
         const packageString = ankiPackage.toString();
-        expect(packageString).toMatch(/Temp directory: .+/);
+        expect(packageString).toMatch(/Temp directory: .+/u);
 
         // Extract the temp directory path from the string
-        const tempDirRegex = /Temp directory: (.+)$/m;
+        const tempDirRegex = /Temp directory: (?<tempDir>.+)$/mu;
         const tempDirMatch = tempDirRegex.exec(packageString);
         expect(tempDirMatch).not.toBeNull();
-        const tempDirPath = tempDirMatch?.[1];
-        expect(tempDirPath).toMatch(/srsconverter-/); // Should contain the expected prefix
+        const tempDirPath = tempDirMatch?.groups?.["tempDir"];
+        expect(tempDirPath).toMatch(/srsconverter-/u); // Should contain the expected prefix
 
         // Verify the directory actually exists on the filesystem
         if (tempDirPath) {
@@ -84,10 +84,10 @@ describe("Creation", () => {
       const ankiPackage = expectSuccess(result);
 
       const packageString = ankiPackage.toString();
-      const tempDirRegex = /Temp directory: (.+)$/m;
+      const tempDirRegex = /Temp directory: (?<tempDir>.+)$/mu;
       const tempDirMatch = tempDirRegex.exec(packageString);
       expect(tempDirMatch).not.toBeNull();
-      const tempDirPath = tempDirMatch?.[1];
+      const tempDirPath = tempDirMatch?.groups?.["tempDir"];
       expect(tempDirPath).toBeDefined();
 
       if (tempDirPath) {

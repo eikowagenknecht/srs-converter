@@ -4,7 +4,8 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import archiver from "archiver";
+import type { ArchiverError } from "archiver";
+import { ZipArchive } from "archiver";
 import { Open } from "unzipper";
 import { afterEach, beforeEach, expect } from "vitest";
 
@@ -265,12 +266,12 @@ export function createTestZip(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const output = createWriteStream(zipPath);
-    const archive = archiver("zip");
+    const archive = new ZipArchive();
 
     output.on("close", () => {
       resolve();
     });
-    archive.on("error", (err) => {
+    archive.on("error", (err: ArchiverError) => {
       reject(err);
     });
 

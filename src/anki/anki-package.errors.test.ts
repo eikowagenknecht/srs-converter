@@ -67,8 +67,8 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
       // Specific message for truncated ZIP (has ZIP magic bytes)
-      expect(result.issues[0]?.message).toMatch(/ZIP archive is truncated/i);
-      expect(result.issues[0]?.message).toMatch(/re-download|re-export/i);
+      expect(result.issues[0]?.message).toMatch(/ZIP archive is truncated/iu);
+      expect(result.issues[0]?.message).toMatch(/re-download|re-export/iu);
     });
 
     it("should detect and report non-ZIP files with specific message", async () => {
@@ -84,8 +84,8 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
       // Specific message for non-ZIP files (no ZIP magic bytes)
-      expect(result.issues[0]?.message).toMatch(/not a valid ZIP archive/i);
-      expect(result.issues[0]?.message).toMatch(/exported from Anki/i);
+      expect(result.issues[0]?.message).toMatch(/not a valid ZIP archive/iu);
+      expect(result.issues[0]?.message).toMatch(/exported from Anki/iu);
     });
 
     it("should detect and report empty files with specific message", async () => {
@@ -101,8 +101,8 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
       // Specific message for empty files
-      expect(result.issues[0]?.message).toMatch(/empty \(0 bytes\)/i);
-      expect(result.issues[0]?.message).toMatch(/re-export/i);
+      expect(result.issues[0]?.message).toMatch(/empty \(0 bytes\)/iu);
+      expect(result.issues[0]?.message).toMatch(/re-export/iu);
     });
 
     it("should detect and report random binary data as invalid ZIP", async () => {
@@ -126,7 +126,7 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
       // Random binary without ZIP magic should be detected as "not a valid ZIP"
-      expect(result.issues[0]?.message).toMatch(/not a valid ZIP archive/i);
+      expect(result.issues[0]?.message).toMatch(/not a valid ZIP archive/iu);
     });
 
     it("should provide actionable error messages with guidance", async () => {
@@ -143,7 +143,7 @@ describe("Error Handling and Edge Cases", () => {
       const message = result.issues[0]?.message ?? "";
       expect(message.length).toBeGreaterThan(50); // Should be a meaningful, actionable message
       // Should mention Anki for context
-      expect(message).toMatch(/Anki/i);
+      expect(message).toMatch(/Anki/iu);
     });
   });
 
@@ -163,8 +163,8 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.data).toBeUndefined();
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
-      expect(result.issues[0]?.message).toMatch(/missing.*'meta'/i);
-      expect(result.issues[0]?.message).toMatch(/re-export/i);
+      expect(result.issues[0]?.message).toMatch(/missing.*'meta'/iu);
+      expect(result.issues[0]?.message).toMatch(/re-export/iu);
     });
 
     it("should detect and report missing media file with specific message", async () => {
@@ -182,8 +182,8 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.data).toBeUndefined();
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
-      expect(result.issues[0]?.message).toMatch(/missing.*'media'/i);
-      expect(result.issues[0]?.message).toMatch(/re-export/i);
+      expect(result.issues[0]?.message).toMatch(/missing.*'media'/iu);
+      expect(result.issues[0]?.message).toMatch(/re-export/iu);
     });
 
     it("should detect and report missing database file with specific message", async () => {
@@ -201,8 +201,8 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.data).toBeUndefined();
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
-      expect(result.issues[0]?.message).toMatch(/missing.*'collection\.anki21'/i);
-      expect(result.issues[0]?.message).toMatch(/re-export/i);
+      expect(result.issues[0]?.message).toMatch(/missing.*'collection\.anki21'/iu);
+      expect(result.issues[0]?.message).toMatch(/re-export/iu);
     });
 
     it("should report all missing files when multiple are missing", async () => {
@@ -220,8 +220,8 @@ describe("Error Handling and Edge Cases", () => {
       expect(criticalIssues.length).toBeGreaterThanOrEqual(2);
       // Check that both media and database are mentioned
       const allMessages = criticalIssues.map((i) => i.message).join(" ");
-      expect(allMessages).toMatch(/media/i);
-      expect(allMessages).toMatch(/collection\.anki21/i);
+      expect(allMessages).toMatch(/media/iu);
+      expect(allMessages).toMatch(/collection\.anki21/iu);
     });
 
     it("should detect empty ZIP archive and report missing meta file", async () => {
@@ -237,7 +237,7 @@ describe("Error Handling and Edge Cases", () => {
       // Should have critical issue for missing meta file (checked first)
       const criticalIssues = result.issues.filter((issue) => issue.severity === "critical");
       expect(criticalIssues.length).toBeGreaterThanOrEqual(1);
-      expect(criticalIssues[0]?.message).toMatch(/meta/i);
+      expect(criticalIssues[0]?.message).toMatch(/meta/iu);
     });
 
     it("should provide actionable guidance for missing files", async () => {
@@ -257,9 +257,9 @@ describe("Error Handling and Edge Cases", () => {
       // Should be a meaningful, actionable message
       expect(message.length).toBeGreaterThan(50);
       // Should mention Anki for context
-      expect(message).toMatch(/Anki/i);
+      expect(message).toMatch(/Anki/iu);
       // Should provide guidance to re-export
-      expect(message).toMatch(/re-export/i);
+      expect(message).toMatch(/re-export/iu);
     });
   });
 
@@ -284,7 +284,7 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
       // Should detect invalid SQLite header and provide guidance
-      expect(result.issues[0]?.message).toMatch(/not a valid SQLite database.*re-export/is);
+      expect(result.issues[0]?.message).toMatch(/not a valid SQLite database.*re-export/isu);
     });
 
     it("should detect and report empty database file with specific message", async () => {
@@ -304,7 +304,7 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
       // Should detect empty database and provide guidance
-      expect(result.issues[0]?.message).toMatch(/empty.*0 bytes.*re-export/is);
+      expect(result.issues[0]?.message).toMatch(/empty.*0 bytes.*re-export/isu);
     });
 
     it("should detect and report truncated database file with specific message", async () => {
@@ -329,7 +329,7 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
       // Truncated files with valid header may open but have no tables
-      expect(result.issues[0]?.message).toMatch(/missing required tables.*re-export/is);
+      expect(result.issues[0]?.message).toMatch(/missing required tables.*re-export/isu);
     });
 
     it("should detect and report database with missing required tables", async () => {
@@ -358,7 +358,7 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.issues[0]?.severity).toBe("critical");
       // Should report missing required tables with specific table names and guidance
       expect(result.issues[0]?.message).toMatch(
-        /missing required tables.*(col|notes|cards|revlog|graves).*re-export/is,
+        /missing required tables.*(?<tableName>col|notes|cards|revlog|graves).*re-export/isu,
       );
     });
 
@@ -381,7 +381,7 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
       // Should detect file is too small and provide guidance
-      expect(result.issues[0]?.message).toMatch(/truncated.*too small.*re-export/is);
+      expect(result.issues[0]?.message).toMatch(/truncated.*too small.*re-export/isu);
     });
 
     it("should provide actionable guidance for corrupted database", async () => {
@@ -402,7 +402,7 @@ describe("Error Handling and Edge Cases", () => {
       const message = result.issues[0]?.message ?? "";
       // Should be a meaningful, actionable message mentioning Anki and re-export
       expect(message.length).toBeGreaterThan(50);
-      expect(message).toMatch(/Anki.*re-export/is);
+      expect(message).toMatch(/Anki.*re-export/isu);
     });
   });
 
@@ -426,8 +426,8 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.data).toBeUndefined();
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
-      expect(result.issues[0]?.message).toMatch(/invalid JSON.*cannot be parsed/i);
-      expect(result.issues[0]?.message).toMatch(/re-export/i);
+      expect(result.issues[0]?.message).toMatch(/invalid JSON.*cannot be parsed/iu);
+      expect(result.issues[0]?.message).toMatch(/re-export/iu);
     });
 
     it("should detect and report wrong JSON structure (array instead of object)", async () => {
@@ -449,8 +449,8 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.data).toBeUndefined();
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
-      expect(result.issues[0]?.message).toMatch(/invalid structure.*array/i);
-      expect(result.issues[0]?.message).toMatch(/re-export/i);
+      expect(result.issues[0]?.message).toMatch(/invalid structure.*array/iu);
+      expect(result.issues[0]?.message).toMatch(/re-export/iu);
     });
 
     it("should handle empty media file gracefully (valid case - no media)", async () => {
@@ -522,8 +522,8 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.data).toBeUndefined();
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
-      expect(result.issues[0]?.message).toMatch(/invalid entry.*number.*instead of.*string/i);
-      expect(result.issues[0]?.message).toMatch(/re-export/i);
+      expect(result.issues[0]?.message).toMatch(/invalid entry.*number.*instead of.*string/iu);
+      expect(result.issues[0]?.message).toMatch(/re-export/iu);
     });
 
     it("should detect null value in media mapping", async () => {
@@ -545,8 +545,8 @@ describe("Error Handling and Edge Cases", () => {
       expect(result.data).toBeUndefined();
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
-      expect(result.issues[0]?.message).toMatch(/invalid entry.*null.*instead of.*string/i);
-      expect(result.issues[0]?.message).toMatch(/re-export/i);
+      expect(result.issues[0]?.message).toMatch(/invalid entry.*null.*instead of.*string/iu);
+      expect(result.issues[0]?.message).toMatch(/re-export/iu);
     });
 
     it("should provide actionable guidance for invalid media JSON", async () => {
@@ -568,7 +568,7 @@ describe("Error Handling and Edge Cases", () => {
       const message = result.issues[0]?.message ?? "";
       // Should be a meaningful, actionable message mentioning Anki and re-export
       expect(message.length).toBeGreaterThan(50);
-      expect(message).toMatch(/re-export.*Anki/is);
+      expect(message).toMatch(/re-export.*Anki/isu);
     });
   });
 
@@ -624,7 +624,7 @@ describe("Error Handling and Edge Cases", () => {
       const noteIssue = result.issues.find((i) => i.context?.itemType === "note");
       expect(noteIssue).toBeDefined();
       expect(noteIssue?.severity).toBe("error");
-      expect(noteIssue?.message).toMatch(/Note.*invalid/i);
+      expect(noteIssue?.message).toMatch(/Note.*invalid/iu);
 
       // Verify card for invalid note is also skipped
       const cardIssue = result.issues.find((i) => i.context?.itemType === "card");
@@ -719,7 +719,7 @@ describe("Error Handling and Edge Cases", () => {
         (i) => i.context?.itemType === "card" && i.message.includes("non-existent"),
       );
       expect(cardIssue).toBeDefined();
-      expect(cardIssue?.message).toMatch(/deck/i);
+      expect(cardIssue?.message).toMatch(/deck/iu);
 
       // Verify only valid card remains
       if (result.data) {
@@ -764,7 +764,7 @@ describe("Error Handling and Edge Cases", () => {
       // Verify review error is reported
       const reviewIssue = result.issues.find((i) => i.context?.itemType === "review");
       expect(reviewIssue).toBeDefined();
-      expect(reviewIssue?.message).toMatch(/non-existent card/i);
+      expect(reviewIssue?.message).toMatch(/non-existent card/iu);
 
       // Verify only valid review remains
       if (result.data) {
@@ -860,8 +860,8 @@ describe("Error Handling and Edge Cases", () => {
         (i) => i.context?.itemType === "media" && i.severity === "warning",
       );
       expect(mediaWarnings.length).toBe(2);
-      expect(mediaWarnings[0]?.message).toMatch(/image\.png/);
-      expect(mediaWarnings[1]?.message).toMatch(/audio\.mp3/);
+      expect(mediaWarnings[0]?.message).toMatch(/image\.png/u);
+      expect(mediaWarnings[1]?.message).toMatch(/audio\.mp3/u);
     });
 
     it("should return success when there are no issues", async () => {

@@ -1,11 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import type { ZipEntryData } from "archiver";
-import archiver from "archiver";
+import type { ArchiverError, ZipEntryData } from "archiver";
+import { ZipArchive } from "archiver";
 import { v7 as uuidv7 } from "uuid";
 
-const NUMERIC_STRING_PATTERN = /^\d+$/;
+const NUMERIC_STRING_PATTERN = /^\d+$/u;
 
 /**
  * Converts a number to a base91 string representation.
@@ -61,7 +61,7 @@ export function generateUnixTimeInMilliseconds(): number {
 }
 
 export function sanitizeFilename(filename: string): string {
-  return filename.replaceAll(/[^a-z0-9.-]/gi, "_");
+  return filename.replaceAll(/[^a-z0-9.-]/giu, "_");
 }
 
 export function omitFields<T extends object, K extends keyof T>(obj: T, ...keys: K[]): Omit<T, K> {
@@ -138,14 +138,14 @@ export async function createSelectiveZip(outputPath: string, files: FileConfig[]
   await fs.promises.mkdir(path.dirname(outputPath), { recursive: true });
 
   const output = fs.createWriteStream(outputPath);
-  const archive = archiver("zip");
+  const archive = new ZipArchive();
 
   // Set up event handling using a separate promise
   const closePromise = new Promise<void>((resolve, reject) => {
     output.on("close", resolve);
     output.on("error", reject); // Catch output stream errors
     archive.on("error", reject);
-    archive.on("warning", (err: archiver.ArchiverError) => {
+    archive.on("warning", (err: ArchiverError) => {
       if (err.code === "ENOENT") {
         console.warn("Warning:", err);
       } else {
@@ -210,7 +210,7 @@ export function serializeWithBigInts(obj: unknown, space?: string | number): str
     (_key, value: unknown) =>
       typeof value === "bigint" ? `__BIGINT__${String(value)}__BIGINT__` : value,
     space,
-  ).replaceAll(/"__BIGINT__(\d+)__BIGINT__"/g, "$1");
+  ).replaceAll(/"__BIGINT__(?<value>\d+)__BIGINT__"/gu, "$<value>");
 }
 
 /**
@@ -373,7 +373,7 @@ function quoteNumbersForFieldName(jsonString: string, fieldPath: string): string
   // Quote all occurrences of this field name with numeric values
   // Pattern matches: "fieldName": 123 -> "fieldName": "123"
   return jsonString.replaceAll(
-    new RegExp(`"${lastField}"\\s*:\\s*(\\d+)`, "g"),
+    new RegExp(`"${lastField}"\\s*:\\s*(\\d+)`, "gu"),
     `"${lastField}":"$1"`,
   );
 }

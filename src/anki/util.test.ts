@@ -20,7 +20,7 @@ import {
 
 describe("guid64", () => {
   it("should generate string with valid base91 characters", () => {
-    const validChars = /^[a-zA-Z0-9!#$%&()*+,\-./:;<=>?@[\\\]^_`{|}~]+$/;
+    const validChars = /^[a-zA-Z0-9!#$%&()*+,\-./:;<=>?@[\\\]^_`{|}~]+$/u;
     const result = guid64();
     expect(result).toMatch(validChars);
   });
@@ -94,7 +94,7 @@ describe("guid64", () => {
 describe("generateUuid", () => {
   it("should generate a valid UUID", () => {
     const uuid = generateUuid();
-    expect(uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+    expect(uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu);
   });
 
   it("should generate unique UUIDs on multiple rapid calls", () => {
