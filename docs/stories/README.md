@@ -86,8 +86,8 @@ Implement reading and writing support for SuperMemo format.
 Design and document the universal SRS format specification.
 
 - **Phase 5.0**: Universal Format Specification
-  - Progress: 0/5 stories completed (0%) 🔄
-  - Status: Story 5.0.1 (format analysis) in testing — research complete, deliverables in `docs/formats/`, awaiting maintainer verification. Re-scoped 2026-07-10 with maintainer approval: analysis is based on format documentation, source code, and sample files instead of waiting for the Phase 2-4 I/O implementations, so the universal format can be specified first.
+  - Progress: 1/5 stories completed (20%) 🔄
+  - Status: Story 5.0.1 (format analysis) completed 2026-07-10 — deliverables in `docs/formats/`. Phase 5 was pulled forward with maintainer approval (research-based analysis instead of waiting for Phase 2-4 I/O implementations). Currently working through the design decisions in `docs/formats/open-decisions.md` as ADRs.
 
 **[→ View Phase 5 Stories](phase-5.md)**
 

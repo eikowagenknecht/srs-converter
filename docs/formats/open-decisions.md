@@ -2,7 +2,19 @@
 
 Decision backlog for the universal SRS format specification (Phase 5). Each item is a candidate ADR, to be decided with the maintainer one by one. Evidence references point into the dossiers in this directory ([README.md](README.md) has the comparison matrix) and the round-trip audit (`docs/working/audit-2026-07-10-roundtrip.md`).
 
-Status: **research-complete draft** — 2026-07-10, refined against all five dossiers. Recommendations are drafts, not decisions.
+Status: **decided 2026-07-10** — this backlog has been worked through with the maintainer and converted into ADRs. This file is kept as the research-to-decision record; the ADRs are authoritative:
+
+| Decision                           | ADR      | Status                                                         |
+| ---------------------------------- | -------- | -------------------------------------------------------------- |
+| D1 rating/log model                | ADR-0004 | accepted                                                       |
+| D10 schedulable unit               | ADR-0005 | accepted (topics: **out of scope**, differs from draft)        |
+| D2 content & templates             | ADR-0006 | accepted (**universal template language**, differs from draft) |
+| D3 serialization                   | ADR-0007 | accepted                                                       |
+| D6 decks                           | ADR-0008 | accepted                                                       |
+| D5 identity                        | ADR-0009 | accepted                                                       |
+| D7+D8 media/tags/timestamps/status | ADR-0010 | accepted                                                       |
+| D4 extensibility                   | ADR-0011 | accepted (supersedes ADR-0003)                                 |
+| D9 conformance                     | ADR-0012 | accepted                                                       |
 
 ---
 

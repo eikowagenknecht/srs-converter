@@ -6,7 +6,7 @@
 
 ### Story 5.0.1: Analyze Common Patterns Across All Implemented Formats
 
-**Status:** 🧪 Testing (research complete 2026-07-10, awaiting maintainer verification)
+**Status:** ✅ Completed (2026-07-10). Deliverables: per-format dossiers, comparison matrix, and ADR-ready decision backlog in `docs/formats/`.
 
 **Story:** As a developer, I want to analyze patterns across Anki, Mnemosyne, SuperMemo, and Mochi so I can design an effective universal format.
 
@@ -28,13 +28,13 @@
 
 **Testing:**
 
-- [ ] Manual: Validate analysis against real data
+- [x] Manual: Validate analysis against real data (maintainer verified 2026-07-10)
 
 ---
 
 ### Story 5.0.2: Choose Universal Format Serialization Strategy
 
-**Status:** ⏳ Pending
+**Status:** 🔄 In Progress — strategic decision made in ADR-0007 (2026-07-10): JSON directory + zip transport, review log as JSONL. Remaining: benchmark and sample-data validation during spec/implementation work.
 
 **Story:** As a developer, I want to evaluate and choose the best serialization format for the universal SRS format so it meets the human-readable open format requirement while balancing usability and performance.
 
@@ -162,7 +162,7 @@
 
 ### Story 5.0.5: Write RFC-Style Universal Format Documentation
 
-**Status:** ⏳ Pending
+**Status:** 🔄 In Progress (since 2026-07-10) — drafting against the accepted design decisions (ADR-0004 through ADR-0012); spec lives in `docs/spec/`
 
 **Story:** As a developer, I want RFC-style documentation so third parties can implement the universal format.
 
