@@ -162,7 +162,7 @@
 
 ### Story 5.0.5: Write RFC-Style Universal Format Documentation
 
-**Status:** 🔄 In Progress (since 2026-07-10) — drafting against the accepted design decisions (ADR-0004 through ADR-0012); spec lives in `docs/spec/`
+**Status:** 🧪 Testing — draft 1.0.0-draft.1 complete (2026-07-10) in `docs/spec/universal-srs-format.md`, awaiting maintainer review. Written against ADR-0004 through ADR-0012; includes conformance profiles, rating-scale registry, universal template language, per-format mapping summaries with paper validation, security considerations, versioning rules, and a worked example. Open pre-1.0 items in the spec's Appendix A.
 
 **Story:** As a developer, I want RFC-style documentation so third parties can implement the universal format.
 

@@ -87,7 +87,7 @@ Design and document the universal SRS format specification.
 
 - **Phase 5.0**: Universal Format Specification
   - Progress: 1/5 stories completed (20%) 🔄
-  - Status: Story 5.0.1 (format analysis) completed 2026-07-10 — deliverables in `docs/formats/`. Phase 5 was pulled forward with maintainer approval (research-based analysis instead of waiting for Phase 2-4 I/O implementations). Currently working through the design decisions in `docs/formats/open-decisions.md` as ADRs.
+  - Status: Story 5.0.1 completed 2026-07-10 (`docs/formats/`). All design decisions made as ADR-0004…0012. Story 5.0.2 strategic decision made (ADR-0007, validation pending). Story 5.0.5 spec draft complete, in review (`docs/spec/`). Phase 5 was pulled forward with maintainer approval; remaining: 5.0.3/5.0.4 implementation alignment.
 
 **[→ View Phase 5 Stories](phase-5.md)**
 
