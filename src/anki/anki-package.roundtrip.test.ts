@@ -7,14 +7,23 @@
  *
  * Out of scope for WP2 (asserted elsewhere / deferred):
  * - Media files are still dropped (F3 / WP4); not asserted here.
- * - Cloze card regeneration is still buggy (F9 / WP3): note B's MathJax cloze
- *   card (ord 0) is dropped, so note B's cards are not asserted in detail.
+ *
+ * WP3 (cloze parity) has since landed: note B's MathJax cloze card (ord 0) now
+ * round-trips alongside the ord-1 card, so both are asserted below.
  */
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { SrsPackage, createCard, createDeck, createNote, createNoteType } from "@/srs-package";
+import {
+  SrsPackage,
+  SrsReviewScore,
+  createCard,
+  createDeck,
+  createNote,
+  createNoteType,
+  createReview,
+} from "@/srs-package";
 
 import { AnkiPackage } from "./anki-package";
 import { expectSuccess, getTempDir, setupTempDir } from "./anki-package.fixtures";
@@ -110,8 +119,24 @@ describe("Anki → SRS → Anki full-fidelity round-trip", () => {
     expect(cardA2?.["left"]).toBe(1002);
     expect(cardA2?.["ord"]).toBe(1);
 
-    // Suspended cloze card B2 stays suspended (queue -1) after regeneration.
+    // MathJax cloze card B1 (ord 0) now round-trips (WP3) with its filtered-deck
+    // scheduling state (odid/odue) restored from the blob.
+    const cardB1 = after.cards.find((c) => c["id"] === SRC.cardB1Id);
+    expect(cardB1).toBeDefined();
+    expect(cardB1?.["ord"]).toBe(0);
+    expect(cardB1?.["type"]).toBe(2);
+    expect(cardB1?.["queue"]).toBe(2);
+    expect(cardB1?.["due"]).toBe(200);
+    expect(cardB1?.["ivl"]).toBe(45);
+    expect(cardB1?.["factor"]).toBe(2350);
+    expect(cardB1?.["odue"]).toBe(99);
+    expect(cardB1?.["odid"]).toBe(200);
+    expect(cardB1?.["nid"]).toBe(SRC.noteBId);
+
+    // Suspended cloze card B2 (ord 1) stays suspended (queue -1).
     const cardB2 = after.cards.find((c) => c["id"] === SRC.cardB2Id);
+    expect(cardB2).toBeDefined();
+    expect(cardB2?.["ord"]).toBe(1);
     expect(cardB2?.["queue"]).toBe(-1);
   });
 
@@ -403,6 +428,243 @@ describe("SRS-authored package (no captured Anki blobs)", () => {
         [1, "any", [0]],
       ]);
       expect(noteTypeOut?.originalStockKind).toBe(null);
+    } finally {
+      await anki.cleanup();
+    }
+  });
+});
+
+/**
+ * Builds a minimal SRS-authored cloze package (one deck, one cloze note type,
+ * one note) so cloze card generation in `fromSrsPackage` can be tested in
+ * isolation. Cards are created for the given template ordinals.
+ * @param options - Template strings, fields and the note's field values plus the card template ordinals to create
+ * @returns The built package with the note id and the created card ids
+ */
+function makeClozeSrsPackage(options: {
+  questionTemplate?: string;
+  answerTemplate?: string;
+  fields?: { id: number; name: string }[];
+  fieldValues: [string, string][];
+  cardTemplateIds: number[];
+}): { srs: SrsPackage; noteId: string; cardIds: string[] } {
+  const {
+    questionTemplate = "{{cloze:Text}}",
+    answerTemplate = "{{cloze:Text}}<br>{{Extra}}",
+    fields = [
+      { id: 0, name: "Text" },
+      { id: 1, name: "Extra" },
+    ],
+    fieldValues,
+    cardTemplateIds,
+  } = options;
+
+  const srs = new SrsPackage();
+  const deck = createDeck({ name: "Cloze Deck" });
+  srs.addDeck(deck);
+
+  const noteType = createNoteType({
+    fields,
+    name: "Cloze WP3",
+    templates: [{ answerTemplate, id: 0, name: "Cloze", questionTemplate }],
+  });
+  srs.addNoteType(noteType);
+
+  const note = createNote({ deckId: deck.id, fieldValues, noteTypeId: noteType.id }, noteType);
+  srs.addNote(note);
+
+  const cardIds: string[] = [];
+  for (const templateId of cardTemplateIds) {
+    const card = createCard({ noteId: note.id, templateId });
+    srs.addCard(card);
+    cardIds.push(card.id);
+  }
+
+  return { srs, noteId: note.id, cardIds };
+}
+
+describe("Cloze parity (WP3)", () => {
+  it("generates a card for a MathJax cloze whose body contains braces (F9)", async () => {
+    const { srs } = makeClozeSrsPackage({
+      fieldValues: [
+        ["Text", String.raw`The value is {{c1::\(x^{2}\)}}.`],
+        ["Extra", ""],
+      ],
+      cardTemplateIds: [0],
+    });
+
+    const anki = expectSuccess(await AnkiPackage.fromSrsPackage(srs));
+    try {
+      const cards = anki.getCards();
+      expect(cards).toHaveLength(1);
+      expect(cards[0]?.ord).toBe(0);
+      // The cloze content (including the inner brace) survives on the note.
+      expect(anki.getNotes()[0]?.flds).toContain(String.raw`{{c1::\(x^{2}\)}}`);
+    } finally {
+      await anki.cleanup();
+    }
+  });
+
+  it("matches a multi-line cloze body (dotAll)", async () => {
+    const { srs } = makeClozeSrsPackage({
+      fieldValues: [
+        ["Text", "Start {{c1::line one\nline two}} end."],
+        ["Extra", ""],
+      ],
+      cardTemplateIds: [0],
+    });
+
+    const anki = expectSuccess(await AnkiPackage.fromSrsPackage(srs));
+    try {
+      const cards = anki.getCards();
+      expect(cards).toHaveLength(1);
+      expect(cards[0]?.ord).toBe(0);
+    } finally {
+      await anki.cleanup();
+    }
+  });
+
+  it("ignores cloze markers in a field not referenced by {{cloze:...}} (S2)", async () => {
+    // The cloze field (Text) has no deletions; the marker lives only in Extra,
+    // which the question template does not reference, so no card is required and
+    // the stray SRS card is dropped as an orphan.
+    const { srs } = makeClozeSrsPackage({
+      fieldValues: [
+        ["Text", "no cloze deletions here"],
+        ["Extra", "aside about {{c1::hidden}}"],
+      ],
+      cardTemplateIds: [0],
+    });
+
+    const result = await AnkiPackage.fromSrsPackage(srs);
+    expect(result.status).toBe("success");
+    const anki = expectSuccess(result);
+    try {
+      // Extra's {{c1::...}} generated no card.
+      expect(anki.getCards()).toHaveLength(0);
+      // The orphaned SRS card is surfaced rather than dropped silently.
+      expect(
+        result.issues.some((i) => i.severity === "warning" && i.message.includes("dropped")),
+      ).toBe(true);
+    } finally {
+      await anki.cleanup();
+    }
+  });
+
+  it("fabricates a fresh card for a missing ordinal and keeps reviews on the real card (S1)", async () => {
+    // Content needs ordinals 0 and 1 but only the ord-0 card exists.
+    const { srs, cardIds } = makeClozeSrsPackage({
+      fieldValues: [
+        ["Text", "The {{c1::first}} and the {{c2::second}}."],
+        ["Extra", ""],
+      ],
+      cardTemplateIds: [0],
+    });
+    const realCardId = cardIds[0];
+    if (realCardId === undefined) {
+      throw new Error("unreachable");
+    }
+    srs.addReview(
+      createReview({
+        cardId: realCardId,
+        score: SrsReviewScore.Again,
+        timestamp: 1_700_000_000_000,
+      }),
+    );
+
+    const result = await AnkiPackage.fromSrsPackage(srs);
+    expect(result.status).toBe("success");
+    const anki = expectSuccess(result);
+    try {
+      const cards = anki.getCards();
+      expect(cards.map((c) => c.ord).sort((a, b) => a - b)).toEqual([0, 1]);
+      // The fabricated card is a new, distinct card (not a clone of the ord-0 one).
+      const cardOrd0 = cards.find((c) => c.ord === 0);
+      const cardOrd1 = cards.find((c) => c.ord === 1);
+      expect(cardOrd0?.id).not.toBe(cardOrd1?.id);
+
+      // A warning names the fabrication.
+      expect(
+        result.issues.some(
+          (i) => i.severity === "warning" && i.message.includes("created a new card"),
+        ),
+      ).toBe(true);
+
+      // The single review stays on the real ord-0 card (the old fallback-clone
+      // path re-keyed it onto the fabricated card).
+      const reviews = anki.getReviews();
+      expect(reviews).toHaveLength(1);
+      expect(reviews[0]?.cid).toBe(cardOrd0?.id);
+    } finally {
+      await anki.cleanup();
+    }
+  });
+
+  it("attaches reviews to the correct card when a note has multiple cloze cards", async () => {
+    const { srs, cardIds } = makeClozeSrsPackage({
+      fieldValues: [
+        ["Text", "The {{c1::first}} and the {{c2::second}}."],
+        ["Extra", ""],
+      ],
+      cardTemplateIds: [0, 1],
+    });
+    const [cardOrd0Srs, cardOrd1Srs] = cardIds;
+    if (cardOrd0Srs === undefined || cardOrd1Srs === undefined) {
+      throw new Error("unreachable");
+    }
+    // Distinguish the two reviews by score (Again vs Easy → ease 1 vs 4).
+    srs.addReview(
+      createReview({
+        cardId: cardOrd0Srs,
+        score: SrsReviewScore.Again,
+        timestamp: 1_700_000_000_000,
+      }),
+    );
+    srs.addReview(
+      createReview({
+        cardId: cardOrd1Srs,
+        score: SrsReviewScore.Easy,
+        timestamp: 1_700_000_000_001,
+      }),
+    );
+
+    const anki = expectSuccess(await AnkiPackage.fromSrsPackage(srs));
+    try {
+      const cards = anki.getCards();
+      const cardOrd0 = cards.find((c) => c.ord === 0);
+      const cardOrd1 = cards.find((c) => c.ord === 1);
+      expect(cardOrd0).toBeDefined();
+      expect(cardOrd1).toBeDefined();
+
+      const reviews = anki.getReviews();
+      const againReview = reviews.find((r) => r.ease === 1);
+      const easyReview = reviews.find((r) => r.ease === 4);
+      expect(againReview?.cid).toBe(cardOrd0?.id);
+      expect(easyReview?.cid).toBe(cardOrd1?.id);
+    } finally {
+      await anki.cleanup();
+    }
+  });
+
+  it("recognizes a chained {{type:cloze:Text}} filter as a cloze reference", async () => {
+    // Two cloze deletions but only one SRS card: if the chained filter is
+    // recognized the note type is treated as cloze and a second card is
+    // fabricated; otherwise only the one SRS card would be emitted.
+    const { srs } = makeClozeSrsPackage({
+      questionTemplate: "{{type:cloze:Text}}",
+      fieldValues: [
+        ["Text", "The {{c1::first}} and the {{c2::second}}."],
+        ["Extra", ""],
+      ],
+      cardTemplateIds: [0],
+    });
+
+    const anki = expectSuccess(await AnkiPackage.fromSrsPackage(srs));
+    try {
+      const cards = anki.getCards();
+      expect(cards.map((c) => c.ord).sort((a, b) => a - b)).toEqual([0, 1]);
+      // The note type is emitted as a cloze note type.
+      expect(anki.getNoteTypes()[0]?.type).toBe(1);
     } finally {
       await anki.cleanup();
     }

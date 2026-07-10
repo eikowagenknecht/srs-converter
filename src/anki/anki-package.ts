@@ -351,8 +351,11 @@ function filterValidDatabaseItems(dump: DatabaseDump, collector: IssueCollector)
  */
 function analyzeClozeOrdinals(fieldContent: string): number[] {
   // Find valid cloze deletion patterns: {{c1::text}}, {{c2::text::hint}}, etc.
-  // NOTE: {{c0::...}} is NOT a valid cloze deletion - clozes start from c1
-  const clozeRegex = /\{\{c(?<ordinal>[1-9]\d*)::[^}]*\}\}/gu;
+  // NOTE: {{c0::...}} is NOT a valid cloze deletion - clozes start from c1.
+  // The body is matched non-greedily (`.*?`) so a `}` inside the cloze content
+  // (e.g. MathJax `\(x^{2}\)`) does not end the match early, and the `s` flag
+  // lets a multi-line cloze body match. Mirrors Anki's rslib cloze pattern.
+  const clozeRegex = /\{\{c(?<ordinal>[1-9]\d*)::.*?\}\}/gsu;
 
   const clozeNumbers = [...fieldContent.matchAll(clozeRegex)]
     .map((match) => match.groups?.["ordinal"])
@@ -362,6 +365,128 @@ function analyzeClozeOrdinals(fieldContent: string): number[] {
     .sort((a, b) => a - b);
 
   return clozeNumbers;
+}
+
+/**
+ * Extracts the field names referenced through a `cloze` filter chain in a single
+ * Anki template string.
+ *
+ * Anki mustache tags may chain filters with `:` (applied right-to-left); the
+ * last colon-segment is the field name. A tag references a field for cloze
+ * generation when one of its leading segments is exactly `cloze` — this handles
+ * both `{{cloze:Text}}` and chained filters such as `{{type:cloze:Text}}`.
+ * @param templateContent - The raw question/answer template string
+ * @returns The cloze-referenced field names found in the template
+ */
+function clozeFieldsInTemplate(templateContent: string): string[] {
+  const fields: string[] = [];
+  for (const match of templateContent.matchAll(/\{\{(?<body>.*?)\}\}/gsu)) {
+    const body = match.groups?.["body"];
+    if (body === undefined) {
+      continue;
+    }
+    const segments = body.split(":").map((segment) => segment.trim());
+    const fieldName = segments.at(-1);
+    if (fieldName !== undefined && fieldName !== "" && segments.slice(0, -1).includes("cloze")) {
+      fields.push(fieldName);
+    }
+  }
+  return fields;
+}
+
+/**
+ * Determines whether an SRS note type is a cloze note type by scanning its
+ * templates for a `{{cloze:...}}` filter reference (question or answer side).
+ * @param noteType - The SRS note type to inspect
+ * @returns True when any template references a field through a cloze filter
+ */
+function isClozeSrsNoteType(noteType: SrsNoteType): boolean {
+  return noteType.templates.some(
+    (template) =>
+      clozeFieldsInTemplate(template.questionTemplate).length > 0 ||
+      clozeFieldsInTemplate(template.answerTemplate).length > 0,
+  );
+}
+
+/**
+ * Collects the field names a cloze note type scans for cloze deletions: those
+ * referenced through a `{{cloze:...}}` filter in a question template (Anki only
+ * generates cloze cards from question-side cloze references).
+ * @param noteType - The SRS note type to inspect
+ * @returns The set of question-referenced cloze field names
+ */
+function clozeFieldNamesForNoteType(noteType: SrsNoteType): Set<string> {
+  const names = new Set<string>();
+  for (const template of noteType.templates) {
+    for (const field of clozeFieldsInTemplate(template.questionTemplate)) {
+      names.add(field);
+    }
+  }
+  return names;
+}
+
+/**
+ * Plans the cards a cloze note must produce, pairing each required cloze ordinal
+ * with its SRS card.
+ *
+ * Only the fields referenced through a `{{cloze:...}}` question template are
+ * scanned for cloze deletions (S2); if the note type references none, all fields
+ * are scanned and a warning is emitted. Ordinals without a matching SRS card
+ * yield a fabricated fresh card (`srsCard: undefined`, S1) plus a warning; SRS
+ * cards whose ordinal no longer appears in the content are dropped with a
+ * warning.
+ * @param note - The SRS note being converted
+ * @param noteType - The note's cloze note type
+ * @param noteCards - The SRS cards belonging to the note
+ * @param collector - Issue collector for the S1/S2 warnings
+ * @returns One entry per required ordinal: its ordinal and matching SRS card (or `undefined` to fabricate)
+ */
+function planClozeCards(
+  note: SrsNote,
+  noteType: SrsNoteType,
+  noteCards: SrsCard[],
+  collector: IssueCollector,
+): { ord: number; srsCard: SrsCard | undefined }[] {
+  const clozeFieldNames = clozeFieldNamesForNoteType(noteType);
+  let fieldsToScan: string[];
+  if (clozeFieldNames.size > 0) {
+    fieldsToScan = note.fieldValues
+      .filter(([name]) => clozeFieldNames.has(name))
+      .map(([, value]) => value);
+  } else {
+    collector.addWarning(
+      `Cloze note type "${noteType.name}" has no field referenced by a {{cloze:...}} question template; scanning all fields for cloze deletions instead.`,
+      { itemType: "note", originalData: note },
+    );
+    fieldsToScan = note.fieldValues.map(([, value]) => value);
+  }
+
+  const requiredOrdinals = [
+    ...new Set(fieldsToScan.flatMap((value) => analyzeClozeOrdinals(value))),
+  ].sort((a, b) => a - b);
+  const requiredOrdinalSet = new Set(requiredOrdinals);
+
+  // An SRS card whose ordinal no longer appears in the content is orphaned and
+  // dropped — surface it instead of dropping silently.
+  for (const card of noteCards) {
+    if (!requiredOrdinalSet.has(card.templateId)) {
+      collector.addWarning(
+        `Card for cloze deletion c${(card.templateId + 1).toFixed(0)} of note ${note.id} was dropped because that cloze deletion no longer appears in the note content.`,
+        { itemType: "card", originalData: card },
+      );
+    }
+  }
+
+  return requiredOrdinals.map((ord) => {
+    const existingCard = noteCards.find((card) => card.templateId === ord);
+    if (!existingCard) {
+      collector.addWarning(
+        `Cloze deletion c${(ord + 1).toFixed(0)} of note ${note.id} has no card in the package; created a new card.`,
+        { itemType: "card", originalData: note },
+      );
+    }
+    return { ord, srsCard: existingCard };
+  });
 }
 
 /**
@@ -585,16 +710,10 @@ function restoreAnkiNoteType(
     return { ...base, id: noteTypeId, name: srsNoteType.name, tmpls, flds };
   }
 
-  const isClozeNoteType = srsNoteType.templates.some(
-    (template) =>
-      template.questionTemplate.includes("{{cloze:") ||
-      template.answerTemplate.includes("{{cloze:"),
-  );
-
   return {
     id: noteTypeId,
     name: srsNoteType.name,
-    type: isClozeNoteType ? NoteTypeKind.CLOZE : NoteTypeKind.STANDARD,
+    type: isClozeSrsNoteType(srsNoteType) ? NoteTypeKind.CLOZE : NoteTypeKind.STANDARD,
     mod: 0,
     usn: 0,
     sortf: 0,
@@ -1235,8 +1354,11 @@ export class AnkiPackage {
       ankiPackage.addNote(restoreAnkiNote(note, noteId, noteTypeId, restoredNoteType, collector));
     }
 
-    // Convert cards
+    // Convert cards. `cardIDs` maps SRS card id → Anki card id and only ever
+    // holds real SRS cards, so reviews resolve to the correct card. `usedCardIds`
+    // tracks every assigned id (real and fabricated) to keep them unique.
     const cardIDs = new Map<string, number>();
+    const usedCardIds = new Set<number>();
 
     // Group cards by note to not generate duplicate cards
     // TODO: Clean this up
@@ -1300,59 +1422,39 @@ export class AnkiPackage {
       // Find the note type for this note
       const noteType = srsPackage.getNoteTypes().find((nt) => nt.id === note.noteTypeId);
 
-      // Check if this is a cloze note type by looking at the template content
-      // TODO: This is used in multiple places, extract to utility function
-      const isClozeNoteType =
-        noteType?.templates.some(
-          (template) =>
-            template.questionTemplate.includes("{{cloze:") ||
-            template.answerTemplate.includes("{{cloze:"),
-        ) ?? false;
-
-      let cardsToCreate: { ord: number; srsCard: SrsCard }[];
-
-      if (isClozeNoteType) {
-        // For cloze notes, analyze the content to determine required ordinals
-        const fieldContent = joinAnkiFields(note.fieldValues.map(([, value]) => value));
-        const requiredOrdinals = analyzeClozeOrdinals(fieldContent);
-
-        // Map SRS cards to ordinals, ensuring we have all required ordinals
-        cardsToCreate = requiredOrdinals.map((ord) => {
-          // Try to find an existing SRS card with this ordinal
-          const existingCard = noteCards.find((c) => c.templateId === ord);
-          const fallbackCard = noteCards[0];
-          if (!fallbackCard) {
-            throw new Error(`No cards available for note ${note.id}`);
-          }
-          return {
-            ord,
-            srsCard: existingCard ?? fallbackCard, // Use first card as fallback with correct ordinal
-          };
-        });
-      } else {
-        // For regular note types, create cards as normal
-        cardsToCreate = noteCards.map((card) => ({
-          ord: card.templateId,
-          srsCard: card,
-        }));
-      }
+      // For cloze note types the card set is derived from the cloze deletions in
+      // the templated fields (an ordinal may need a fabricated fresh card); for
+      // regular note types each SRS card maps to its template ordinal directly.
+      const cardsToCreate: { ord: number; srsCard: SrsCard | undefined }[] =
+        noteType && isClozeSrsNoteType(noteType)
+          ? planClozeCards(note, noteType, noteCards, collector)
+          : noteCards.map((card) => ({ ord: card.templateId, srsCard: card }));
 
       // Create the Anki cards
       for (const { ord, srsCard } of cardsToCreate) {
+        // A missing cloze ordinal has no SRS card: fabricate a fresh one so it
+        // gets a new identity and default scheduling (no captured blob).
+        const cardForRestore = srsCard ?? createCard({ noteId: note.id, templateId: ord });
+
         let cardId = resolveAnkiId(
-          srsCard.applicationSpecificData,
-          extractTimestampFromUuid(srsCard.id),
+          cardForRestore.applicationSpecificData,
+          extractTimestampFromUuid(cardForRestore.id),
         );
 
         // Keep incrementing until we find an unused ID
-        while ([...cardIDs.values()].includes(cardId)) {
+        while (usedCardIds.has(cardId)) {
           cardId++;
         }
+        usedCardIds.add(cardId);
 
-        cardIDs.set(srsCard.id, cardId);
+        // Only real SRS cards enter the review-mapping table; fabricated cards
+        // never receive reviews.
+        if (srsCard) {
+          cardIDs.set(srsCard.id, cardId);
+        }
 
         ankiPackage.addCard(
-          restoreAnkiCard(srsCard, cardId, ankiNoteId, ankiDeckId, ord, collector),
+          restoreAnkiCard(cardForRestore, cardId, ankiNoteId, ankiDeckId, ord, collector),
         );
       }
     }

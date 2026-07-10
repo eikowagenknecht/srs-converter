@@ -49,12 +49,6 @@ corresponding work packages complete.
 **Impact:** Silent content swap for SRS-authored packages (documented, supported flow).
 **Notes:** Fix: sort `fieldValues` by `noteType.fields` order before joining.
 
-### (2026-07-10) Cloze cards silently dropped when cloze content contains "}" (Priority: High)
-
-**Problem:** `analyzeClozeOrdinals` regex `\{\{c(\d+)::[^}]*\}\}` (`anki-package.ts:343`) cannot match `}` inside the cloze body; Anki's own pattern is non-greedy `.*?`.
-**Steps to reproduce:** SRS→Anki with cloze content `{{c1::\(x^{2}\)}}` (any MathJax with braces) → zero cards generated, orphan note written, status success, no issues. In a full round-trip a two-card cloze note came back with one card. (Audit F9)
-**Impact:** Silent card loss for a very common cloze pattern (math).
-
 ### (2026-07-10) BasicAndReverseNote constant: reverse template is not reversed (Priority: High)
 
 **Problem:** In `srs-package.ts:382-403` both templates have `questionTemplate: "{{Front}}"`, `answerTemplate: "{{Back}}"`. The second ("Back > Front") should be swapped.
@@ -74,16 +68,6 @@ corresponding work packages complete.
 **Problem:** Review IDs get no collision-bumping (unlike decks/note types/notes/cards, `anki-package.ts:1120-1136`); `revlog.id` is the primary key.
 **Steps to reproduce:** Two `createReview` with the same ms timestamp → `fromSrsPackage` succeeds (both id = timestamp) → `toAnkiExport` throws `UNIQUE constraint failed: revlog.id`. (Audit F16)
 **Impact:** Deferred crash after conversion reported success; realistic for sources with second-granularity review timestamps.
-
-### (2026-07-10) Cloze regeneration fabricates cards / can misattach reviews (Priority: Medium, suspected)
-
-**Problem:** `anki-package.ts:1018-1029` clones the note's first card for every content ordinal lacking an SRS card; `cardIDs.set(srsCard.id, …)` (`:1050`) overwrites when one SRS card maps to several ordinals, so its reviews attach only to the last generated card.
-**Impact:** Fabricated cards; review history attached to the wrong card. Code-reading finding (audit S1), no repro executed.
-
-### (2026-07-10) Cloze ordinals scanned across all fields, not just cloze-templated fields (Priority: Low, suspected)
-
-**Problem:** `anki-package.ts:1014` joins all field values before scanning for `{{cN::…}}`; Anki only generates cards from fields referenced by `{{cloze:Field}}` in the template.
-**Impact:** Cloze-looking text in an "Extra" field fabricates an extra card on SRS→Anki. (Audit S2)
 
 ### (2026-07-10) extractTimestampFromUuid accepts non-UUID ids and produces tiny collision-prone Anki ids (Priority: Low, suspected)
 
