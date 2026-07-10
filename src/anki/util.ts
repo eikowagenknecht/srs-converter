@@ -5,8 +5,6 @@ import type { ArchiverError, ZipEntryData } from "archiver";
 import { ZipArchive } from "archiver";
 import { v7 as uuidv7 } from "uuid";
 
-const NUMERIC_STRING_PATTERN = /^\d+$/u;
-
 /**
  * Converts a number to a base91 string representation.
  * @param num - The number to convert
@@ -205,226 +203,102 @@ export function splitAnkiFields(fieldString: string): string[] {
  * // Result: '{"id":123,"balance":9007199254740993}'
  */
 export function serializeWithBigInts(obj: unknown, space?: string | number): string {
-  return JSON.stringify(
+  const marker = chooseBigIntMarker(obj);
+  const serialized = JSON.stringify(
     obj,
     (_key, value: unknown) =>
-      typeof value === "bigint" ? `__BIGINT__${String(value)}__BIGINT__` : value,
+      typeof value === "bigint" ? `${marker}${String(value)}${marker}` : value,
     space,
-  ).replaceAll(/"__BIGINT__(?<value>\d+)__BIGINT__"/gu, "$<value>");
-}
-
-/**
- * Parses JSON with selective BigInt conversion based on field paths.
- *
- * This function solves the problem of JavaScript losing precision when parsing
- * large numbers from JSON.
- *
- * To specify which fields should be parsed as BigInt, provide a list of field
- * paths. Paths support nesting and arrays and are case sensitive.
- *
- * **Supported Path Formats:**
- * - Simple: `"id"`, `"timestamp"`, `"version"`
- * - Nested: `"user.id"`, `"profile.settings.apiKey"`
- * - Arrays: `"users[].id"`, `"posts[].comments[].authorId"`
- * - Complex: `"data.records[].metadata.timestamps[].value"`
- * @param jsonString - The JSON string to parse
- * @param bigintFieldPaths - Array of field paths that should become BigInt values
- * @returns Parsed object with selective BigInt conversion applied
- * @throws {SyntaxError} When jsonString is not valid JSON
- * @throws {Error} When target fields contain non-numeric values (strings, booleans, null, etc.)
- * @example
- * // Basic usage
- * const result = parseWithBigInts('{"balance":999999999999999}', ["balance"]);
- * @example
- * // Complex nested structure
- * const json = '{"users":[{"profile":{"id":123,"timestamp":1699123456789}}]}';
- * const result = parseWithBigInts(json, ["users[].profile.timestamp"]);
- * @example
- * // Multiple fields
- * const json = '{"id":100,"user":{"id":9007199254740993},"users":[{"id":200}]}';
- * const result = parseWithBigInts(json, ["user.id", "users[].id"]);
- * // Result
- * // {
- * //   id: 100,                    // Regular number (not targeted)
- * //   user: { id: 123n },         // BigInt (targeted by "user.id")
- * //   users: [{ id: 456n }]       // BigInt (targeted by "users[].id")
- * // }
- */
-export function parseWithBigInts(jsonString: string, bigintFieldPaths: string[]): unknown {
-  // Phase 1: Validation - Parse JSON and validate target fields are numeric
-  const parsedForValidation = JSON.parse(jsonString) as unknown;
-  validateTargetFieldsAreNumeric(parsedForValidation, bigintFieldPaths);
-
-  // Phase 2: Preprocessing - Quote numeric values based on field names to prevent precision loss
-  let preprocessedJson = jsonString;
-  for (const fieldPath of bigintFieldPaths) {
-    preprocessedJson = quoteNumbersForFieldName(preprocessedJson, fieldPath);
-  }
-
-  // Phase 3: Processing - Parse and convert only target paths to BigInt using precise matching
-  const parsed = JSON.parse(preprocessedJson) as unknown;
-  return processValueWithPrecisePaths(parsed, "", bigintFieldPaths);
-}
-
-/**
- * Validates that target fields contain only numeric values.
- *
- * This function ensures data integrity by rejecting values where target fields
- * contain any non-numeric values (strings, booleans, null, etc.), which might indicate:
- * - Upstream processing errors
- * - Data corruption
- * - Incorrect serialization
- * - Wrong data types
- * @param parsedValue - The parsed JSON object to validate
- * @param targetPaths - Array of field paths that should contain numeric values (may include [] notation)
- * @throws {Error} When target fields contain any non-numeric values
- */
-function validateTargetFieldsAreNumeric(parsedValue: unknown, targetPaths: string[]): void {
-  for (const targetPath of targetPaths) {
-    const values = getValuesAtPath(parsedValue, targetPath);
-    for (const value of values) {
-      if (typeof value !== "number") {
-        const pathParts = targetPath.replaceAll("[]", "").split(".");
-        const fieldName = pathParts.at(-1) ?? "unknown";
-        const valueStr = typeof value === "string" ? `"${value}"` : String(value);
-        throw new Error(
-          `Field '${fieldName}' (from path '${targetPath}') contains non-numeric value ${valueStr}. Expected unquoted numeric value.`,
-        );
-      }
-    }
-  }
-}
-
-/**
- * Gets all values at a specific path in an object, handling arrays with [] notation.
- * @param obj - The object to traverse
- * @param path - The path to get values from (may include [] notation like "users[].id")
- * @returns Array of values found at the path
- */
-function getValuesAtPath(obj: unknown, fieldPath: string): unknown[] {
-  const results: unknown[] = [];
-
-  function traverse(current: unknown, pathParts: string[]) {
-    if (pathParts.length === 0) {
-      results.push(current);
-      return;
-    }
-
-    const [currentPart, ...remainingParts] = pathParts;
-    if (!currentPart) {
-      return;
-    }
-
-    // Check if this part indicates array traversal
-    if (currentPart.endsWith("[]")) {
-      const fieldName = currentPart.slice(0, -2); // Remove "[]"
-      if (current && typeof current === "object" && !Array.isArray(current)) {
-        const arrayValue = (current as Record<string, unknown>)[fieldName];
-        if (Array.isArray(arrayValue)) {
-          // Traverse each array item with remaining path
-          for (const item of arrayValue) {
-            traverse(item, remainingParts);
-          }
-        }
-      }
-    } else {
-      // Regular field access
-      if (current && typeof current === "object" && !Array.isArray(current)) {
-        const value = (current as Record<string, unknown>)[currentPart];
-        if (value !== undefined) {
-          traverse(value, remainingParts);
-        }
-      }
-    }
-  }
-
-  const pathParts = fieldPath.split(".");
-  traverse(obj, pathParts);
-  return results;
-}
-
-/**
- * Quotes unquoted integer values for a specific field name to prevent precision loss.
- *
- * This uses field name matching (not precise path matching) for simplicity in phase 2.
- * Precise targeting happens in phase 3 where non-target paths are unquoted back to numbers.
- *
- * **What gets quoted:**
- * - `"id": 123` → `"id": "123"` (unquoted integers)
- * - `"id": 999999999999999` → `"id": "999999999999999"` (large integers)
- *
- * **What does NOT get quoted:**
- * - `"id": "hello"` → stays `"id": "hello"` (already quoted strings)
- * - `"id": true` → stays `"id": true` (booleans)
- * - `"id": null` → stays `"id": null` (null values)
- * - `"id": 123.45` → stays `"id": 123.45` (decimal numbers)
- * @param jsonString - The JSON string to process
- * @param path - The field path (e.g., "user.id", "users.id")
- * @returns The JSON string with unquoted integer values quoted for the target field name
- */
-function quoteNumbersForFieldName(jsonString: string, fieldPath: string): string {
-  const pathParts = fieldPath.split(".");
-  const lastField = pathParts.at(-1);
-
-  if (!lastField) {
-    return jsonString;
-  }
-
-  // Quote all occurrences of this field name with numeric values
-  // Pattern matches: "fieldName": 123 -> "fieldName": "123"
-  return jsonString.replaceAll(
-    new RegExp(`"${lastField}"\\s*:\\s*(\\d+)`, "gu"),
-    `"${lastField}":"$1"`,
   );
+
+  // Strip the quotes and markers so BigInt values become bare JSON number
+  // literals. The value group allows a leading "-" so negative BigInts survive.
+  const pattern = new RegExp(`"${marker}(?<value>-?\\d+)${marker}"`, "gu");
+  return serialized.replaceAll(pattern, "$<value>");
 }
 
 /**
- * Recursively processes parsed JSON values with precise path-aware BigInt conversion.
- * @param value - The current value being processed
- * @param currentPath - The current path in dot notation
- * @param targetPaths - Array of target paths that should become BigInt (may include [] notation)
- * @returns The processed value with appropriate type conversions applied
+ * Picks a marker for {@link serializeWithBigInts} that is guaranteed not to
+ * collide with genuine string content.
+ *
+ * Normally the fixed `__BIGINT__` marker is used. If a string value (or key) in
+ * the object already contains that literal, stripping the markers afterwards
+ * would corrupt it into a bare number, so a random nonce-based marker is
+ * generated and re-rolled until it is absent from the content.
+ * @param obj - The object about to be serialized
+ * @returns A marker string that does not appear in the object's string content
  */
-function processValueWithPrecisePaths(
-  value: unknown,
-  currentPath: string,
-  targetPaths: string[],
-): unknown {
-  if (value === null || value === undefined) {
-    return value;
+function chooseBigIntMarker(obj: unknown): string {
+  const defaultMarker = "__BIGINT__";
+
+  // Neutralize BigInt values so that any remaining occurrence of the marker in
+  // the probe must come from genuine string content — i.e. a real collision.
+  const probe = JSON.stringify(obj, (_key, value: unknown) =>
+    typeof value === "bigint" ? 0 : value,
+  );
+
+  if (probe === undefined || !probe.includes(defaultMarker)) {
+    return defaultMarker;
   }
 
-  // Check if current path matches any target path
-  const shouldConvert = targetPaths.some((targetPath) => currentPath === targetPath);
+  let marker: string;
+  do {
+    marker = `__BIGINT_${Math.random().toString(36).slice(2)}__`;
+  } while (probe.includes(marker));
+  return marker;
+}
 
-  // Check for string values that should be converted to BigInt (quoted numbers)
-  if (typeof value === "string" && NUMERIC_STRING_PATTERN.test(value) && shouldConvert) {
-    return BigInt(value);
-  }
+/**
+ * Context object passed as the third argument to a {@link JSON.parse} reviver on
+ * V8 ≥ 11.8 (Node ≥ 21). For primitive values, `source` holds the exact source
+ * text of the literal being revived, which lets us recover the full precision of
+ * integers that would otherwise be rounded when parsed into a `number`.
+ *
+ * TypeScript's lib does not yet declare this third parameter, so we model it
+ * locally and cast the reviver when handing it to `JSON.parse`.
+ */
+interface JsonReviverContext {
+  source?: string;
+}
 
-  // Convert quoted numeric strings back to regular numbers if they're NOT target paths
-  if (typeof value === "string" && NUMERIC_STRING_PATTERN.test(value) && !shouldConvert) {
-    return Number(value);
-  }
+type JsonReviver = (this: unknown, key: string, value: unknown) => unknown;
 
-  // For arrays, we need to check if any target path wants to traverse this array
-  if (Array.isArray(value)) {
-    return value.map((item) => {
-      const arrayPath = currentPath ? `${currentPath}[]` : "[]";
-      return processValueWithPrecisePaths(item, arrayPath, targetPaths);
-    });
-  }
-
-  // For objects, we need to check if any target path wants to traverse this object
-  if (typeof value === "object") {
-    const result: Record<string, unknown> = {};
-    for (const [key, val] of Object.entries(value)) {
-      const newPath = currentPath ? `${currentPath}.${key}` : key;
-      const processedValue = processValueWithPrecisePaths(val, newPath, targetPaths);
-      result[key] = processedValue;
+/**
+ * Parses a JSON string, converting any integer literal that cannot be
+ * represented exactly as a `number` into a `bigint` without losing precision.
+ *
+ * Uses V8's `context.source` reviver argument (Node ≥ 21, guaranteed by the
+ * package's engines floor) to read the original literal text, so 64-bit ids in
+ * Anki's `col.models` JSON survive a read → write round-trip byte-for-byte.
+ *
+ * Only unquoted plain-integer number literals are converted:
+ * - Strings are never touched, so digit-only string values (e.g. a field named
+ *   `"2024"` or a note type named `"007"`) keep their type.
+ * - The `/^-?\d+$/` guard on the source text is load-bearing: `1e21` is an
+ *   unsafe integer whose `source` is `"1e21"`, and `BigInt("1e21")` throws — so
+ *   such literals are left as `number`.
+ * - Safe integers and non-integers are returned unchanged.
+ * @param jsonString - The JSON string to parse
+ * @returns The parsed value with unsafe integer literals as `bigint`
+ * @throws {SyntaxError} When jsonString is not valid JSON
+ * @example
+ * const parsed = parseJsonWithBigInts('{"id":6134417914424963362}') as { id: bigint };
+ * // parsed.id === 6134417914424963362n (exact)
+ */
+export function parseJsonWithBigInts(jsonString: string): unknown {
+  const reviver = (_key: string, value: unknown, context?: JsonReviverContext): unknown => {
+    if (
+      typeof value === "number" &&
+      !Number.isSafeInteger(value) &&
+      context?.source !== undefined &&
+      /^-?\d+$/u.test(context.source)
+    ) {
+      return BigInt(context.source);
     }
-    return result;
-  }
+    return value;
+  };
 
-  return value;
+  // The third reviver argument is not yet part of TypeScript's JSON.parse
+  // signature, so cast to the declared two-argument reviver shape.
+  return JSON.parse(jsonString, reviver as JsonReviver);
 }

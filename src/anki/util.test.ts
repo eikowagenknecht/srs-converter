@@ -13,7 +13,7 @@ import {
   generateUuid,
   guid64,
   omitFields,
-  parseWithBigInts,
+  parseJsonWithBigInts,
   sanitizeFilename,
   serializeWithBigInts,
 } from "./util";
@@ -390,349 +390,114 @@ describe("serializeWithBigInts", () => {
 }`;
     expect(result).toBe(expected);
   });
+
+  it("should emit negative BigInt values as bare numbers", () => {
+    const obj = { id: -8_113_853_199_325_282_904n, name: "test" };
+    const result = serializeWithBigInts(obj);
+
+    expect(result).toBe('{"id":-8113853199325282904,"name":"test"}');
+  });
+
+  it("should not corrupt a string value that collides with the BigInt marker", () => {
+    // A genuine string value literally equal to the default marker pattern must
+    // survive unchanged (audit S4): a nonce marker is chosen to avoid collision.
+    const obj = { id: 123n, note: "__BIGINT__123__BIGINT__" };
+    const result = serializeWithBigInts(obj);
+
+    const parsed = JSON.parse(result) as { id: number; note: unknown };
+    expect(parsed.note).toBe("__BIGINT__123__BIGINT__");
+    expect(parsed.id).toBe(123);
+  });
 });
 
-describe("parseWithBigInts", () => {
-  it("should parse simple JSON with BigInt field paths", () => {
-    const jsonString = '{"id":123456789,"name":"test"}';
-    const result = parseWithBigInts(jsonString, ["id"]);
+describe("parseJsonWithBigInts", () => {
+  it("should convert 64-bit ids in a models-shaped dict to exact BigInt values", () => {
+    // Shape mirrors col.models: keyed by note-type id, template/field ids are
+    // random 64-bit values beyond Number.MAX_SAFE_INTEGER.
+    const modelsJson =
+      '{"1650000001000":{"id":1650000001000,"name":"Vocab",' +
+      '"tmpls":[{"id":6134417914424963362,"name":"Card 1","ord":0}],' +
+      '"flds":[{"id":-8113853199325282904,"name":"Front","ord":0},{"id":77,"name":"2024","ord":1}]}}';
 
-    expect(result).toEqual({
-      id: 123_456_789n,
-      name: "test",
-    });
-  });
-
-  it("should handle really large numbers beyond MAX_SAFE_INTEGER", () => {
-    const jsonString =
-      '{"largeId":9007199254740993,"veryLargeId":340282366920938463463374607431768211455}';
-    const result = parseWithBigInts(jsonString, ["largeId", "veryLargeId"]);
-
-    expect(result).toEqual({
-      largeId: 9_007_199_254_740_993n,
-      veryLargeId: 340_282_366_920_938_463_463_374_607_431_768_211_455n,
-    });
-  });
-
-  it("should only convert specified fields to BigInt", () => {
-    const jsonString = '{"id":123,"otherId":456,"name":"test"}';
-    const result = parseWithBigInts(jsonString, ["id"]);
-
-    expect(result).toEqual({
-      id: 123n,
-      otherId: 456, // Should remain as number
-      name: "test",
-    });
-  });
-
-  it("should handle nested objects with dot notation field paths", () => {
-    const jsonString =
-      '{"user":{"id":123456,"profile":{"timestamp":1699123456789}},"metadata":{"version":1}}';
-    const result = parseWithBigInts(jsonString, ["user.id", "user.profile.timestamp"]);
-
-    expect(result).toEqual({
-      metadata: {
-        version: 1, // Should remain as number
-      },
-      user: {
-        id: 123_456n,
-        profile: {
-          timestamp: 1_699_123_456_789n,
-        },
-      },
-    });
-  });
-
-  it("should handle arrays with field paths using bracket notation", () => {
-    const jsonString = '{"users":[{"id":123,"name":"Alice"},{"id":456,"name":"Bob"}],"count":2}';
-    const result = parseWithBigInts(jsonString, ["users[].id"]);
-
-    expect(result).toEqual({
-      count: 2,
-      users: [
-        { id: 123n, name: "Alice" },
-        { id: 456n, name: "Bob" },
-      ], // Should remain as number
-    });
-  });
-
-  it("should precisely target fields using path context to avoid conflicts", () => {
-    const jsonString = '{"id":100,"user":{"id":200},"admin":{"id":300}}';
-
-    // DESIRED BEHAVIOR: Only convert user.id to BigInt, leave other id fields as numbers
-    const result = parseWithBigInts(jsonString, ["user.id"]);
-
-    expect(result).toEqual({
-      id: 100, // Should remain as number - not targeted by path
-      user: {
-        id: 200n, // Should be BigInt - specifically targeted by "user.id"
-      },
-      admin: {
-        id: 300, // Should remain as number - not targeted by path
-      },
-    });
-  });
-
-  it("should handle multiple levels of nesting", () => {
-    const jsonString = `{
-      "level1": {
-        "level2": {
-          "level3": {
-            "id": 123456789,
-            "timestamp": 1699123456789
-          },
-          "otherId": 999
-        },
-        "id": 111
-      },
-      "topId": 222
-    }`;
-
-    const result = parseWithBigInts(jsonString, [
-      "level1.level2.level3.id",
-      "level1.level2.level3.timestamp",
-    ]);
-
-    expect(result).toEqual({
-      level1: {
-        id: 111,
-        level2: {
-          level3: {
-            id: 123_456_789n,
-            timestamp: 1_699_123_456_789n,
-          },
-          otherId: 999, // Should remain as number
-        }, // Should remain as number
-      },
-      topId: 222, // Should remain as number
-    });
-  });
-
-  it("should handle complex arrays with nested objects consistently", () => {
-    const jsonString = `{
-      "records": [
-        {"id": 123, "data": {"timestamp": 1699123456789}},
-        {"id": 456, "data": {"timestamp": 1699123456790}}
-      ],
-      "meta": {"totalCount": 2}
-    }`;
-
-    const result = parseWithBigInts(jsonString, ["records[].id", "records[].data.timestamp"]);
-
-    // All matching fields in array should be converted consistently
-    expect(result).toEqual({
-      meta: { totalCount: 2 },
-      records: [
-        { data: { timestamp: 1_699_123_456_789n }, id: 123n },
-        { data: { timestamp: 1_699_123_456_790n }, id: 456n }, // Should convert ALL instances
-      ], // Should remain as number
-    });
-  });
-
-  it("should handle edge cases with empty arrays and null values", () => {
-    const jsonString = '{"users":[],"admin":null,"id":123}';
-    const result = parseWithBigInts(jsonString, ["id"]);
-
-    expect(result).toEqual({
-      admin: null,
-      id: 123n,
-      users: [],
-    });
-  });
-
-  it("should preserve non-numeric string values", () => {
-    const jsonString = '{"id":123,"code":"ABC123","timestamp":1699123456789}';
-    const result = parseWithBigInts(jsonString, ["id", "timestamp"]);
-
-    expect(result).toEqual({
-      id: 123n,
-      code: "ABC123", // Should remain as string
-      timestamp: 1_699_123_456_789n,
-    });
-  });
-
-  it("should handle serialization and parsing round-trip", () => {
-    const originalData = {
-      metadata: {
-        created: 1_699_000_000_000n,
-        version: 1n,
-      },
-      tags: ["important", "user-data"],
-      user: {
-        id: 9_007_199_254_740_992n,
-        profile: {
-          score: 100,
-          timestamp: 1_699_123_456_789n,
-        },
-      },
-    };
-
-    const serialized = serializeWithBigInts(originalData);
-
-    // Parse back with appropriate field paths
-    const parsed = parseWithBigInts(serialized, [
-      "user.id",
-      "user.profile.timestamp",
-      "metadata.version",
-      "metadata.created",
-    ]);
-
-    expect(parsed).toEqual(originalData);
-  });
-
-  it("should handle multiple fields with same name in different contexts", () => {
-    const jsonString = `{
-      "id": 100,
-      "users": [
-        {"id": 200, "profile": {"id": 300}},
-        {"id": 400, "profile": {"id": 500}}
-      ],
-      "admin": {
-        "id": 600,
-        "settings": {"id": 700}
+    const parsed = parseJsonWithBigInts(modelsJson) as Record<
+      string,
+      {
+        id: unknown;
+        tmpls: { id: unknown }[];
+        flds: { id: unknown; name: unknown }[];
       }
-    }`;
+    >;
+    const model = parsed["1650000001000"];
+    if (!model) {
+      throw new Error("model missing");
+    }
 
-    // Only convert specific paths, not all fields named "id"
-    const result = parseWithBigInts(jsonString, [
-      "users[].id", // Convert user IDs in array
-      "admin.settings.id", // Convert admin settings ID only
-    ]);
+    // Unsafe 64-bit ids become exact BigInt values (both signs).
+    expect(model.tmpls[0]?.id).toBe(6_134_417_914_424_963_362n);
+    expect(model.flds[0]?.id).toBe(-8_113_853_199_325_282_904n);
+
+    // Safe integers stay as numbers.
+    expect(model.id).toBe(1_650_000_001_000);
+    expect(model.flds[1]?.id).toBe(77);
+
+    // Digit-only STRING values are never coerced — the field named "2024"
+    // stays a string (audit F7).
+    expect(model.flds[1]?.name).toBe("2024");
+    expect(typeof model.flds[1]?.name).toBe("string");
+  });
+
+  it("should preserve very large integers beyond MAX_SAFE_INTEGER", () => {
+    const jsonString = '{"largeId":9007199254740993,"regular":42}';
+    const result = parseJsonWithBigInts(jsonString) as { largeId: unknown; regular: unknown };
+
+    expect(result.largeId).toBe(9_007_199_254_740_993n);
+    expect(result.regular).toBe(42);
+  });
+
+  it("should leave safe integers, floats, and booleans unchanged", () => {
+    const jsonString = '{"id":123,"ratio":1.5,"flag":true,"nothing":null}';
+    const result = parseJsonWithBigInts(jsonString);
 
     expect(result).toEqual({
-      id: 100, // Should remain as number
-      users: [
-        { id: 200n, profile: { id: 300 } }, // Only user.id converted, not profile.id
-        { id: 400n, profile: { id: 500 } }, // Only user.id converted, not profile.id
-      ],
-      admin: {
-        id: 600, // Should remain as number
-        settings: { id: 700n }, // Only this specific path converted
-      },
+      id: 123,
+      ratio: 1.5,
+      flag: true,
+      nothing: null,
     });
   });
 
-  it("should handle deeply nested arrays with precise targeting", () => {
-    const jsonString = `{
-      "departments": [
-        {
-          "id": 1,
-          "employees": [
-            {"id": 100, "managerId": 50},
-            {"id": 101, "managerId": 51}
-          ]
-        },
-        {
-          "id": 2, 
-          "employees": [
-            {"id": 200, "managerId": 52},
-            {"id": 201, "managerId": 53}
-          ]
-        }
-      ]
-    }`;
-
-    // Only convert employee IDs, not department IDs or manager IDs
-    const result = parseWithBigInts(jsonString, ["departments[].employees[].id"]);
+  it("should never touch string values, even digit-only ones", () => {
+    const jsonString = '{"name":"007","year":"2024","code":"ABC123"}';
+    const result = parseJsonWithBigInts(jsonString);
 
     expect(result).toEqual({
-      departments: [
-        {
-          id: 1, // Should remain as number
-          employees: [
-            { id: 100n, managerId: 50 }, // Only employee.id converted
-            { id: 101n, managerId: 51 }, // Only employee.id converted
-          ],
-        },
-        {
-          id: 2, // Should remain as number
-          employees: [
-            { id: 200n, managerId: 52 }, // Only employee.id converted
-            { id: 201n, managerId: 53 }, // Only employee.id converted
-          ],
-        },
-      ],
+      name: "007",
+      year: "2024",
+      code: "ABC123",
     });
   });
 
-  it("should reject fields that are already string-quoted numbers", () => {
-    const jsonString = '{"id":"123","balance":"9007199254740993","name":"test","code":"456"}';
+  it("should not convert exponent literals whose source is not a plain integer", () => {
+    // Number.isSafeInteger(1e21) is false, but BigInt("1e21") throws — the
+    // /^-?\d+$/ source guard keeps such literals as numbers.
+    const jsonString = '{"value":1e21}';
+    const result = parseJsonWithBigInts(jsonString) as { value: unknown };
 
-    // Should throw an error when target fields contain pre-quoted numeric strings
-    expect(() => parseWithBigInts(jsonString, ["id", "balance"])).toThrow(
-      "Field 'id' (from path 'id') contains non-numeric value",
-    );
+    expect(typeof result.value).toBe("number");
+    expect(result.value).toBe(1e21);
   });
 
-  it("should reject non-numeric string values in target fields", () => {
-    const jsonString = '{"id":"five","timestamp":"not-a-number","score":100,"message":"hello"}';
-
-    // Should throw an error when target fields contain non-numeric strings
-    expect(() => parseWithBigInts(jsonString, ["id", "timestamp"])).toThrow(
-      "Field 'id' (from path 'id') contains non-numeric value \"five\". Expected unquoted numeric value.",
-    );
-  });
-
-  it("should reject boolean values in target fields", () => {
-    const jsonString = '{"id":123,"isActive":true,"count":false,"score":456}';
-
-    // Should throw an error when target fields contain boolean values
-    expect(() => parseWithBigInts(jsonString, ["id", "isActive", "count"])).toThrow(
-      "Field 'isActive' (from path 'isActive') contains non-numeric value true",
-    );
-  });
-
-  it("should reject null values in target fields", () => {
-    const jsonString = '{"id":123,"userId":null,"score":456}';
-
-    // Should throw an error when target fields contain null values
-    expect(() => parseWithBigInts(jsonString, ["userId"])).toThrow(
-      "Field 'userId' (from path 'userId') contains non-numeric value null",
-    );
-  });
-
-  it("should distinguish between object field and array traversal paths", () => {
-    const jsonObject = {
-      teams: [
-        { id: 200 }, // Field in array items
-        { id: 300 },
-      ],
-      users: {
-        id: 100, // Direct field on users object
-      },
+  it("should round-trip through serializeWithBigInts without precision loss", () => {
+    const original = {
+      id: 6_134_417_914_424_963_362n,
+      negative: -8_113_853_199_325_282_904n,
+      small: 42,
+      name: "test",
     };
-    const jsonString = JSON.stringify(jsonObject);
 
-    // Test 1: users.id should target the direct field, not array items
-    const result1 = parseWithBigInts(jsonString, ["users.id"]);
-    expect(result1).toEqual({
-      teams: [
-        { id: 200 }, // Should remain as number
-        { id: 300 }, // Should remain as number
-      ],
-      users: {
-        id: 100n, // Should be converted
-      },
-    });
+    const serialized = serializeWithBigInts(original);
+    const parsed = parseJsonWithBigInts(serialized);
 
-    // Test 2: teams[].id should target array items, not direct field
-    const result2 = parseWithBigInts(jsonString, ["teams[].id"]);
-    expect(result2).toEqual({
-      teams: [
-        { id: 200n }, // Should be converted
-        { id: 300n }, // Should be converted
-      ],
-      users: {
-        id: 100, // Should remain as number
-      },
-    });
-
-    // Test 3: Attempting users[].id should find no values since users is not an array
-    const result3 = parseWithBigInts(jsonString, ["users[].id"]);
-    expect(result3).toEqual(jsonObject);
-
-    // Test 4: Attempting teams.id should find no values since teams is an array
-    const result4 = parseWithBigInts(jsonString, ["teams.id"]);
-    expect(result4).toEqual(jsonObject);
+    expect(parsed).toEqual(original);
   });
 });

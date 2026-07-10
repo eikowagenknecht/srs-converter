@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -11,10 +13,14 @@ import {
 
 import { AnkiPackage } from "./anki-package";
 import {
+  createAnkiDatabaseWithData,
   createBasicSrsPackage,
+  createTestZip,
   expectPartial,
   expectSuccess,
+  getTempDir,
   setupTempDir,
+  validMetaV2,
 } from "./anki-package.fixtures";
 import type { Ease } from "./types";
 
@@ -690,5 +696,109 @@ describe("Conversion Anki → SRS", () => {
     it.todo("should handle cards without reviews", async () => {
       // TODO: Test handling of cards with no review history
     });
+  });
+});
+
+describe("Digit-only note type name (WP1)", () => {
+  setupTempDir();
+
+  function buildNumericNameModel(name: string) {
+    const modelId = 1_650_000_001_000;
+    return {
+      [modelId.toString()]: {
+        css: "",
+        did: 1,
+        flds: [
+          {
+            collapsed: false,
+            description: "",
+            excludeFromSearch: false,
+            font: "Arial",
+            id: 2,
+            name: "Front",
+            ord: 0,
+            plainText: false,
+            preventDeletion: false,
+            rtl: false,
+            size: 20,
+            sticky: false,
+            tag: null,
+          },
+          {
+            collapsed: false,
+            description: "",
+            excludeFromSearch: false,
+            font: "Arial",
+            id: 3,
+            name: "Back",
+            ord: 1,
+            plainText: false,
+            preventDeletion: false,
+            rtl: false,
+            size: 20,
+            sticky: false,
+            tag: null,
+          },
+        ],
+        id: modelId,
+        latexPost: "",
+        latexPre: "",
+        latexsvg: false,
+        mod: 0,
+        name, // digit-only string, e.g. "007"
+        originalStockKind: null,
+        req: [[0, "any", [0]]],
+        sortf: 0,
+        tmpls: [
+          {
+            afmt: "{{Back}}",
+            bafmt: "",
+            bfont: "",
+            bqfmt: "",
+            bsize: 0,
+            did: null,
+            id: 1,
+            name: "Card 1",
+            ord: 0,
+            qfmt: "{{Front}}",
+          },
+        ],
+        type: 0,
+        usn: 0,
+      },
+    };
+  }
+
+  async function buildApkgWithModelName(name: string): Promise<string> {
+    const modelId = 1_650_000_001_000;
+    const noteId = 1_650_000_010_000;
+    const dbBuffer = await createAnkiDatabaseWithData({
+      cards: [{ did: 1, id: 1_650_000_020_000, nid: noteId }],
+      models: buildNumericNameModel(name),
+      notes: [{ flds: "frontback", guid: "someguid01", id: noteId, mid: modelId }],
+    });
+    const apkgPath = join(getTempDir(), "numeric-name.apkg");
+    await createTestZip(apkgPath, [
+      { content: dbBuffer, name: "collection.anki21" },
+      { content: validMetaV2, name: "meta" },
+      { content: "{}", name: "media" },
+    ]);
+    return apkgPath;
+  }
+
+  it("keeps a note type named '007' together with its notes and cards", async () => {
+    const apkgPath = await buildApkgWithModelName("007");
+    const result = await AnkiPackage.fromAnkiExport(apkgPath);
+    const pkg = expectSuccess(result);
+
+    try {
+      const noteTypes = pkg.getNoteTypes();
+      expect(noteTypes).toHaveLength(1);
+      expect(noteTypes[0]?.name).toBe("007");
+      expect(pkg.getNotes()).toHaveLength(1);
+      expect(pkg.getCards()).toHaveLength(1);
+    } finally {
+      await pkg.cleanup();
+    }
   });
 });

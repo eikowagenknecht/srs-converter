@@ -19,7 +19,7 @@ import type {
   NoteTypes,
   RevlogTable,
 } from "./types";
-import { parseWithBigInts, serializeWithBigInts } from "./util";
+import { parseJsonWithBigInts, serializeWithBigInts } from "./util";
 
 /**
  * Error types for AnkiDatabase operations
@@ -296,7 +296,7 @@ export class AnkiDatabase {
       conf: JSON.parse(collectionRaw.conf) as Config,
       decks: JSON.parse(collectionRaw.decks) as Decks,
       dconf: JSON.parse(collectionRaw.dconf) as DeckConfigs,
-      models: parseWithBigInts(collectionRaw.models, ["tmpls[].id", "flds[].id"]) as NoteTypes,
+      models: parseJsonWithBigInts(collectionRaw.models) as NoteTypes,
       tags: JSON.parse(collectionRaw.tags) as Record<string, never>,
     };
 

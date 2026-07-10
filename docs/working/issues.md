@@ -67,19 +67,6 @@ corresponding work packages complete.
 **Steps to reproduce:** Round-trip a note with tags → empty tags. (Audit F5)
 **Impact:** Silent tag loss. Contradicts README "Notes: Full (… tags …)".
 
-### (2026-07-10) parseWithBigInts never matches real models paths — 64-bit template/field IDs corrupted on every read (Priority: High)
-
-**Problem:** `database.ts:299` calls `parseWithBigInts(models, ["tmpls[].id","flds[].id"])`, but `col.models` is keyed by note-type id, so actual paths are `"<mid>.tmpls[].id"` and the exact-match in `processValueWithPrecisePaths` (`util.ts:398`) never fires. Values are quoted by phase 2 and then converted back with `Number()` (`util.ts:406-408`), losing precision above 2^53; negative ids are never quoted at all (`(\d+)` regex) and lose precision in plain `JSON.parse`.
-**Steps to reproduce:** Direct `fromAnkiExport` → `toAnkiExport` of `tests/fixtures/anki/mixed-legacy-2.apkg` alters all six large ids in its models JSON (e.g. `5245795061146246729` → `5245795061146247000`). Unit: `parseWithBigInts('{"123":{"tmpls":[{"id":6134417914424963362}]}}', ["tmpls[].id"])` returns a number, not a BigInt. (Audit F6)
-**Impact:** Affects even direct (no-SRS) operations, the strongest preservation path. Anki 2.1.55+ uses these ids for note-type schema matching on import.
-**Notes:** The `util.test.ts` cases only test root-level shapes, which is why this passes CI.
-
-### (2026-07-10) Digit-only string values in models JSON coerced to numbers; note types with digit-only names destroyed (Priority: High)
-
-**Problem:** `util.ts:406-408` converts ANY digit-only string in the parsed models JSON to `Number` (because the target-path match never fires, see previous issue).
-**Steps to reproduce:** (a) Field/template named `"2024"` → exported as `"name":2024` (JSON number, leading zeros lost, e.g. `"007"`→`7`); silent. (b) Note type _named_ `"007"` → name becomes number → `validateNoteTypeEntry` rejects it → note type, its notes, and its cards are all dropped with misleading "missing or invalid 'name' field" errors. (Audit F7)
-**Impact:** Valid Anki data corrupted or rejected on every read path, including direct operations.
-
 ### (2026-07-10) SRS→Anki writes fieldValues by position, ignoring field names (Priority: High)
 
 **Problem:** `anki-package.ts:927` joins `fieldValues` in array order; `createNote` (`srs-package.ts:327-335`) validates names only as a set, so out-of-order input passes.
@@ -163,11 +150,6 @@ corresponding work packages complete.
 
 **Problem:** `toSrsPackage` maps `flds`/`tmpls` by array index (`anki-package.ts:1531,1542,1606`) instead of their `ord` property.
 **Impact:** A model whose arrays are stored out of `ord` order (legal JSON) gets every field value and card silently attached to the wrong field/template. (Audit S3)
-
-### (2026-07-10) serializeWithBigInts marker collision corrupts matching string values (Priority: Low, suspected)
-
-**Problem:** Any string value literally matching `__BIGINT__<digits>__BIGINT__` is rewritten as an unquoted number on serialization (`util.ts:207-214`).
-**Impact:** Add-on data containing the marker pattern gets structurally corrupted. (Audit S4)
 
 ### (2026-07-10) extractTimestampFromUuid accepts non-UUID ids and produces tiny collision-prone Anki ids (Priority: Low, suspected)
 

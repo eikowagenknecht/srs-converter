@@ -1,3 +1,8 @@
+import { Buffer } from "node:buffer";
+import { join } from "node:path";
+
+import InitSqlJs from "sql.js";
+import { Open } from "unzipper";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -16,6 +21,7 @@ import {
   createBasicTemplate,
   expectFailure,
   expectSuccess,
+  getTempDir,
   setupTempDir,
 } from "./anki-package.fixtures";
 import type { Ease } from "./types";
@@ -583,5 +589,51 @@ describe("Conversion SRS → Anki", () => {
     it.todo("should handle missing card associations", async () => {
       // TODO: Test error handling for reviews without valid cards
     });
+  });
+});
+
+describe("Direct Anki → Anki models JSON fidelity (WP1)", () => {
+  const FIXTURE = "./tests/fixtures/anki/mixed-legacy-2.apkg";
+
+  // Reads the raw `models` column text straight out of an .apkg, bypassing the
+  // library so precision loss is visible in the literal digits.
+  async function readModelsRaw(apkgPath: string): Promise<string> {
+    const zip = await Open.file(apkgPath);
+    const dbEntry = zip.files.find((f) => f.path === "collection.anki21");
+    if (!dbEntry) {
+      throw new Error("collection.anki21 missing");
+    }
+    const SQL = await InitSqlJs();
+    const db = new SQL.Database(Buffer.from(await dbEntry.buffer()));
+    const result = db.exec("SELECT models FROM col");
+    const models = result[0]?.values[0]?.[0];
+    db.close();
+    if (typeof models !== "string") {
+      throw new TypeError("models column is not a string");
+    }
+    return models;
+  }
+
+  it("preserves the fixture's 64-bit models ids byte-for-byte on re-export", async () => {
+    const readResult = await AnkiPackage.fromAnkiExport(FIXTURE);
+    const pkg = expectSuccess(readResult);
+    const outPath = join(getTempDir(), "mixed-direct.apkg");
+
+    try {
+      await pkg.toAnkiExport(outPath);
+
+      // Compare the raw 16+ digit id literals directly — a JSON.parse-based
+      // comparison would silently mask the precision loss (audit F6).
+      const bigIntIdPattern = /"id":\s?-?\d{16,}/gu;
+      const beforeModels = await readModelsRaw(FIXTURE);
+      const afterModels = await readModelsRaw(outPath);
+      const before = beforeModels.match(bigIntIdPattern) ?? [];
+      const after = afterModels.match(bigIntIdPattern) ?? [];
+
+      expect(before.length).toBeGreaterThan(0);
+      expect([...after].sort()).toEqual([...before].sort());
+    } finally {
+      await pkg.cleanup();
+    }
   });
 });

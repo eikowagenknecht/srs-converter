@@ -1,6 +1,8 @@
+import { Buffer } from "node:buffer";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
+import InitSqlJs from "sql.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { AnkiDatabase } from "./database";
@@ -388,5 +390,103 @@ describe("anki db test", () => {
     expect(graves.find((g) => g.oid === 67_890)).toBeDefined();
 
     await newDb.close();
+  });
+});
+
+describe("BigInt-safe models JSON round-trip (WP1)", () => {
+  // 64-bit template/field ids beyond Number.MAX_SAFE_INTEGER, plus a field
+  // legitimately named "2024" (a digit-only string that must NOT be coerced).
+  const tmplId = "6134417914424963362";
+  const fldId = "-8113853199325282904";
+  const modelsJson =
+    `{"1650000001000":{"id":1650000001000,"name":"Vocab","type":0,"mod":1650000001,"usn":0,` +
+    `"sortf":0,"did":1,"tmpls":[{"id":${
+      tmplId
+    },"name":"Card 1","ord":0,"qfmt":"{{Front}}","afmt":"{{Back}}","bqfmt":"","bafmt":"",` +
+    `"did":null,"bfont":"","bsize":0}],"flds":[{"id":${
+      fldId
+    },"name":"2024","ord":0,"sticky":false,"rtl":false,"font":"Arial","size":20,"description":"",` +
+    `"plainText":false,"collapsed":false,"excludeFromSearch":false,"tag":null,"preventDeletion":false}],` +
+    `"css":"","latexPre":"","latexPost":"","latexsvg":false,"req":[[0,"any",[0]]],"originalStockKind":null}}`;
+
+  async function buildBufferWithModels(rawModelsJson: string): Promise<Uint8Array> {
+    const SQL = await InitSqlJs();
+    const rawDb = new SQL.Database();
+    rawDb.run(`
+CREATE TABLE cards (id integer PRIMARY KEY, nid integer NOT NULL, did integer NOT NULL, ord integer NOT NULL, mod integer NOT NULL, usn integer NOT NULL, type integer NOT NULL, queue integer NOT NULL, due integer NOT NULL, ivl integer NOT NULL, factor integer NOT NULL, reps integer NOT NULL, lapses integer NOT NULL, left integer NOT NULL, odue integer NOT NULL, odid integer NOT NULL, flags integer NOT NULL, data text NOT NULL);
+CREATE TABLE col (id integer PRIMARY KEY, crt integer NOT NULL, mod integer NOT NULL, scm integer NOT NULL, ver integer NOT NULL, dty integer NOT NULL, usn integer NOT NULL, ls integer NOT NULL, conf text NOT NULL, models text NOT NULL, decks text NOT NULL, dconf text NOT NULL, tags text NOT NULL);
+CREATE TABLE graves (usn integer NOT NULL, oid integer NOT NULL, type integer NOT NULL);
+CREATE TABLE notes (id integer PRIMARY KEY, guid text NOT NULL, mid integer NOT NULL, mod integer NOT NULL, usn integer NOT NULL, tags text NOT NULL, flds text NOT NULL, sfld integer NOT NULL, csum integer NOT NULL, flags integer NOT NULL, data text NOT NULL);
+CREATE TABLE revlog (id integer PRIMARY KEY, cid integer NOT NULL, usn integer NOT NULL, ease integer NOT NULL, ivl integer NOT NULL, lastIvl integer NOT NULL, factor integer NOT NULL, time integer NOT NULL, type integer NOT NULL);
+`);
+    rawDb.run("INSERT INTO col VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", [
+      1,
+      1_600_000_000,
+      1_650_000_000_000,
+      1_650_000_000_001,
+      11,
+      0,
+      0,
+      0,
+      "{}",
+      rawModelsJson,
+      "{}",
+      "{}",
+      "{}",
+    ]);
+    const buffer = rawDb.export();
+    rawDb.close();
+    return buffer;
+  }
+
+  async function readModelsColumn(buffer: Uint8Array): Promise<string> {
+    const SQL = await InitSqlJs();
+    const rawDb = new SQL.Database(Buffer.from(buffer));
+    const result = rawDb.exec("SELECT models FROM col");
+    const models = result[0]?.values[0]?.[0];
+    rawDb.close();
+    if (typeof models !== "string") {
+      throw new TypeError("models column is not a string");
+    }
+    return models;
+  }
+
+  it("keeps a field named '2024' a string and preserves 64-bit ids through read → write", async () => {
+    const sourceBuffer = await buildBufferWithModels(modelsJson);
+
+    const source = await AnkiDatabase.fromBuffer(sourceBuffer);
+    const dump = await source.toObject();
+    const rewritten = await AnkiDatabase.fromDump(dump);
+
+    try {
+      const rawModels = await readModelsColumn(rewritten.toBuffer());
+
+      // The digit-only field name stays a JSON string (not coerced to 2024).
+      expect(rawModels).toContain('"name":"2024"');
+      expect(rawModels).not.toContain('"name":2024');
+
+      // The 64-bit ids survive byte-for-byte (no precision loss, sign kept).
+      expect(rawModels).toContain(`"id":${tmplId}`);
+      expect(rawModels).toContain(`"id":${fldId}`);
+    } finally {
+      await source.close();
+      await rewritten.close();
+    }
+  });
+
+  it("exposes 64-bit template/field ids as exact BigInt values after read", async () => {
+    const sourceBuffer = await buildBufferWithModels(modelsJson);
+    const source = await AnkiDatabase.fromBuffer(sourceBuffer);
+
+    try {
+      const collection = await source.getCollection();
+      const model = collection.models["1650000001000"];
+      expect(model?.tmpls[0]?.id).toBe(6_134_417_914_424_963_362n);
+      expect(model?.flds[0]?.id).toBe(-8_113_853_199_325_282_904n);
+      // The digit-only field name is preserved as a string.
+      expect(model?.flds[0]?.name).toBe("2024");
+    } finally {
+      await source.close();
+    }
   });
 });
