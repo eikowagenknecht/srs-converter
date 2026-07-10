@@ -11,7 +11,15 @@ import { Open } from "unzipper";
 
 import type { ConversionIssue, ConversionOptions, ConversionResult } from "@/error-handling";
 import { IssueCollector } from "@/error-handling";
-import type { SrsCard } from "@/srs-package";
+import type {
+  SrsCard,
+  SrsDeck,
+  SrsNote,
+  SrsNoteField,
+  SrsNoteTemplate,
+  SrsNoteType,
+  SrsReview,
+} from "@/srs-package";
 import {
   SrsPackage,
   SrsReviewScore,
@@ -29,6 +37,7 @@ import type {
   Config,
   DatabaseDump,
   Deck,
+  DeckConfigs,
   MediaFileMapping,
   NoteType,
   NotesTable,
@@ -38,10 +47,13 @@ import { DeckDynamicity, Ease, ExportVersion, NoteTypeKind } from "./types";
 import {
   createSelectiveZip,
   extractTimestampFromUuid,
+  fieldChecksum,
   guid64,
   joinAnkiFields,
+  parseJsonWithBigInts,
   serializeWithBigInts,
   splitAnkiFields,
+  stripHtml,
 } from "./util";
 
 /**
@@ -376,6 +388,377 @@ function resolveAnkiId(
 
   // Fall back to provided value
   return fallbackValue;
+}
+
+/**
+ * Default CSS applied to note types that carry no captured Anki model (i.e.
+ * SRS-authored packages). Mirrors Anki's stock styling.
+ */
+const DEFAULT_MODEL_CSS =
+  ".card {\n    font-family: arial;\n    font-size: 20px;\n    text-align: center;\n    color: black;\n    background-color: white;\n}\n";
+const DEFAULT_MODEL_LATEX_PRE =
+  "\\documentclass[12pt]{article}\n\\special{papersize=3in,5in}\n\\usepackage[utf8]{inputenc}\n\\usepackage{amssymb,amsmath}\n\\pagestyle{empty}\n\\setlength{\\parindent}{0in}\n\\begin{document}\n";
+const DEFAULT_MODEL_LATEX_POST = String.raw`\end{document}`;
+
+/**
+ * Parses a captured Anki entity blob from `applicationSpecificData`.
+ *
+ * Returns `undefined` (silently) when the blob is absent — the entity was
+ * SRS-authored and never had one. When the blob is present but cannot be
+ * parsed, a warning is recorded and `undefined` is returned so the caller falls
+ * back to defaults instead of throwing.
+ * @param serialized - The serialized blob, or undefined when the key is absent
+ * @param entityDescription - Human-readable entity name for warning messages
+ * @param collector - Issue collector for the warning
+ * @param parse - JSON parser (defaults to `JSON.parse`; note types pass `parseJsonWithBigInts`)
+ * @returns The parsed blob, or `undefined` to signal "use defaults"
+ */
+function parseAnkiBlob<T>(
+  serialized: string | undefined,
+  entityDescription: string,
+  collector: IssueCollector,
+  parse: (json: string) => unknown = (json) => JSON.parse(json),
+): T | undefined {
+  if (serialized === undefined) {
+    return undefined;
+  }
+
+  try {
+    return parse(serialized) as T;
+  } catch (error) {
+    collector.addWarning(
+      `Could not restore the original Anki data for ${entityDescription}; using default values instead. ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return undefined;
+  }
+}
+
+/**
+ * Reconstructs an Anki deck, restoring the full captured deck JSON as the base
+ * and overlaying the SRS-owned fields (id, name, description).
+ * @param srsDeck - The SRS deck being converted
+ * @param deckId - The resolved Anki deck id
+ * @param collector - Issue collector for restore warnings
+ * @returns The reconstructed Anki deck
+ */
+function restoreAnkiDeck(srsDeck: SrsDeck, deckId: number, collector: IssueCollector): Deck {
+  const base = parseAnkiBlob<Deck>(
+    srsDeck.applicationSpecificData?.["ankiDeck"],
+    `deck "${srsDeck.name}"`,
+    collector,
+  );
+
+  if (base) {
+    return {
+      ...base,
+      id: deckId,
+      name: srsDeck.name,
+      desc: srsDeck.description ?? base.desc,
+    };
+  }
+
+  return {
+    id: deckId,
+    mod: 0,
+    name: srsDeck.name,
+    usn: 0,
+    lrnToday: [0, 0],
+    revToday: [0, 0],
+    newToday: [0, 0],
+    timeToday: [0, 0],
+    collapsed: true,
+    browserCollapsed: true,
+    desc: srsDeck.description ?? "",
+    dyn: DeckDynamicity.STATIC,
+    conf: 1, // Deck configuration 1 is Anki's default preset
+    extendNew: 0,
+    extendRev: 0,
+    reviewLimit: null,
+    newLimit: null,
+    reviewLimitToday: null,
+    newLimitToday: null,
+  };
+}
+
+/**
+ * Builds a default Anki template for an SRS template that has no captured
+ * counterpart (SRS-authored, or a structural-drift extra).
+ * @param template - The SRS template
+ * @param ord - The template ordinal (array position)
+ * @returns A default Anki template
+ */
+function defaultAnkiTemplate(template: SrsNoteTemplate, ord: number): NoteType["tmpls"][number] {
+  return {
+    id: BigInt(template.id),
+    name: template.name,
+    ord,
+    qfmt: template.questionTemplate,
+    afmt: template.answerTemplate,
+    bqfmt: "",
+    bafmt: "",
+    did: null,
+    bfont: "",
+    bsize: 0,
+  };
+}
+
+/**
+ * Builds a default Anki field for an SRS field that has no captured counterpart.
+ * @param field - The SRS field
+ * @param ord - The field ordinal (array position)
+ * @returns A default Anki field
+ */
+function defaultAnkiField(field: SrsNoteField, ord: number): NoteType["flds"][number] {
+  return {
+    id: BigInt(field.id),
+    name: field.name,
+    ord,
+    sticky: false,
+    rtl: false,
+    font: "Arial",
+    size: 20,
+    description: field.description ?? "",
+    plainText: false,
+    collapsed: false,
+    excludeFromSearch: false,
+    tag: null,
+    preventDeletion: false,
+  };
+}
+
+/**
+ * Reconstructs an Anki note type. The captured model JSON is the base; the SRS
+ * format owns the id, name, field names/descriptions and template
+ * names/qfmt/afmt (matched to the blob by position). Everything else — css,
+ * latex, sortf, req, template/field ids and props, plugin keys — comes from the
+ * blob. SRS structure is authoritative: extra SRS fields/templates get
+ * generated defaults, extra blob entries are dropped.
+ * @param srsNoteType - The SRS note type being converted
+ * @param noteTypeId - The resolved Anki note type id
+ * @param fallbackDeckId - Deck id to assign when no blob is present
+ * @param collector - Issue collector for restore warnings
+ * @returns The reconstructed Anki note type
+ */
+function restoreAnkiNoteType(
+  srsNoteType: SrsNoteType,
+  noteTypeId: number,
+  fallbackDeckId: number | null,
+  collector: IssueCollector,
+): NoteType {
+  const base = parseAnkiBlob<NoteType>(
+    srsNoteType.applicationSpecificData?.["ankiNoteType"],
+    `note type "${srsNoteType.name}"`,
+    collector,
+    parseJsonWithBigInts,
+  );
+
+  const tmpls = srsNoteType.templates.map((template, index) => {
+    const baseTemplate = base?.tmpls[index];
+    if (!baseTemplate) {
+      return defaultAnkiTemplate(template, index);
+    }
+    return {
+      ...baseTemplate,
+      id: baseTemplate.id ?? BigInt(template.id),
+      name: template.name,
+      ord: index,
+      qfmt: template.questionTemplate,
+      afmt: template.answerTemplate,
+    };
+  });
+
+  const flds = srsNoteType.fields.map((field, index) => {
+    const baseField = base?.flds[index];
+    if (!baseField) {
+      return defaultAnkiField(field, index);
+    }
+    return {
+      ...baseField,
+      id: baseField.id ?? BigInt(field.id),
+      name: field.name,
+      ord: index,
+      description: field.description ?? baseField.description,
+    };
+  });
+
+  if (base) {
+    return { ...base, id: noteTypeId, name: srsNoteType.name, tmpls, flds };
+  }
+
+  const isClozeNoteType = srsNoteType.templates.some(
+    (template) =>
+      template.questionTemplate.includes("{{cloze:") ||
+      template.answerTemplate.includes("{{cloze:"),
+  );
+
+  return {
+    id: noteTypeId,
+    name: srsNoteType.name,
+    type: isClozeNoteType ? NoteTypeKind.CLOZE : NoteTypeKind.STANDARD,
+    mod: 0,
+    usn: 0,
+    sortf: 0,
+    did: fallbackDeckId,
+    tmpls,
+    flds,
+    css: DEFAULT_MODEL_CSS,
+    latexPre: DEFAULT_MODEL_LATEX_PRE,
+    latexPost: DEFAULT_MODEL_LATEX_POST,
+    latexsvg: false,
+    // One requirement entry per template (F18): each card needs its first field.
+    req: srsNoteType.templates.map((_template, index): [number, "any" | "all", number[]] => [
+      index,
+      "any",
+      [0],
+    ]),
+    originalStockKind: null,
+  };
+}
+
+/**
+ * Reconstructs an Anki note. The captured note row is the base; the SRS format
+ * owns the id, note-type id, joined fields, and the recomputed sort field and
+ * checksum. `data` follows the ankiData-key → blob → "" precedence. Guid, tags,
+ * mod, usn and flags come from the blob (or defaults when SRS-authored).
+ * @param srsNote - The SRS note being converted
+ * @param noteId - The resolved Anki note id
+ * @param mid - The resolved Anki note type id
+ * @param noteType - The already-reconstructed Anki note type (for sortf)
+ * @param collector - Issue collector for restore warnings
+ * @returns The reconstructed Anki note row
+ */
+function restoreAnkiNote(
+  srsNote: SrsNote,
+  noteId: number,
+  mid: number,
+  noteType: NoteType,
+  collector: IssueCollector,
+): NotesTable {
+  const base = parseAnkiBlob<NotesTable>(
+    srsNote.applicationSpecificData?.["ankiNote"],
+    `note ${noteId.toFixed(0)}`,
+    collector,
+  );
+
+  const fieldStrings = srsNote.fieldValues.map(([, value]) => value);
+  const flds = joinAnkiFields(fieldStrings);
+  const sortIndex =
+    noteType.sortf >= 0 && noteType.sortf < fieldStrings.length ? noteType.sortf : 0;
+  const sfld = stripHtml(fieldStrings[sortIndex] ?? "");
+  const csum = fieldChecksum(fieldStrings[0] ?? "");
+  const data = srsNote.applicationSpecificData?.["ankiData"] ?? base?.data ?? "";
+
+  if (base) {
+    return { ...base, id: noteId, mid, flds, sfld, csum, data };
+  }
+
+  return {
+    id: noteId,
+    guid: guid64(),
+    mid,
+    mod: 0,
+    usn: 0,
+    tags: "",
+    flds,
+    sfld,
+    csum,
+    flags: 0,
+    data,
+  };
+}
+
+/**
+ * Reconstructs an Anki card. The captured card row is the base and supplies all
+ * scheduling state; the SRS format owns id, note id, deck id, ordinal and the
+ * ankiData-key → blob → "{}" `data` precedence.
+ * @param srsCard - The SRS card being converted
+ * @param cardId - The resolved Anki card id
+ * @param nid - The resolved Anki note id
+ * @param did - The resolved Anki deck id
+ * @param ord - The card ordinal (template index / cloze ordinal)
+ * @param collector - Issue collector for restore warnings
+ * @returns The reconstructed Anki card row
+ */
+function restoreAnkiCard(
+  srsCard: SrsCard,
+  cardId: number,
+  nid: number,
+  did: number,
+  ord: number,
+  collector: IssueCollector,
+): CardsTable {
+  const base = parseAnkiBlob<CardsTable>(
+    srsCard.applicationSpecificData?.["ankiCard"],
+    `card ${cardId.toFixed(0)}`,
+    collector,
+  );
+
+  const data = srsCard.applicationSpecificData?.["ankiData"] ?? base?.data ?? "{}";
+
+  if (base) {
+    return { ...base, id: cardId, nid, did, ord, data };
+  }
+
+  return {
+    id: cardId,
+    nid,
+    did,
+    ord,
+    mod: 0,
+    usn: 0,
+    type: 0,
+    queue: 0,
+    due: 0,
+    ivl: 0,
+    factor: 0,
+    reps: 0,
+    lapses: 0,
+    left: 0,
+    odue: 0,
+    odid: 0,
+    flags: 0,
+    data,
+  };
+}
+
+/**
+ * Reconstructs an Anki review. The captured revlog row is the base and supplies
+ * ivl/lastIvl/factor/time/type/usn; the SRS format owns id, card id and ease.
+ * @param srsReview - The SRS review being converted
+ * @param reviewId - The resolved Anki review id
+ * @param cid - The resolved Anki card id
+ * @param ease - The ease derived from the SRS review score
+ * @param collector - Issue collector for restore warnings
+ * @returns The reconstructed Anki review row
+ */
+function restoreAnkiReview(
+  srsReview: SrsReview,
+  reviewId: number,
+  cid: number,
+  ease: Ease,
+  collector: IssueCollector,
+): RevlogTable {
+  const base = parseAnkiBlob<RevlogTable>(
+    srsReview.applicationSpecificData?.["ankiReview"],
+    `review ${reviewId.toFixed(0)}`,
+    collector,
+  );
+
+  if (base) {
+    return { ...base, id: reviewId, cid, ease };
+  }
+
+  return {
+    id: reviewId,
+    cid,
+    usn: 0,
+    ease,
+    ivl: 0,
+    lastIvl: 0,
+    factor: 0,
+    time: 0,
+    type: 0,
+  };
 }
 
 const EXPORT_VERSION = ExportVersion.Legacy_V2;
@@ -800,33 +1183,14 @@ export class AnkiPackage {
 
       deckIDs.set(deck.id, deckID);
 
-      const ankiDecks: Deck = {
-        id: deckID,
-        mod: 0,
-        name: deck.name,
-        usn: 0,
-        lrnToday: [0, 0],
-        revToday: [0, 0],
-        newToday: [0, 0],
-        timeToday: [0, 0],
-        collapsed: true,
-        browserCollapsed: true,
-        desc: deck.description ?? "",
-        dyn: DeckDynamicity.STATIC,
-        conf: 1, // This refers to deck configuration 1, which is the default in Anki
-        extendNew: 0,
-        extendRev: 0,
-        reviewLimit: null,
-        newLimit: null,
-        reviewLimitToday: null,
-        newLimitToday: null,
-      };
-      ankiPackage.addDeck(ankiDecks);
+      ankiPackage.addDeck(restoreAnkiDeck(deck, deckID, collector));
     }
 
-    // Convert note types
+    // Convert note types (restore-with-overlay; see restoreAnkiNoteType)
     const noteTypes = srsPackage.getNoteTypes();
     const noteTypeIDs = new Map<string, number>();
+    const restoredNoteTypes = new Map<string, NoteType>();
+    const firstDeckId = deckIDs.values().next().value ?? null;
     for (const noteType of noteTypes) {
       let noteTypeId = resolveAnkiId(
         noteType.applicationSpecificData,
@@ -840,59 +1204,9 @@ export class AnkiPackage {
 
       noteTypeIDs.set(noteType.id, noteTypeId);
 
-      // Detect if this is a cloze note type by checking template content
-      // TODO: This is very Anki-style, we might want to find a cleaner way to
-      // do this.
-      const isClozeNoteType = noteType.templates.some(
-        (template) =>
-          template.questionTemplate.includes("{{cloze:") ||
-          template.answerTemplate.includes("{{cloze:"),
-      );
-
-      const ankiNoteType: NoteType = {
-        id: noteTypeId,
-        name: noteType.name,
-        type: isClozeNoteType ? NoteTypeKind.CLOZE : NoteTypeKind.STANDARD,
-        mod: 0,
-        usn: 0,
-        sortf: 0, // Sort by the first field by default
-        did: deckIDs.values().next().value ?? null, // Use the first deck ID. null for type checker only
-        tmpls: noteType.templates.map((template) => ({
-          id: BigInt(template.id), // TODO: Not sure if this needs to be unique in Anki
-          name: template.name,
-          ord: template.id,
-          qfmt: template.questionTemplate, // TODO: Handle HTML/Markdown conversion if needed
-          afmt: template.answerTemplate, // TODO: Handle HTML/Markdown conversion if needed
-          bqfmt: "",
-          bafmt: "",
-          did: null,
-          bfont: "",
-          bsize: 0,
-        })),
-        flds: noteType.fields.map((field) => ({
-          id: BigInt(field.id), // TODO: Not sure if this needs to be unique in Anki
-          name: field.name,
-          ord: field.id,
-          sticky: false,
-          rtl: false,
-          font: "Arial",
-          size: 20,
-          description: field.description ?? "",
-          plainText: false,
-          collapsed: false,
-          excludeFromSearch: false,
-          tag: null,
-          preventDeletion: false,
-        })),
-        css: ".card {\n    font-family: arial;\n    font-size: 20px;\n    text-align: center;\n    color: black;\n    background-color: white;\n}\n",
-        latexPre:
-          "\\documentclass[12pt]{article}\n\\special{papersize=3in,5in}\n\\usepackage[utf8]{inputenc}\n\\usepackage{amssymb,amsmath}\n\\pagestyle{empty}\n\\setlength{\\parindent}{0in}\n\\begin{document}\n",
-        latexPost: "\\end{document}",
-        latexsvg: false,
-        req: [[0, "any", [0]]],
-        originalStockKind: 1,
-      };
+      const ankiNoteType = restoreAnkiNoteType(noteType, noteTypeId, firstDeckId, collector);
       ankiPackage.addNoteType(ankiNoteType);
+      restoredNoteTypes.set(noteType.id, ankiNoteType);
     }
 
     // Convert notes
@@ -907,7 +1221,8 @@ export class AnkiPackage {
 
       noteIDs.set(note.id, noteId);
       const noteTypeId = noteTypeIDs.get(note.noteTypeId);
-      if (!noteTypeId) {
+      const restoredNoteType = restoredNoteTypes.get(note.noteTypeId);
+      if (!noteTypeId || !restoredNoteType) {
         collector.addError(
           `Cannot convert note because note type ID ${note.noteTypeId} was not found. This note will be skipped.`,
           {
@@ -917,20 +1232,7 @@ export class AnkiPackage {
         );
         continue;
       }
-      const ankiNotes: NotesTable = {
-        id: noteId,
-        guid: guid64(),
-        mid: noteTypeId,
-        mod: 0,
-        usn: 0,
-        tags: "",
-        flds: joinAnkiFields(note.fieldValues.map(([, value]) => value)),
-        sfld: note.fieldValues[0]?.[1] ?? "", // Sort field defaults to the first field value
-        csum: 0, // TODO: Find out how Anki calculates this and do it that way as well. Not sure if needed or if Anki accepts notes without it.
-        flags: 0,
-        data: note.applicationSpecificData?.["ankiData"] ?? "",
-      };
-      ankiPackage.addNote(ankiNotes);
+      ankiPackage.addNote(restoreAnkiNote(note, noteId, noteTypeId, restoredNoteType, collector));
     }
 
     // Convert cards
@@ -1049,27 +1351,9 @@ export class AnkiPackage {
 
         cardIDs.set(srsCard.id, cardId);
 
-        const ankiCard: CardsTable = {
-          id: cardId,
-          nid: ankiNoteId,
-          did: ankiDeckId,
-          ord, // Use the calculated ordinal
-          mod: 0,
-          usn: 0,
-          type: 0,
-          queue: 0,
-          due: 0,
-          ivl: 0,
-          factor: 0,
-          reps: 0,
-          lapses: 0,
-          left: 0,
-          odue: 0,
-          odid: 0,
-          flags: 0,
-          data: srsCard.applicationSpecificData?.["ankiData"] ?? "{}",
-        };
-        ankiPackage.addCard(ankiCard);
+        ankiPackage.addCard(
+          restoreAnkiCard(srsCard, cardId, ankiNoteId, ankiDeckId, ord, collector),
+        );
       }
     }
 
@@ -1117,28 +1401,93 @@ export class AnkiPackage {
         continue;
       }
 
-      const reviewId = resolveAnkiId(
-        review.applicationSpecificData,
-        review.timestamp, // Reviews use timestamp as fallback, not UUID extraction
-      );
+      // Reviews use timestamp as fallback, not UUID extraction. The collision
+      // bump loop the other entities have is deferred to WP5/F16; adding it
+      // here would be a single `while (usedReviewIds.has(reviewId)) reviewId++`.
+      const reviewId = resolveAnkiId(review.applicationSpecificData, review.timestamp);
 
-      const ankiReviews: RevlogTable = {
-        id: reviewId,
-        cid: cardId,
-        usn: 0,
-        ease,
-        ivl: 0, // TODO: Find out how to fill this and "lastIvl", "factor" and "type"
-        lastIvl: 0,
-        factor: 0,
-        time: 0,
-        type: 0,
-      };
-      ankiPackage.addReview(ankiReviews);
+      ankiPackage.addReview(restoreAnkiReview(review, reviewId, cardId, ease, collector));
     }
+
+    // Restore collection-level metadata (crt/conf/tags/dconf/graves) captured
+    // during Anki → SRS, and force the schema-defining scalars.
+    ankiPackage.restoreCollectionMetadata(srsPackage.getApplicationSpecificData(), collector);
 
     // Forward any issues from the initial result
     collector.addIssues(result.issues);
     return collector.createResult(ankiPackage);
+  }
+
+  /**
+   * Restores collection-level metadata onto this package from the SRS
+   * package-level `applicationSpecificData` blobs captured during
+   * {@link AnkiPackage.toSrsPackage}. Missing/unparseable blobs keep the
+   * `fromDefault` values and emit a warning. `ver` and `id` are always forced.
+   * @param applicationSpecificData - Package-level blobs (ankiCol/ankiDconf/ankiGraves)
+   * @param collector - Issue collector for restore warnings
+   */
+  private restoreCollectionMetadata(
+    applicationSpecificData: Record<string, string>,
+    collector: IssueCollector,
+  ): void {
+    if (!this.databaseContents) {
+      throw new Error("Database contents not available");
+    }
+    const collection = this.databaseContents.collection;
+
+    const col = parseAnkiBlob<{
+      crt: number;
+      mod: number;
+      scm: number;
+      dty: number;
+      usn: number;
+      ls: number;
+      conf: Config;
+      tags: Record<string, never>;
+    }>(applicationSpecificData["ankiCol"], "collection metadata", collector);
+    if (col) {
+      collection.crt = col.crt;
+      collection.mod = col.mod;
+      collection.scm = col.scm;
+      collection.dty = col.dty;
+      collection.usn = col.usn;
+      collection.ls = col.ls;
+      collection.conf = col.conf;
+      collection.tags = col.tags;
+    }
+
+    const dconf = parseAnkiBlob<DeckConfigs>(
+      applicationSpecificData["ankiDconf"],
+      "deck options",
+      collector,
+    );
+    if (dconf) {
+      collection.dconf = dconf;
+    }
+
+    const graves = parseAnkiBlob<DatabaseDump["deletedItems"]>(
+      applicationSpecificData["ankiGraves"],
+      "deleted-item tombstones (graves)",
+      collector,
+    );
+    if (graves) {
+      this.databaseContents.deletedItems = graves;
+    }
+
+    // The schema version and collection id are fixed for the Legacy V2 format.
+    collection.ver = DB_VERSION;
+    collection.id = 1;
+
+    // Every deck must point at a deck configuration that exists.
+    for (const deck of Object.values(collection.decks)) {
+      if (!(deck.conf.toString() in collection.dconf)) {
+        collector.addWarning(
+          `Deck '${deck.name}' referenced deck options ${deck.conf.toFixed(0)}, which are not present in the restored configuration. Falling back to the default preset.`,
+          { itemType: "deck" },
+        );
+        deck.conf = 1;
+      }
+    }
   }
 
   public async toAnkiExport(filepath: string): Promise<void> {
@@ -1497,13 +1846,31 @@ export class AnkiPackage {
 
     const srsPackage = new SrsPackage();
 
+    // Step 0: Capture collection-level metadata that has no per-entity home so
+    // it can be restored on the way back (crt/conf/tags, deck options, graves).
+    const collection = this.databaseContents.collection;
+    srsPackage.setApplicationSpecificData({
+      ankiCol: serializeWithBigInts({
+        crt: collection.crt,
+        mod: collection.mod,
+        scm: collection.scm,
+        dty: collection.dty,
+        usn: collection.usn,
+        ls: collection.ls,
+        conf: collection.conf,
+        tags: collection.tags,
+      }),
+      ankiDconf: serializeWithBigInts(collection.dconf),
+      ankiGraves: serializeWithBigInts(this.databaseContents.deletedItems),
+    });
+
     // Step 1: Convert and add decks
     const ankiToSrsDeckMap = new Map<number, string>();
 
     for (const [deckId, ankiDeck] of Object.entries(this.databaseContents.collection.decks)) {
       const deckData: Parameters<typeof createDeck>[0] = {
         applicationSpecificData: {
-          ankiDeckData: JSON.stringify(ankiDeck),
+          ankiDeck: serializeWithBigInts(ankiDeck),
           originalAnkiId: deckId,
         },
         name: ankiDeck.name,
@@ -1524,11 +1891,20 @@ export class AnkiPackage {
     for (const [noteTypeId, ankiNoteType] of Object.entries(
       this.databaseContents.collection.models,
     )) {
+      // S3: order fields/templates by their `ord`, not their stored array
+      // position, so a mis-sorted model cannot remap content to the wrong
+      // field/template. The captured blob uses the same order so restore can
+      // match SRS fields/templates back to it by position.
+      const sortedFlds = [...ankiNoteType.flds].sort((a, b) => a.ord - b.ord);
+      const sortedTmpls = [...ankiNoteType.tmpls].sort((a, b) => a.ord - b.ord);
+      const sortedNoteType = { ...ankiNoteType, flds: sortedFlds, tmpls: sortedTmpls };
+
       const srsNoteType = createNoteType({
         applicationSpecificData: {
+          ankiNoteType: serializeWithBigInts(sortedNoteType),
           originalAnkiId: noteTypeId,
         },
-        fields: ankiNoteType.flds.map((field, index) => {
+        fields: sortedFlds.map((field, index) => {
           const srsField: { id: number; name: string; description?: string } = {
             id: index,
             name: field.name,
@@ -1539,11 +1915,8 @@ export class AnkiPackage {
           return srsField;
         }),
         name: ankiNoteType.name,
-        templates: ankiNoteType.tmpls.map((template, index) => ({
+        templates: sortedTmpls.map((template, index) => ({
           answerTemplate: template.afmt,
-          applicationSpecificData: {
-            ankiTemplateData: serializeWithBigInts(template),
-          },
           id: index,
           name: template.name,
           questionTemplate: template.qfmt,
@@ -1612,8 +1985,7 @@ export class AnkiPackage {
         {
           applicationSpecificData: {
             ankiData: ankiNote.data,
-            ankiGuid: ankiNote.guid,
-            ankiTags: ankiNote.tags,
+            ankiNote: serializeWithBigInts(ankiNote),
             originalAnkiId: ankiNote.id.toFixed(0),
           },
           deckId: srsDeckId,
@@ -1646,11 +2018,8 @@ export class AnkiPackage {
 
         const srsCard = createCard({
           applicationSpecificData: {
-            // TODO: Check which of these fields actually need to be stored. Maybe extract a type.
+            ankiCard: serializeWithBigInts(ankiCard),
             ankiData: ankiCard.data,
-            ankiDue: ankiCard.due.toFixed(0),
-            ankiQueue: ankiCard.queue.toString(),
-            ankiType: ankiCard.type.toString(),
             originalAnkiId: ankiCard.id?.toFixed(0) ?? "",
           },
           noteId: srsNoteId,
@@ -1743,6 +2112,7 @@ export class AnkiPackage {
           timestamp: ankiReview.id, // Anki review ID is the timestamp
           score: srsScore,
           applicationSpecificData: {
+            ankiReview: serializeWithBigInts(ankiReview),
             originalAnkiId: ankiReview.id.toFixed(0),
           },
         });

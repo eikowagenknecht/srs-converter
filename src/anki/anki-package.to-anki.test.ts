@@ -445,19 +445,27 @@ describe("Conversion SRS → Anki", () => {
         // Find a card to check its application-specific data
         const card = resultPackage.getCards()[0];
 
-        // Verify the specific fields are preserved
+        // WP2 stores the full card row as a single `ankiCard` blob (plus the
+        // user-facing `ankiData` and `originalAnkiId`), replacing the old
+        // write-only `ankiDue`/`ankiQueue`/`ankiType` keys.
         if (card?.applicationSpecificData) {
-          expect(card.applicationSpecificData["ankiDue"]).toBeDefined();
-          expect(card.applicationSpecificData["ankiQueue"]).toBeDefined();
-          expect(card.applicationSpecificData["ankiType"]).toBeDefined();
+          expect(card.applicationSpecificData["ankiCard"]).toBeDefined();
           expect(card.applicationSpecificData["originalAnkiId"]).toBeDefined();
           expect(card.applicationSpecificData["ankiData"]).toBeDefined();
 
           // Verify the data types are correct (should be strings)
-          expect(typeof card.applicationSpecificData["ankiDue"]).toBe("string");
-          expect(typeof card.applicationSpecificData["ankiQueue"]).toBe("string");
-          expect(typeof card.applicationSpecificData["ankiType"]).toBe("string");
+          expect(typeof card.applicationSpecificData["ankiCard"]).toBe("string");
           expect(typeof card.applicationSpecificData["ankiData"]).toBe("string");
+
+          // The blob is valid JSON describing the captured card row.
+          const ankiCardBlob = card.applicationSpecificData["ankiCard"] ?? "";
+          const parsedCard = JSON.parse(ankiCardBlob) as { id: number };
+          expect(parsedCard.id).toBeTypeOf("number");
+
+          // The removed write-only keys are gone.
+          expect(card.applicationSpecificData["ankiDue"]).toBeUndefined();
+          expect(card.applicationSpecificData["ankiQueue"]).toBeUndefined();
+          expect(card.applicationSpecificData["ankiType"]).toBeUndefined();
         } else {
           throw new Error("Card or applicationSpecificData is undefined");
         }

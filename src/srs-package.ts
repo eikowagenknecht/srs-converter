@@ -13,6 +13,7 @@ export class SrsPackage {
   private notes: SrsNote[];
   private cards: SrsCard[];
   private reviews: SrsReview[];
+  private applicationSpecificData: Record<string, string>;
 
   constructor() {
     this.decks = [];
@@ -20,6 +21,23 @@ export class SrsPackage {
     this.notes = [];
     this.cards = [];
     this.reviews = [];
+    this.applicationSpecificData = {};
+  }
+
+  /**
+   * Returns a copy of the package-level application-specific data.
+   *
+   * This holds collection-scoped metadata that has no per-entity home, such as
+   * the Anki `col` scalars, deck configurations and graves captured during an
+   * Anki → SRS conversion so they can be restored on the way back.
+   * @returns A shallow copy of the application-specific data record
+   */
+  public getApplicationSpecificData(): Record<string, string> {
+    return { ...this.applicationSpecificData };
+  }
+
+  public setApplicationSpecificData(data: Record<string, string>) {
+    this.applicationSpecificData = { ...data };
   }
 
   public getDecks(): readonly SrsDeck[] {

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -301,4 +302,38 @@ export function parseJsonWithBigInts(jsonString: string): unknown {
   // The third reviver argument is not yet part of TypeScript's JSON.parse
   // signature, so cast to the declared two-argument reviver shape.
   return JSON.parse(jsonString, reviver as JsonReviver);
+}
+
+/**
+ * Removes HTML tags from a string, mirroring how Anki derives the sort field
+ * and note checksum from a field's rendered text.
+ *
+ * Known simplification: this only strips tags (and `<style>`/`<script>`
+ * bodies). Unlike Anki's `strip_html_media`, it does not decode HTML entities
+ * (`&amp;` → `&`) or remove media references (`[sound:...]`, `<img>` sources).
+ * That keeps the implementation dependency-free and is sufficient for the
+ * plain-text and lightly-formatted fields this library targets.
+ * @param html - The field content to strip
+ * @returns The content with HTML tags removed
+ */
+export function stripHtml(html: string): string {
+  return html
+    .replaceAll(/<style[^>]*>[\s\S]*?<\/style>/giu, "")
+    .replaceAll(/<script[^>]*>[\s\S]*?<\/script>/giu, "")
+    .replaceAll(/<[^>]*>/gu, "");
+}
+
+/**
+ * Computes an Anki note checksum for a field value.
+ *
+ * Anki stores `notes.csum` as the first 8 hex digits of the SHA1 of the
+ * HTML-stripped first field, interpreted as a 32-bit unsigned integer.
+ * @see https://github.com/ankitects/anki/blob/edf59c2bb2a3dad36115af7518cdcbb3ee397089/pylib/anki/utils.py#L151
+ * @param field - The (raw, un-stripped) field value to checksum
+ * @returns The 32-bit unsigned checksum
+ */
+export function fieldChecksum(field: string): number {
+  const stripped = stripHtml(field);
+  const digest = createHash("sha1").update(stripped, "utf8").digest("hex");
+  return Number.parseInt(digest.slice(0, 8), 16);
 }

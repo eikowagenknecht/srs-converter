@@ -3,7 +3,7 @@
 Verbatim preservation of the executable repro scripts behind
 `docs/working/audit-2026-07-10-roundtrip.md`. They were run from a scratch
 directory (outside the repo) so the test suite and quality gates never see
-them. Each test asserts the *buggy* value — a green run confirms the bug.
+them. Each test asserts the _buggy_ value — a green run confirms the bug.
 When porting into the real suite (see `docs/working/fixplan-2026-07-10.md`),
 invert the assertions.
 
@@ -30,7 +30,8 @@ repo `src`) to your locations.
 ```ts
 import { defineConfig } from "vitest/config";
 
-const SCRATCH = "/tmp/claude-1000/-home-eiko-repos-srs-converter/66a1a6a9-174f-4005-b1c6-7055aadf9621/scratchpad";
+const SCRATCH =
+  "/tmp/claude-1000/-home-eiko-repos-srs-converter/66a1a6a9-174f-4005-b1c6-7055aadf9621/scratchpad";
 
 export default defineConfig({
   root: SCRATCH,
@@ -163,7 +164,14 @@ function buildDconfJson(): string {
       autoplay: false,
       timer: 1,
       replayq: false,
-      new: { bury: true, delays: [5, 25], initialFactor: 1900, ints: [2, 5, 0], order: 0, perDay: 5 },
+      new: {
+        bury: true,
+        delays: [5, 25],
+        initialFactor: 1900,
+        ints: [2, 5, 0],
+        order: 0,
+        perDay: 5,
+      },
       rev: { bury: true, ease4: 1.5, ivlFct: 0.8, maxIvl: 999, perDay: 77, hardFactor: 1.1 },
       lapse: { delays: [20], leechAction: 0, leechFails: 4, minInt: 2, mult: 0.5 },
       dyn: false,
@@ -252,34 +260,122 @@ CREATE TABLE revlog (id integer PRIMARY KEY, cid integer NOT NULL, usn integer N
 
   // Card A1: review card (queue 2, type 2), red flag, addon data
   db.run("INSERT INTO cards VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", [
-    SRC.cardA1Id, SRC.noteAId, SRC.deckId, 0, 1_650_000_021, 4,
-    2, 2, 150, 30, 2600, 10, 2, 0, 0, 0, 1, '{"addonCard":1}',
+    SRC.cardA1Id,
+    SRC.noteAId,
+    SRC.deckId,
+    0,
+    1_650_000_021,
+    4,
+    2,
+    2,
+    150,
+    30,
+    2600,
+    10,
+    2,
+    0,
+    0,
+    0,
+    1,
+    '{"addonCard":1}',
   ]);
   // Card A2: intraday learning card (queue 1), due = epoch seconds, negative ivl (seconds), left encodes reps
   db.run("INSERT INTO cards VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", [
-    SRC.cardA2Id, SRC.noteAId, SRC.deckId, 1, 1_650_000_023, 4,
-    1, 1, 1_650_000_500, -600, 0, 1, 0, 1002, 0, 0, 0, "",
+    SRC.cardA2Id,
+    SRC.noteAId,
+    SRC.deckId,
+    1,
+    1_650_000_023,
+    4,
+    1,
+    1,
+    1_650_000_500,
+    -600,
+    0,
+    1,
+    0,
+    1002,
+    0,
+    0,
+    0,
+    "",
   ]);
   // Card B1: cloze ord 0 (the MathJax cloze), review card that sits in a filtered deck state (odid/odue set)
   db.run("INSERT INTO cards VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", [
-    SRC.cardB1Id, SRC.noteBId, SRC.deckId, 0, 1_650_000_025, 4,
-    2, 2, 200, 45, 2350, 3, 1, 0, 99, 200, 0, "",
+    SRC.cardB1Id,
+    SRC.noteBId,
+    SRC.deckId,
+    0,
+    1_650_000_025,
+    4,
+    2,
+    2,
+    200,
+    45,
+    2350,
+    3,
+    1,
+    0,
+    99,
+    200,
+    0,
+    "",
   ]);
   // Card B2: cloze ord 1, suspended (queue -1)
   db.run("INSERT INTO cards VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", [
-    SRC.cardB2Id, SRC.noteBId, SRC.deckId, 1, 1_650_000_027, 4,
-    0, -1, 5, 0, 0, 0, 0, 0, 0, 0, 0, "",
+    SRC.cardB2Id,
+    SRC.noteBId,
+    SRC.deckId,
+    1,
+    1_650_000_027,
+    4,
+    0,
+    -1,
+    5,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    "",
   ]);
 
   // Reviews (all on card A1/A2 so the silent cloze-card drop stays silent)
   db.run("INSERT INTO revlog VALUES (?,?,?,?,?,?,?,?,?)", [
-    1_650_000_030_000, SRC.cardA1Id, 4, 3, 30, 15, 2600, 4500, 1,
+    1_650_000_030_000,
+    SRC.cardA1Id,
+    4,
+    3,
+    30,
+    15,
+    2600,
+    4500,
+    1,
   ]);
   db.run("INSERT INTO revlog VALUES (?,?,?,?,?,?,?,?,?)", [
-    1_650_000_030_001, SRC.cardA1Id, 4, 1, -60, 30, 2450, 60_000, 0,
+    1_650_000_030_001,
+    SRC.cardA1Id,
+    4,
+    1,
+    -60,
+    30,
+    2450,
+    60_000,
+    0,
   ]);
   db.run("INSERT INTO revlog VALUES (?,?,?,?,?,?,?,?,?)", [
-    1_650_000_031_000, SRC.cardA2Id, 4, 4, 100, 45, 2800, 900, 3,
+    1_650_000_031_000,
+    SRC.cardA2Id,
+    4,
+    4,
+    100,
+    45,
+    2800,
+    900,
+    3,
   ]);
 
   // A grave entry (deleted note)
@@ -331,8 +427,14 @@ export async function buildSourceApkg(): Promise<string> {
 
 export interface RawDump {
   col: {
-    id: number; crt: number; mod: number; scm: number; ver: number; dty: number;
-    usn: number; ls: number;
+    id: number;
+    crt: number;
+    mod: number;
+    scm: number;
+    ver: number;
+    dty: number;
+    usn: number;
+    ls: number;
     conf: Record<string, unknown>;
     models: Record<string, Record<string, unknown>>;
     decks: Record<string, Record<string, unknown>>;
@@ -464,8 +566,20 @@ describe("Anki → SRS → Anki round-trip (single deck, status must stay silent
     console.log("=== MODELS AFTER ===", after.col.modelsRaw);
     console.log("=== CONF AFTER ===", JSON.stringify(after.col.conf));
     console.log("=== DCONF AFTER ===", JSON.stringify(after.col.dconf));
-    console.log("=== COL after: crt/mod/scm/usn/ls ===", after.col.crt, after.col.mod, after.col.scm, after.col.usn, after.col.ls);
-    console.log("=== ZIP ENTRIES ===", after.zipEntries, "MEDIA:", JSON.stringify(after.mediaManifest));
+    console.log(
+      "=== COL after: crt/mod/scm/usn/ls ===",
+      after.col.crt,
+      after.col.mod,
+      after.col.scm,
+      after.col.usn,
+      after.col.ls,
+    );
+    console.log(
+      "=== ZIP ENTRIES ===",
+      after.zipEntries,
+      "MEDIA:",
+      JSON.stringify(after.mediaManifest),
+    );
     console.log("=== GRAVES AFTER ===", JSON.stringify(after.graves));
 
     // ============ NOTES ============
@@ -806,9 +920,7 @@ describe("SRS-authored package pitfalls", () => {
     const noteType = createNoteType({
       fields: [{ id: 0, name: "Front" }],
       name: "T",
-      templates: [
-        { answerTemplate: "x", id: 0, name: "Card 1", questionTemplate: "{{Front}}" },
-      ],
+      templates: [{ answerTemplate: "x", id: 0, name: "Card 1", questionTemplate: "{{Front}}" }],
     });
     srs.addDeck(deck);
     srs.addNoteType(noteType);
@@ -838,9 +950,7 @@ describe("SRS-authored package pitfalls", () => {
     const noteType = createNoteType({
       fields: [{ id: 0, name: "Front" }],
       name: "T",
-      templates: [
-        { answerTemplate: "x", id: 0, name: "Card 1", questionTemplate: "{{Front}}" },
-      ],
+      templates: [{ answerTemplate: "x", id: 0, name: "Card 1", questionTemplate: "{{Front}}" }],
     });
     srs.addDeck(deck);
     srs.addNoteType(noteType);
@@ -859,7 +969,10 @@ describe("SRS-authored package pitfalls", () => {
     console.log("conversion status:", result.status, "issues:", result.issues.length);
     expect(result.status).toBe("success"); // conversion itself reports success
     const reviews = result.data?.getReviews() ?? [];
-    console.log("review ids:", reviews.map((r) => r.id));
+    console.log(
+      "review ids:",
+      reviews.map((r) => r.id),
+    );
 
     const outDir = await mkdtemp(join(tmpdir(), "audit-rev-"));
     const outPath = join(outDir, "dupe-reviews.apkg");
@@ -1018,18 +1131,30 @@ describe("Real fixture direct round-trip", () => {
     // also: what does toSrsPackage say about this real package?
     const srsResult = pkg.toSrsPackage();
     console.log(
-      "toSrsPackage status:", srsResult.status,
-      "decks:", srsResult.data?.getDecks().length,
-      "notes:", srsResult.data?.getNotes().length,
-      "cards:", srsResult.data?.getCards().length,
-      "reviews:", srsResult.data?.getReviews().length,
-      "issues:", JSON.stringify(srsResult.issues),
+      "toSrsPackage status:",
+      srsResult.status,
+      "decks:",
+      srsResult.data?.getDecks().length,
+      "notes:",
+      srsResult.data?.getNotes().length,
+      "cards:",
+      srsResult.data?.getCards().length,
+      "reviews:",
+      srsResult.data?.getReviews().length,
+      "issues:",
+      JSON.stringify(srsResult.issues),
     );
-    console.log("decks in anki pkg:", pkg.getDecks().map((d) => d.name));
     console.log(
-      "notes in anki pkg:", pkg.getNotes().length,
-      "cards:", pkg.getCards().length,
-      "reviews:", pkg.getReviews().length,
+      "decks in anki pkg:",
+      pkg.getDecks().map((d) => d.name),
+    );
+    console.log(
+      "notes in anki pkg:",
+      pkg.getNotes().length,
+      "cards:",
+      pkg.getCards().length,
+      "reviews:",
+      pkg.getReviews().length,
     );
     expect(true).toBe(true);
   });
@@ -1078,11 +1203,50 @@ CREATE TABLE revlog (id integer PRIMARY KEY, cid integer NOT NULL, usn integer N
       sortf: 0,
       did: 1,
       tmpls: [
-        { id: 1, name: "Card 1", ord: 0, qfmt: "{{Front}}", afmt: "{{Back}}", bqfmt: "", bafmt: "", did: null, bfont: "", bsize: 0 },
+        {
+          id: 1,
+          name: "Card 1",
+          ord: 0,
+          qfmt: "{{Front}}",
+          afmt: "{{Back}}",
+          bqfmt: "",
+          bafmt: "",
+          did: null,
+          bfont: "",
+          bsize: 0,
+        },
       ],
       flds: [
-        { id: 2, name: "Front", ord: 0, sticky: false, rtl: false, font: "Arial", size: 20, description: "", plainText: false, collapsed: false, excludeFromSearch: false, tag: null, preventDeletion: false },
-        { id: 3, name: "Back", ord: 1, sticky: false, rtl: false, font: "Arial", size: 20, description: "", plainText: false, collapsed: false, excludeFromSearch: false, tag: null, preventDeletion: false },
+        {
+          id: 2,
+          name: "Front",
+          ord: 0,
+          sticky: false,
+          rtl: false,
+          font: "Arial",
+          size: 20,
+          description: "",
+          plainText: false,
+          collapsed: false,
+          excludeFromSearch: false,
+          tag: null,
+          preventDeletion: false,
+        },
+        {
+          id: 3,
+          name: "Back",
+          ord: 1,
+          sticky: false,
+          rtl: false,
+          font: "Arial",
+          size: 20,
+          description: "",
+          plainText: false,
+          collapsed: false,
+          excludeFromSearch: false,
+          tag: null,
+          preventDeletion: false,
+        },
       ],
       css: "",
       latexPre: "",
@@ -1094,21 +1258,74 @@ CREATE TABLE revlog (id integer PRIMARY KEY, cid integer NOT NULL, usn integer N
   };
   const decks = {
     "1": {
-      id: 1, mod: 0, name: "Default", usn: 0, lrnToday: [0, 0], revToday: [0, 0],
-      newToday: [0, 0], timeToday: [0, 0], collapsed: true, browserCollapsed: true,
-      desc: "", dyn: 0, conf: 1, extendNew: 0, extendRev: 0, reviewLimit: null,
-      newLimit: null, reviewLimitToday: null, newLimitToday: null,
+      id: 1,
+      mod: 0,
+      name: "Default",
+      usn: 0,
+      lrnToday: [0, 0],
+      revToday: [0, 0],
+      newToday: [0, 0],
+      timeToday: [0, 0],
+      collapsed: true,
+      browserCollapsed: true,
+      desc: "",
+      dyn: 0,
+      conf: 1,
+      extendNew: 0,
+      extendRev: 0,
+      reviewLimit: null,
+      newLimit: null,
+      reviewLimitToday: null,
+      newLimitToday: null,
     },
   };
   db.run("INSERT INTO col VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", [
-    1, 1_600_000_000, 0, 0, 11, 0, 0, 0,
-    "{}", JSON.stringify(models), JSON.stringify(decks), "{}", "{}",
+    1,
+    1_600_000_000,
+    0,
+    0,
+    11,
+    0,
+    0,
+    0,
+    "{}",
+    JSON.stringify(models),
+    JSON.stringify(decks),
+    "{}",
+    "{}",
   ]);
   db.run("INSERT INTO notes VALUES (?,?,?,?,?,?,?,?,?,?,?)", [
-    1_650_000_010_000, "someguid01", mid, 0, 0, "", "f1f2", "f1", 0, 0, "",
+    1_650_000_010_000,
+    "someguid01",
+    mid,
+    0,
+    0,
+    "",
+    "f1f2",
+    "f1",
+    0,
+    0,
+    "",
   ]);
   db.run("INSERT INTO cards VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", [
-    1_650_000_020_000, 1_650_000_010_000, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "",
+    1_650_000_020_000,
+    1_650_000_010_000,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    "",
   ]);
 
   const dir = await mkdtemp(join(tmpdir(), "audit-name-"));
@@ -1127,7 +1344,14 @@ describe("digit-only note type name", () => {
     const apkgPath = await buildApkgWithModelName("007");
     const result = await AnkiPackage.fromAnkiExport(apkgPath);
     console.log("status:", result.status);
-    console.log("issues:", JSON.stringify(result.issues.map((i) => i.message), null, 2));
+    console.log(
+      "issues:",
+      JSON.stringify(
+        result.issues.map((i) => i.message),
+        null,
+        2,
+      ),
+    );
     // best-effort mode: partial, note type/note/card all discarded
     expect(result.status).toBe("partial");
     expect(result.data?.getNoteTypes().length).toBe(0);
@@ -1144,4 +1368,3 @@ describe("digit-only note type name", () => {
   });
 });
 ```
-

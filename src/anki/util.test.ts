@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createSelectiveZip,
   extractTimestampFromUuid,
+  fieldChecksum,
   generateUniqueIdFromUuid,
   generateUnixTimeInMilliseconds,
   generateUnixTimeInSeconds,
@@ -16,6 +17,7 @@ import {
   parseJsonWithBigInts,
   sanitizeFilename,
   serializeWithBigInts,
+  stripHtml,
 } from "./util";
 
 describe("guid64", () => {
@@ -499,5 +501,38 @@ describe("parseJsonWithBigInts", () => {
     const parsed = parseJsonWithBigInts(serialized);
 
     expect(parsed).toEqual(original);
+  });
+});
+
+describe("stripHtml", () => {
+  it("removes HTML tags", () => {
+    expect(stripHtml("front<br>HTML")).toBe("frontHTML");
+    expect(stripHtml("<b>Hello</b> <i>world</i>")).toBe("Hello world");
+  });
+
+  it("removes style and script bodies", () => {
+    expect(stripHtml("a<style>.x{color:red}</style>b")).toBe("ab");
+    expect(stripHtml("a<script>alert(1)</script>b")).toBe("ab");
+  });
+
+  it("leaves plain text untouched", () => {
+    expect(stripHtml("no markup here")).toBe("no markup here");
+  });
+});
+
+describe("fieldChecksum", () => {
+  it("matches Anki's algorithm (first 8 hex digits of SHA1 as a 32-bit int)", () => {
+    // sha1("test") = a94a8fe5cc... → first 8 hex "a94a8fe5" = 2840236005
+    expect(fieldChecksum("test")).toBe(0xa9_4a_8f_e5);
+    expect(fieldChecksum("test")).toBe(2_840_236_005);
+  });
+
+  it("strips HTML before hashing", () => {
+    expect(fieldChecksum("<b>test</b>")).toBe(fieldChecksum("test"));
+  });
+
+  it("is content-dependent and non-zero", () => {
+    expect(fieldChecksum("a")).not.toBe(fieldChecksum("b"));
+    expect(fieldChecksum("anything")).not.toBe(0);
   });
 });
