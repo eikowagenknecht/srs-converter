@@ -5,11 +5,11 @@
  * audit's Appendix A. These invert the audit repros (which asserted the buggy
  * values) to assert preservation.
  *
- * Out of scope for WP2 (asserted elsewhere / deferred):
- * - Media files are still dropped (F3 / WP4); not asserted here.
- *
  * WP3 (cloze parity) has since landed: note B's MathJax cloze card (ord 0) now
  * round-trips alongside the ord-1 card, so both are asserted below.
+ *
+ * WP4 (first-class media) has since landed: media files now round-trip, so the
+ * manifest and file bytes are asserted in the "Media round-trip (WP4)" block.
  */
 import { join } from "node:path";
 
@@ -26,8 +26,15 @@ import {
 } from "@/srs-package";
 
 import { AnkiPackage } from "./anki-package";
-import { expectSuccess, getTempDir, setupTempDir } from "./anki-package.fixtures";
 import {
+  createBasicSrsPackage,
+  expectSuccess,
+  getTempDir,
+  setupTempDir,
+} from "./anki-package.fixtures";
+import {
+  MEDIA_MP3,
+  MEDIA_PNG,
   NOTE_A_FLDS,
   NOTE_B_FLDS,
   SRC,
@@ -42,17 +49,21 @@ async function roundTrip(srcPath: string): Promise<ReturnType<typeof readApkgRaw
   const readResult = await AnkiPackage.fromAnkiExport(srcPath);
   const src = expectSuccess(readResult);
   try {
-    const srsResult = src.toSrsPackage();
+    const srsResult = await src.toSrsPackage();
     const srs = expectSuccess(srsResult);
 
-    const backResult = await AnkiPackage.fromSrsPackage(srs);
-    const back = expectSuccess(backResult);
     try {
-      const outPath = join(getTempDir(), "roundtrip.apkg");
-      await back.toAnkiExport(outPath);
-      return readApkgRaw(outPath);
+      const backResult = await AnkiPackage.fromSrsPackage(srs);
+      const back = expectSuccess(backResult);
+      try {
+        const outPath = join(getTempDir(), "roundtrip.apkg");
+        await back.toAnkiExport(outPath);
+        return await readApkgRaw(outPath);
+      } finally {
+        await back.cleanup();
+      }
     } finally {
-      await back.cleanup();
+      await srs.cleanup();
     }
   } finally {
     await src.cleanup();
@@ -240,12 +251,16 @@ describe("Anki → SRS → Anki full-fidelity round-trip", () => {
     const readResult = await AnkiPackage.fromAnkiExport(srcPath);
     const src = expectSuccess(readResult);
     try {
-      const srs = expectSuccess(src.toSrsPackage());
-      const backResult = await AnkiPackage.fromSrsPackage(srs);
-      const back = expectSuccess(backResult);
-      // No error or critical issues on a clean round-trip.
-      expect(backResult.issues.filter((i) => i.severity !== "warning")).toEqual([]);
-      await back.cleanup();
+      const srs = expectSuccess(await src.toSrsPackage());
+      try {
+        const backResult = await AnkiPackage.fromSrsPackage(srs);
+        const back = expectSuccess(backResult);
+        // No error or critical issues on a clean round-trip.
+        expect(backResult.issues.filter((i) => i.severity !== "warning")).toEqual([]);
+        await back.cleanup();
+      } finally {
+        await srs.cleanup();
+      }
     } finally {
       await src.cleanup();
     }
@@ -259,52 +274,58 @@ describe("Round-trip with SRS-side edits (overlay precedence)", () => {
     const src = expectSuccess(readResult);
 
     try {
-      const srs = expectSuccess(src.toSrsPackage());
+      const srs = expectSuccess(await src.toSrsPackage());
 
-      // Edit in the universal format: rename the deck and change a field value.
-      const deck = srs.getDecks().find((d) => d.name === "Source Deck");
-      if (!deck) {
-        throw new Error("source deck missing");
-      }
-      deck.name = "Renamed Deck";
-
-      const noteA = srs
-        .getNotes()
-        .find((n) => n.applicationSpecificData?.["originalAnkiId"] === SRC.noteAId.toFixed(0));
-      if (!noteA) {
-        throw new Error("note A missing");
-      }
-      const frontEntry = noteA.fieldValues.find(([name]) => name === "Front");
-      if (!frontEntry) {
-        throw new Error("Front field missing");
-      }
-      frontEntry[1] = "EDITED FRONT";
-
-      const backResult = await AnkiPackage.fromSrsPackage(srs);
-      const back = expectSuccess(backResult);
       try {
-        const outPath = join(getTempDir(), "overlay.apkg");
-        await back.toAnkiExport(outPath);
-        const after = await readApkgRaw(outPath);
+        // Edit in the universal format: rename the deck and change a field value.
+        const deck = srs.getDecks().find((d) => d.name === "Source Deck");
+        if (!deck) {
+          throw new Error("source deck missing");
+        }
+        deck.name = "Renamed Deck";
 
-        // Edits win.
-        expect(Object.values(after.col.decks).some((d) => d["name"] === "Renamed Deck")).toBe(true);
-        const editedNote = after.notes.find((n) => n["id"] === SRC.noteAId);
-        expect(editedNote).toBeDefined();
-        const editedFields = splitAnkiFields(
-          typeof editedNote?.["flds"] === "string" ? editedNote["flds"] : "",
-        );
-        expect(editedFields[0]).toBe("EDITED FRONT");
-        expect(editedFields[1]).toBe("back value");
+        const noteA = srs
+          .getNotes()
+          .find((n) => n.applicationSpecificData?.["originalAnkiId"] === SRC.noteAId.toFixed(0));
+        if (!noteA) {
+          throw new Error("note A missing");
+        }
+        const frontEntry = noteA.fieldValues.find(([name]) => name === "Front");
+        if (!frontEntry) {
+          throw new Error("Front field missing");
+        }
+        frontEntry[1] = "EDITED FRONT";
 
-        // Everything else still restored from the blob.
-        expect(editedNote?.["guid"]).toBe(SRC.noteAGuid);
-        expect(editedNote?.["tags"]).toBe(" vocab important ");
-        const cardA1 = after.cards.find((c) => c["id"] === SRC.cardA1Id);
-        expect(cardA1?.["ivl"]).toBe(30);
-        expect(cardA1?.["factor"]).toBe(2600);
+        const backResult = await AnkiPackage.fromSrsPackage(srs);
+        const back = expectSuccess(backResult);
+        try {
+          const outPath = join(getTempDir(), "overlay.apkg");
+          await back.toAnkiExport(outPath);
+          const after = await readApkgRaw(outPath);
+
+          // Edits win.
+          expect(Object.values(after.col.decks).some((d) => d["name"] === "Renamed Deck")).toBe(
+            true,
+          );
+          const editedNote = after.notes.find((n) => n["id"] === SRC.noteAId);
+          expect(editedNote).toBeDefined();
+          const editedFields = splitAnkiFields(
+            typeof editedNote?.["flds"] === "string" ? editedNote["flds"] : "",
+          );
+          expect(editedFields[0]).toBe("EDITED FRONT");
+          expect(editedFields[1]).toBe("back value");
+
+          // Everything else still restored from the blob.
+          expect(editedNote?.["guid"]).toBe(SRC.noteAGuid);
+          expect(editedNote?.["tags"]).toBe(" vocab important ");
+          const cardA1 = after.cards.find((c) => c["id"] === SRC.cardA1Id);
+          expect(cardA1?.["ivl"]).toBe(30);
+          expect(cardA1?.["factor"]).toBe(2600);
+        } finally {
+          await back.cleanup();
+        }
       } finally {
-        await back.cleanup();
+        await srs.cleanup();
       }
     } finally {
       await src.cleanup();
@@ -319,37 +340,41 @@ describe("Round-trip with a corrupt blob", () => {
     const src = expectSuccess(readResult);
 
     try {
-      const srs = expectSuccess(src.toSrsPackage());
-      const card = srs
-        .getCards()
-        .find((c) => c.applicationSpecificData?.["originalAnkiId"] === SRC.cardA1Id.toFixed(0));
-      if (!card?.applicationSpecificData) {
-        throw new Error("card A1 missing");
-      }
-      card.applicationSpecificData["ankiCard"] = "{ not valid json";
-
-      const backResult = await AnkiPackage.fromSrsPackage(srs);
-      // Warnings do not demote status.
-      expect(backResult.status).toBe("success");
-      const back = backResult.data;
-      if (!back) {
-        throw new Error("no data");
-      }
+      const srs = expectSuccess(await src.toSrsPackage());
       try {
-        expect(
-          backResult.issues.some(
-            (i) => i.severity === "warning" && i.message.includes(SRC.cardA1Id.toFixed(0)),
-          ),
-        ).toBe(true);
+        const card = srs
+          .getCards()
+          .find((c) => c.applicationSpecificData?.["originalAnkiId"] === SRC.cardA1Id.toFixed(0));
+        if (!card?.applicationSpecificData) {
+          throw new Error("card A1 missing");
+        }
+        card.applicationSpecificData["ankiCard"] = "{ not valid json";
 
-        // The card exists with default scheduling (blob could not be restored).
-        const restored = back.getCards().find((c) => c.id === SRC.cardA1Id);
-        expect(restored).toBeDefined();
-        expect(restored?.type).toBe(0);
-        expect(restored?.queue).toBe(0);
-        expect(restored?.ivl).toBe(0);
+        const backResult = await AnkiPackage.fromSrsPackage(srs);
+        // Warnings do not demote status.
+        expect(backResult.status).toBe("success");
+        const back = backResult.data;
+        if (!back) {
+          throw new Error("no data");
+        }
+        try {
+          expect(
+            backResult.issues.some(
+              (i) => i.severity === "warning" && i.message.includes(SRC.cardA1Id.toFixed(0)),
+            ),
+          ).toBe(true);
+
+          // The card exists with default scheduling (blob could not be restored).
+          const restored = back.getCards().find((c) => c.id === SRC.cardA1Id);
+          expect(restored).toBeDefined();
+          expect(restored?.type).toBe(0);
+          expect(restored?.queue).toBe(0);
+          expect(restored?.ivl).toBe(0);
+        } finally {
+          await back.cleanup();
+        }
       } finally {
-        await back.cleanup();
+        await srs.cleanup();
       }
     } finally {
       await src.cleanup();
@@ -667,6 +692,68 @@ describe("Cloze parity (WP3)", () => {
       expect(anki.getNoteTypes()[0]?.type).toBe(1);
     } finally {
       await anki.cleanup();
+    }
+  });
+});
+
+describe("Media round-trip (WP4)", () => {
+  it("round-trips the media manifest and file bytes (incl. a Unicode filename)", async () => {
+    const after = await roundTrip(await buildSourceApkg());
+
+    // Both source filenames survive (numeric ids/order may differ), including
+    // the Unicode filename.
+    expect(Object.values(after.mediaManifest).sort()).toEqual(
+      ["image üñï.png", "sound.mp3"].sort(),
+    );
+
+    // Byte-for-byte content preserved.
+    expect(after.mediaByName["image üñï.png"]?.equals(MEDIA_PNG)).toBe(true);
+    expect(after.mediaByName["sound.mp3"]?.equals(MEDIA_MP3)).toBe(true);
+  });
+
+  it("exports no media entries for a package without media", async () => {
+    const { srsPackage } = createBasicSrsPackage();
+    try {
+      const anki = expectSuccess(await AnkiPackage.fromSrsPackage(srsPackage));
+      try {
+        const outPath = join(getTempDir(), "no-media.apkg");
+        await anki.toAnkiExport(outPath);
+        const after = await readApkgRaw(outPath);
+
+        expect(after.mediaManifest).toEqual({});
+        expect(after.zipEntries).toEqual(["collection.anki21", "media", "meta"]);
+      } finally {
+        await anki.cleanup();
+      }
+    } finally {
+      await srsPackage.cleanup();
+    }
+  });
+
+  it("exports SRS-authored media into the .apkg (numbered entry + manifest)", async () => {
+    const { srsPackage } = createBasicSrsPackage();
+    await srsPackage.addMediaFile("hello.png", MEDIA_PNG);
+    try {
+      const anki = expectSuccess(await AnkiPackage.fromSrsPackage(srsPackage));
+      try {
+        const outPath = join(getTempDir(), "authored-media.apkg");
+        await anki.toAnkiExport(outPath);
+        const after = await readApkgRaw(outPath);
+
+        // The manifest maps a numeric id to the filename.
+        expect(Object.values(after.mediaManifest)).toEqual(["hello.png"]);
+        const mediaId = Object.keys(after.mediaManifest)[0];
+        if (mediaId === undefined) {
+          throw new Error("unreachable");
+        }
+        // The numbered zip entry is present with the exact bytes.
+        expect(after.zipEntries).toContain(mediaId);
+        expect(after.mediaByName["hello.png"]?.equals(MEDIA_PNG)).toBe(true);
+      } finally {
+        await anki.cleanup();
+      }
+    } finally {
+      await srsPackage.cleanup();
     }
   });
 });

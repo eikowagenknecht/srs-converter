@@ -46,6 +46,7 @@ import type {
 import { DeckDynamicity, Ease, ExportVersion, NoteTypeKind } from "./types";
 import {
   createSelectiveZip,
+  extractMediaReferences,
   extractTimestampFromUuid,
   fieldChecksum,
   guid64,
@@ -1515,6 +1516,35 @@ export class AnkiPackage {
     // during Anki → SRS, and force the schema-defining scalars.
     ankiPackage.restoreCollectionMetadata(srsPackage.getApplicationSpecificData(), collector);
 
+    // Copy media across, preserving filenames verbatim (Anki manifest values are
+    // arbitrary Unicode). A duplicate filename (addMediaFile throws) becomes an
+    // error issue + skip rather than an unhandled exception.
+    for (const filename of srsPackage.listMediaFiles()) {
+      try {
+        await ankiPackage.addMediaFile(filename, srsPackage.getMediaFile(filename));
+      } catch (error) {
+        collector.addError(
+          `Media file '${filename}' could not be added to the Anki package and was skipped: ${error instanceof Error ? error.message : String(error)}`,
+          { itemType: "media", originalData: { filename } },
+        );
+      }
+    }
+
+    // Warn about note media references (<img src> / [sound:...]) that have no
+    // backing media file in the package — the reference would be broken in Anki.
+    const availableMedia = new Set(srsPackage.listMediaFiles());
+    const referencedMedia = extractMediaReferences(
+      srsPackage.getNotes().flatMap((note) => note.fieldValues.map(([, value]) => value)),
+    );
+    for (const filename of referencedMedia) {
+      if (!availableMedia.has(filename)) {
+        collector.addWarning(
+          `Note media reference '${filename}' has no matching media file in the package; the reference may be broken.`,
+          { itemType: "media", originalData: { filename } },
+        );
+      }
+    }
+
     // Forward any issues from the initial result
     collector.addIssues(result.issues);
     return collector.createResult(ankiPackage);
@@ -1893,30 +1923,11 @@ export class AnkiPackage {
       throw new Error("Database contents not available");
     }
 
-    // Regex pattern for detecting media references in Anki notes
-    // This pattern can be easily modified if we discover additional formats
-    // Matches:
-    // - <img src="filename.ext"> and variants (with/without quotes)
-    // - [sound:filename.ext] (used for both audio and video in Anki)
-    const mediaReferencePattern =
-      /<img[^>]+src=["']?(?<imgSrc>[^"'>\s]+)["']?|\[sound:(?<soundFile>[^\]]+)\]/giu;
-
-    // Collect all referenced filenames from all notes
-    const referencedFiles = new Set<string>();
-    const notes = this.getNotes();
-
-    for (const note of notes) {
-      const fields = splitAnkiFields(note.flds);
-      for (const field of fields) {
-        // Use matchAll() to avoid lastIndex issues with global regex
-        for (const match of field.matchAll(mediaReferencePattern)) {
-          const filename = match.groups?.["imgSrc"] ?? match.groups?.["soundFile"];
-          if (filename) {
-            referencedFiles.add(filename);
-          }
-        }
-      }
-    }
+    // Collect all filenames referenced across every note field. The reference
+    // pattern is shared with fromSrsPackage's missing-media warning.
+    const referencedFiles = extractMediaReferences(
+      this.getNotes().flatMap((note) => splitAnkiFields(note.flds)),
+    );
 
     // Find unreferenced files
     const allMediaFiles = Object.values(this.mediaFiles);
@@ -1933,10 +1944,14 @@ export class AnkiPackage {
   /**
    * Converts the AnkiPackage to an SrsPackage.
    * This method transforms Anki data structures into the universal SRS format.
+   *
+   * Media files are copied into the returned {@link SrsPackage}, which then owns
+   * an independent temporary directory; the caller must eventually call
+   * {@link SrsPackage.cleanup} on it. This copying is why the method is async.
    * @param options - Configuration options for the conversion process
    * @returns A new SrsPackage containing the converted data
    */
-  public toSrsPackage(options?: ConversionOptions): ConversionResult<SrsPackage> {
+  public async toSrsPackage(options?: ConversionOptions): Promise<ConversionResult<SrsPackage>> {
     const collector = new IssueCollector(options);
 
     if (!this.databaseContents) {
@@ -2236,6 +2251,21 @@ export class AnkiPackage {
 
     // Step 7: Clean up unused entities
     srsPackage.removeUnused();
+
+    // Step 8: Copy media files into the SRS package so they survive the round
+    // trip. Content is copied, so the SRS package owns independent copies. A
+    // file that is listed in the manifest but missing on disk (already warned
+    // about at read time) is skipped with a warning rather than aborting.
+    for (const filename of this.listMediaFiles()) {
+      try {
+        await srsPackage.addMediaFile(filename, this.getMediaFile(filename));
+      } catch (error) {
+        collector.addWarning(
+          `Media file '${filename}' could not be copied to the SRS package and was skipped: ${error instanceof Error ? error.message : String(error)}`,
+          { itemType: "media", originalData: { filename } },
+        );
+      }
+    }
 
     return collector.createResult(srsPackage);
   }

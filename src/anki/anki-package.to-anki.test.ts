@@ -205,7 +205,7 @@ describe("Conversion SRS → Anki", () => {
       const ankiPackage = expectSuccess(ankiResult);
 
       try {
-        const convertedSrsResult = ankiPackage.toSrsPackage();
+        const convertedSrsResult = await ankiPackage.toSrsPackage();
         const convertedSrs = expectSuccess(convertedSrsResult);
         const convertedNoteType = convertedSrs.getNoteTypes()[0];
 
@@ -280,7 +280,7 @@ describe("Conversion SRS → Anki", () => {
       const ankiPackage = expectSuccess(ankiResult);
 
       try {
-        const convertedSrsResult = ankiPackage.toSrsPackage();
+        const convertedSrsResult = await ankiPackage.toSrsPackage();
         const convertedSrs = expectSuccess(convertedSrsResult);
         const convertedNoteType = convertedSrs.getNoteTypes()[0];
 
@@ -439,7 +439,7 @@ describe("Conversion SRS → Anki", () => {
 
       try {
         // Convert back to SRS to test application-specific data preservation
-        const resultSrsResult = ankiPackage.toSrsPackage();
+        const resultSrsResult = await ankiPackage.toSrsPackage();
         const resultPackage = expectSuccess(resultSrsResult);
 
         // Find a card to check its application-specific data
@@ -515,7 +515,7 @@ describe("Conversion SRS → Anki", () => {
       });
 
       // Convert to SRS to trigger the error handling
-      const srsResult = ankiPackage.toSrsPackage();
+      const srsResult = await ankiPackage.toSrsPackage();
 
       expect(srsResult.status).toBe("partial");
       expect(srsResult.issues).toHaveLength(1);

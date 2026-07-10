@@ -151,7 +151,7 @@ describe("Utilities and Helper Functions", () => {
       const ankiPackage = expectSuccess(result);
 
       try {
-        const srsResult = ankiPackage.toSrsPackage();
+        const srsResult = await ankiPackage.toSrsPackage();
         const srsPackage = expectSuccess(srsResult);
         const srsNotes = srsPackage.getNotes();
 
@@ -187,7 +187,7 @@ describe("Utilities and Helper Functions", () => {
 
       try {
         // Convert to SRS
-        const srsResult = originalAnki.toSrsPackage();
+        const srsResult = await originalAnki.toSrsPackage();
         const srsPackage = expectSuccess(srsResult);
 
         // Convert back to Anki
@@ -333,7 +333,7 @@ describe("Utilities and Helper Functions", () => {
         const originalIds = extractAllIds(originalAnki);
 
         // First cycle: Anki -> SRS -> Anki
-        const srsResult1 = originalAnki.toSrsPackage();
+        const srsResult1 = await originalAnki.toSrsPackage();
         const srsPackage1 = expectSuccess(srsResult1);
 
         const ankiResult1 = await AnkiPackage.fromSrsPackage(srsPackage1);
@@ -344,7 +344,7 @@ describe("Utilities and Helper Functions", () => {
           const idsAfterCycle1 = extractAllIds(convertedAnki1);
 
           // Second cycle: Anki -> SRS -> Anki
-          const srsResult2 = convertedAnki1.toSrsPackage();
+          const srsResult2 = await convertedAnki1.toSrsPackage();
           const srsPackage2 = expectSuccess(srsResult2);
 
           const ankiResult2 = await AnkiPackage.fromSrsPackage(srsPackage2);
@@ -477,7 +477,7 @@ describe("Utilities and Helper Functions", () => {
 
         try {
           // Convert Anki -> SRS
-          const convertedSrsResult = ankiPackage.toSrsPackage();
+          const convertedSrsResult = await ankiPackage.toSrsPackage();
           const convertedSrsPackage = expectSuccess(convertedSrsResult);
 
           // Get converted data for comparison
@@ -738,7 +738,7 @@ describe("Utilities and Helper Functions", () => {
           });
 
           // Convert Anki -> SRS
-          const srsResult = pkg.toSrsPackage();
+          const srsResult = await pkg.toSrsPackage();
           expect(srsResult.status).toBe("success");
           const srsPackage = srsResult.data;
           if (!srsPackage) {

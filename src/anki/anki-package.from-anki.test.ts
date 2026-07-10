@@ -149,7 +149,7 @@ describe("Conversion Anki → SRS", () => {
 
       try {
         // Convert back to SRS to verify all data types were preserved
-        const convertedSrsResult = ankiPackage.toSrsPackage();
+        const convertedSrsResult = await ankiPackage.toSrsPackage();
         const convertedSrs = expectSuccess(convertedSrsResult);
 
         // Verify decks
@@ -211,14 +211,14 @@ describe("Conversion Anki → SRS", () => {
 
       try {
         // Test strict error handling option
-        const strictResult = ankiPackage.toSrsPackage({
+        const strictResult = await ankiPackage.toSrsPackage({
           errorHandling: "strict",
         });
         const strictSrs = expectSuccess(strictResult);
         expect(strictSrs.getDecks()).toHaveLength(1);
 
         // Test best-effort error handling option
-        const bestEffortResult = ankiPackage.toSrsPackage({
+        const bestEffortResult = await ankiPackage.toSrsPackage({
           errorHandling: "best-effort",
         });
         const bestEffortSrs = expectSuccess(bestEffortResult);
@@ -256,7 +256,7 @@ describe("Conversion Anki → SRS", () => {
         ).databaseContents.reviews.push(corruptedReview);
 
         // Convert back to SRS - this should trigger the error handling path
-        const convertResult = ankiPackage.toSrsPackage();
+        const convertResult = await ankiPackage.toSrsPackage();
 
         // The conversion should succeed with partial status due to error handling
         expectPartial(convertResult);
@@ -334,7 +334,7 @@ describe("Conversion Anki → SRS", () => {
       const ankiPackage = expectSuccess(ankiResult);
 
       try {
-        const convertedSrsResult = ankiPackage.toSrsPackage();
+        const convertedSrsResult = await ankiPackage.toSrsPackage();
         const convertedSrs = expectSuccess(convertedSrsResult);
 
         // Verify field ordering is preserved
@@ -452,7 +452,7 @@ describe("Conversion Anki → SRS", () => {
       const ankiNoteTypeId = ankiNoteTypes[0]?.id;
 
       // Convert back to SRS
-      const srsResult = ankiPackage.toSrsPackage();
+      const srsResult = await ankiPackage.toSrsPackage();
       const srsPackage2 = expectSuccess(srsResult);
       const srsDecks = srsPackage2.getDecks();
       const srsNoteTypes = srsPackage2.getNoteTypes();
@@ -574,7 +574,7 @@ describe("Conversion Anki → SRS", () => {
       }
 
       // Convert back to SRS and verify error handling
-      const convertedSrsResult = ankiPackage.toSrsPackage();
+      const convertedSrsResult = await ankiPackage.toSrsPackage();
       const convertedSrsPackage = expectPartial(convertedSrsResult);
 
       // Verify that the invalid review was handled properly
@@ -611,7 +611,7 @@ describe("Conversion Anki → SRS", () => {
       }
 
       // Convert back to SRS and verify error handling
-      const convertedSrsResult = ankiPackage.toSrsPackage();
+      const convertedSrsResult = await ankiPackage.toSrsPackage();
       const convertedSrsPackage = expectPartial(convertedSrsResult);
 
       // Verify that the review with null ID was handled properly
@@ -647,7 +647,7 @@ describe("Conversion Anki → SRS", () => {
       }
 
       // Convert back to SRS and verify score mapping
-      const convertedSrsResult = ankiPackage.toSrsPackage();
+      const convertedSrsResult = await ankiPackage.toSrsPackage();
       const convertedSrsPackage = expectSuccess(convertedSrsResult);
 
       // Verify that the review was added with correct score
@@ -678,7 +678,7 @@ describe("Conversion Anki → SRS", () => {
       });
 
       // Convert back to SRS and verify error handling
-      const convertedSrsResult = ankiPackage.toSrsPackage();
+      const convertedSrsResult = await ankiPackage.toSrsPackage();
       const convertedSrsPackage = expectPartial(convertedSrsResult);
 
       // Verify that the review for non-existent card was handled properly

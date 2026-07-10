@@ -36,12 +36,6 @@ executable repro harness is preserved in
 `docs/working/audit-2026-07-10-repros.md`. Remove entries here as the
 corresponding work packages complete.
 
-### (2026-07-10) All media files silently dropped in Anki→SRS→Anki round-trip (Priority: High)
-
-**Problem:** `SrsPackage` has no media representation; `toSrsPackage` ignores `mediaFiles`; `fromSrsPackage` builds on `fromDefault()` (empty media).
-**Steps to reproduce:** Round-trip a package with media → output zip contains no media entries, manifest is `{}`; no warning. (Audit F3)
-**Impact:** Every `<img>`/`[sound:]` reference in the output is broken. Contradicts README "Media Files: Full".
-
 ### (2026-07-10) SRS→Anki writes fieldValues by position, ignoring field names (Priority: High)
 
 **Problem:** `anki-package.ts:927` joins `fieldValues` in array order; `createNote` (`srs-package.ts:327-335`) validates names only as a set, so out-of-order input passes.

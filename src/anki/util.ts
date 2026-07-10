@@ -188,6 +188,39 @@ export function splitAnkiFields(fieldString: string): string[] {
 }
 
 /**
+ * Matches Anki media references inside a note field.
+ *
+ * Two forms are recognized:
+ * - image tags: `<img src="filename.ext">` (quotes optional)
+ * - sound/video tags: `[sound:filename.ext]` (Anki uses `[sound:]` for both)
+ *
+ * Shared by media pruning ({@link extractMediaReferences} callers) and the
+ * round-trip "missing media" warning so both agree on what counts as a
+ * reference. Used only with {@link String.prototype.matchAll}, which iterates a
+ * copy, so reusing this global-flagged constant is safe.
+ */
+export const ANKI_MEDIA_REFERENCE_PATTERN =
+  /<img[^>]+src=["']?(?<imgSrc>[^"'>\s]+)["']?|\[sound:(?<soundFile>[^\]]+)\]/giu;
+
+/**
+ * Extracts the media filenames referenced by a set of note fields.
+ * @param fields - The note field values to scan
+ * @returns The set of referenced media filenames
+ */
+export function extractMediaReferences(fields: Iterable<string>): Set<string> {
+  const referenced = new Set<string>();
+  for (const field of fields) {
+    for (const match of field.matchAll(ANKI_MEDIA_REFERENCE_PATTERN)) {
+      const filename = match.groups?.["imgSrc"] ?? match.groups?.["soundFile"];
+      if (filename !== undefined && filename !== "") {
+        referenced.add(filename);
+      }
+    }
+  }
+  return referenced;
+}
+
+/**
  * Serializes an object to JSON with BigInt values converted to unquoted numbers.
  *
  * This makes sure that no precision is lost when storing BigInt values.

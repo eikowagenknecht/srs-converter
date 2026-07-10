@@ -411,6 +411,8 @@ export interface RawDump {
   graves: Record<string, unknown>[];
   zipEntries: string[];
   mediaManifest: Record<string, string>;
+  /** Media file bytes keyed by their manifest filename. */
+  mediaByName: Record<string, Buffer>;
 }
 
 // Ground-truth reader: opens an .apkg with unzipper + sql.js directly.
@@ -426,6 +428,16 @@ export async function readApkgRaw(apkgPath: string): Promise<RawDump> {
   const mediaManifest = mediaBuffer
     ? (JSON.parse(mediaBuffer.toString() || "{}") as Record<string, string>)
     : {};
+
+  // Read each numbered media entry back out and key it by its manifest filename
+  // so tests can assert byte-for-byte content.
+  const mediaByName: Record<string, Buffer> = {};
+  for (const [mediaId, filename] of Object.entries(mediaManifest)) {
+    const entry = zip.files.find((f) => f.path === mediaId);
+    if (entry) {
+      mediaByName[filename] = await entry.buffer();
+    }
+  }
 
   const SQL = await InitSqlJs();
   const db = new SQL.Database(await dbEntry.buffer());
@@ -468,6 +480,7 @@ export async function readApkgRaw(apkgPath: string): Promise<RawDump> {
     graves: rows("SELECT * FROM graves"),
     zipEntries,
     mediaManifest,
+    mediaByName,
   };
   db.close();
   return dump;

@@ -97,7 +97,7 @@ describe("Anki to SRS Conversion Documentation Examples", () => {
     const ankiPackage = await createTestAnkiPackage();
 
     // Test the documentation example: Basic Conversion
-    const srsResult = ankiPackage.toSrsPackage();
+    const srsResult = await ankiPackage.toSrsPackage();
 
     switch (srsResult.status) {
       case "success": {
@@ -146,7 +146,7 @@ describe("Anki to SRS Conversion Documentation Examples", () => {
     const ankiPackage = await createTestAnkiPackage("Strict");
 
     // Test the documentation example: Strict Mode
-    const srsResult = ankiPackage.toSrsPackage({ errorHandling: "strict" });
+    const srsResult = await ankiPackage.toSrsPackage({ errorHandling: "strict" });
 
     switch (srsResult.status) {
       case "success": {
@@ -241,7 +241,7 @@ describe("Anki to SRS Conversion Documentation Examples", () => {
       ankiPackage.addCard(testCard);
 
       // Convert Anki -> SRS
-      const srsResult = ankiPackage.toSrsPackage();
+      const srsResult = await ankiPackage.toSrsPackage();
       expect(srsResult.status).toBe("success");
       const srsPackage = srsResult.data;
       if (!srsPackage) {

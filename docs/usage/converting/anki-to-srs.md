@@ -16,7 +16,7 @@ The workflow is usually as follows:
 
 ```typescript
 // Assume ankiPackage is already loaded (see Reading Guide)
-const srsResult = ankiPackage.toSrsPackage();
+const srsResult = await ankiPackage.toSrsPackage();
 
 switch (srsResult.status) {
   case "success": {
@@ -52,7 +52,7 @@ switch (srsResult.status) {
 ```typescript
 // When using strict mode, the conversion will fail on any issues.
 // There can be no "partial" status as a result.
-const srsResult = ankiPackage.toSrsPackage({ errorHandling: "strict" });
+const srsResult = await ankiPackage.toSrsPackage({ errorHandling: "strict" });
 
 switch (srsResult.status) {
   case "success": {
@@ -89,7 +89,7 @@ const ankiResult = await AnkiPackage.fromAnkiExport("./deck-with-plugins.apkg");
 const ankiPackage = ankiResult.data;
 
 // Convert to SRS - plugin data is preserved in applicationSpecificData
-const srsResult = ankiPackage.toSrsPackage();
+const srsResult = await ankiPackage.toSrsPackage();
 const srsPackage = srsResult.data;
 
 // Plugin data is now stored in applicationSpecificData.ankiData
