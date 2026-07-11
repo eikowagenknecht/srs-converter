@@ -29,3 +29,7 @@ The MADR documentation is available at <https://adr.github.io/madr/> while gener
 - **ADR-0010**: Complete the core entity model: media, tags, timestamps, card status
 - **ADR-0011**: Versioned core with namespaced extensions and restore obligations _(supersedes ADR-0003)_
 - **ADR-0012**: Conformance profiles and mandatory loss reporting
+- **ADR-0013**: Hand-rolled protobuf wire codec for Anki schema-18 blobs
+- **ADR-0014**: zstd via node:zlib, bumping the Node floor to 22.15
+- **ADR-0015**: Read and write Anki package v3 / schema 18, with modern as the default export target
+- **ADR-0016**: Store Anki entity blobs in source-native form; convert only at write time

@@ -25,7 +25,7 @@ Complete Anki reading and writing implementation with all features and edge case
 
 - **Phase 1.0**: Anki Reading (.apkg/.colpkg)
   - Progress: 9/10 stories completed (90%) 🔄
-  - Status: Anki reading mostly works, with all major note types supported. Stories 1.0.5.1-1.0.5.5 (ZIP validation, missing files, SQLite corruption, JSON validation, partial recovery) completed. Still need schema version support (1.0.6).
+  - Status: Anki reading mostly works, with all major note types supported. Stories 1.0.5.1-1.0.5.5 (ZIP validation, missing files, SQLite corruption, JSON validation, partial recovery) completed. Story 1.0.6 rescoped 2026-07-11 to Legacy 1 reading (version detection and modern schema moved to Phase 1.3).
 
 - **Phase 1.1**: Anki Writing (.apkg/.colpkg) + Media File APIs
   - Progress: 11/11 stories completed (100%) ✅
@@ -34,6 +34,10 @@ Complete Anki reading and writing implementation with all features and edge case
 - **Phase 1.2**: Anki Testing and Edge Cases
   - Progress: 2/5 stories completed (40%) 🔄
   - Status: Round-trip tests and ID preservation complete, need comprehensive coverage
+
+- **Phase 1.3**: Modern Anki Support (Package v3 / Schema 18)
+  - Progress: 0/11 stories completed (0%) ⏳
+  - Status: Designed 2026-07-11 (ADR-0013…0016, pinned wire spec + 11↔18 mapping in `docs/formats/`). Read + write of Anki's current export format; modern becomes the default output (breaking, major release).
 
 **[→ View Phase 1 Stories](phase-1.md)**
 
