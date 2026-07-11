@@ -38,5 +38,21 @@ jobs:
       - name: Test
         run: pnpm run test
 
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # The test step wrote the four-direction round-trip outputs to
+      # out/roundtrip/ (ADR-0016); prove they import into real Anki with the
+      # same content as the fixtures they came from (Story 1.3.10). The anki
+      # package version is pinned to the wire spec (docs/formats/anki.md).
+      - name: Verify round-trip outputs against real Anki
+        run: |
+          pip install anki==26.5
+          python scripts/anki-fixtures/compare.py tests/fixtures/anki/corpus/corpus-legacy2-single-deck.apkg out/roundtrip/legacy-to-legacy.apkg
+          python scripts/anki-fixtures/compare.py tests/fixtures/anki/corpus/corpus-legacy2-single-deck.apkg out/roundtrip/legacy-to-modern.apkg
+          python scripts/anki-fixtures/compare.py tests/fixtures/anki/corpus/corpus-v3-single-deck.apkg out/roundtrip/modern-to-legacy.apkg
+          python scripts/anki-fixtures/compare.py tests/fixtures/anki/corpus/corpus-v3-single-deck.apkg out/roundtrip/modern-to-modern.apkg
+
       - name: Build
         run: pnpm run build

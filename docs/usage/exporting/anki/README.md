@@ -14,3 +14,14 @@ console.log(`✅ Created Anki package: ${exportPath}`);
 > 📋 **Test:** This example is tested in [`anki/README.test.ts`](README.test.ts) - "should export an Anki package to file"
 
 That's it. You can now import the file into your Anki application.
+
+## Choosing the Package Format
+
+By default, exports use Anki's modern package format (the same one current
+Anki versions produce). If the file needs to be imported by very old Anki
+versions (before 2.1.50), request the legacy format instead — this mirrors
+Anki's own "Support older Anki versions" export checkbox:
+
+```typescript
+await ankiPackage.toAnkiExport("./my-custom-deck.apkg", { legacy: true });
+```

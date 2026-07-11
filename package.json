@@ -63,7 +63,6 @@
     "archiver": "8.0.0",
     "kysely": "0.29.3",
     "kysely-wasm": "1.2.1",
-    "protobufjs": "8.7.0",
     "sql.js": "1.14.1",
     "unzipper": "0.12.5",
     "uuid": "14.0.1"
@@ -91,7 +90,7 @@
     "vitest": "4.1.10"
   },
   "engines": {
-    "node": ">=22.0.0",
+    "node": ">=22.15.0",
     "pnpm": ">=10.0.0"
   },
   "packageManager": "pnpm@10.28.1",

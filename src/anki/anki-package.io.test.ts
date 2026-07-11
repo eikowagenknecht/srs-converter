@@ -41,10 +41,15 @@ describe("Import / Export", () => {
       }
     });
 
-    it("should reject non-legacy exports", async () => {
+    it("should load modern (package version 3) exports", async () => {
       const result = await AnkiPackage.fromAnkiExport("./tests/fixtures/anki/empty-latest.apkg");
-      expectFailure(result);
-      expect(result.issues[0]?.message).toMatch(/Unsupported Anki export package version: 3./u);
+      const ankiPackage = expectSuccess(result);
+
+      try {
+        expect(ankiPackage.toString()).toContain("AnkiPackage");
+      } finally {
+        await ankiPackage.cleanup();
+      }
     });
 
     it("should reject corrupted .apkg files", async () => {
@@ -84,7 +89,7 @@ describe("Import / Export", () => {
       const pack = expectSuccess(result);
 
       try {
-        await pack.toAnkiExport("./out/empty-legacy-2.apkg");
+        await pack.toAnkiExport("./out/empty-legacy-2.apkg", { legacy: true });
 
         // Verify the exported file exists
         await access("./out/empty-legacy-2.apkg"); // Will throw if file doesn't exist

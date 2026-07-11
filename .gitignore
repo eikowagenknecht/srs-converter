@@ -34,3 +34,4 @@ npm-debug.log*
 
 # Local configuration files
 *.local.*
+__pycache__/

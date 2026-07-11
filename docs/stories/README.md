@@ -36,8 +36,8 @@ Complete Anki reading and writing implementation with all features and edge case
   - Status: Round-trip tests and ID preservation complete, need comprehensive coverage
 
 - **Phase 1.3**: Modern Anki Support (Package v3 / Schema 18)
-  - Progress: 0/11 stories completed (0%) ⏳
-  - Status: Designed 2026-07-11 (ADR-0013…0016, pinned wire spec + 11↔18 mapping in `docs/formats/`). Read + write of Anki's current export format; modern becomes the default output (breaking, major release).
+  - Progress: 0/11 completed, 11/11 implemented (🧪 awaiting maintainer verification)
+  - Status: Implemented 2026-07-11 on the `worktree-anki-modern-schema` branch. Reads and writes Anki's current export format; modern is the default output (breaking, major release); all four round-trip directions verified against real Anki in CI.
 
 **[→ View Phase 1 Stories](phase-1.md)**
 

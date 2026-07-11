@@ -86,13 +86,13 @@ The library development follows a phase-based approach. For detailed development
 
 ### Format Support Matrix
 
-| Feature             | Anki               | Mnemosyne  | SuperMemo  | Mochi      | Custom Formats |
-| ------------------- | ------------------ | ---------- | ---------- | ---------- | -------------- |
-| **Read Support**    | ✅ Good            | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned     |
-| **Write Support**   | ✅ Good            | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned     |
-| **Round-trip**      | ✅ High-fidelity   | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned     |
-| **File Types**      | `.apkg`, `.colpkg` | -          | -          | -          | -              |
-| **Database Schema** | Legacy v2          | -          | -          | -          | -              |
+| Feature             | Anki                           | Mnemosyne  | SuperMemo  | Mochi      | Custom Formats |
+| ------------------- | ------------------------------ | ---------- | ---------- | ---------- | -------------- |
+| **Read Support**    | ✅ Good                        | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned     |
+| **Write Support**   | ✅ Good                        | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned     |
+| **Round-trip**      | ✅ High-fidelity               | ❌ Planned | ❌ Planned | ❌ Planned | ❌ Planned     |
+| **File Types**      | `.apkg`, `.colpkg`             | -          | -          | -          | -              |
+| **Database Schema** | Modern (schema 18) + Legacy v2 | -          | -          | -          | -              |
 
 ### Anki Format Details
 
@@ -106,7 +106,7 @@ For detailed technical information about the Anki package format, see: [Understa
 | **Cards**              | ✅ Full       | Question/answer templates, due dates, intervals, ease factors                                                                                                                                                            |
 | **Review History**     | ✅ Full       | Complete review logs: timestamps, scores, intervals, factor, duration, and type                                                                                                                                          |
 | **Media Files**        | ✅ Full       | List files, get file size, stream content, add files from paths/buffers/streams; round-tripped through the universal format                                                                                              |
-| **Formats**            | ⚠️ Partial    | Only Legacy v2 is supported for now                                                                                                                                                                                      |
+| **Formats**            | ✅ Full       | Reads and writes both the modern format (Anki 23.10+ default, schema 18) and Legacy v2; modern is the default output, `toAnkiExport(path, { legacy: true })` writes Legacy v2                                            |
 | **Plugin Data**        | ✅ Full       | Preserved in direct operations and round-trip conversions                                                                                                                                                                |
 | **Conversion Quality** | ✅ Good       | Anki → SRS → Anki preserves scheduling, review history, GUIDs, tags, note-type internals, deck options, media, and collection metadata (verified by round-trip tests). SRS → Anki requires exactly one deck per package. |
 | **Advanced Features**  | ⚠️ Partial    | Cloze note types are supported and tested; Image Occlusion is untested                                                                                                                                                   |

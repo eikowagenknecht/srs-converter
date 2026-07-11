@@ -26,10 +26,6 @@ describe("Error Handling and Edge Cases", () => {
       // TODO: Test behavior with incomplete zip archives
     });
 
-    it.todo("should validate protobuf meta format", async () => {
-      // TODO: Test validation of meta file format
-    });
-
     it.todo("should handle JSON parsing errors in media file", async () => {
       // TODO: Test error handling for malformed media files
     });
@@ -148,10 +144,12 @@ describe("Error Handling and Edge Cases", () => {
   });
 
   describe("Missing Required Files Handling", () => {
-    it("should detect and report missing meta file with specific message", async () => {
+    it("should treat a package without 'meta' but with collection.anki21 as Legacy 2", async () => {
       const tempDir = getTempDir();
       const zipPath = join(tempDir, "missing-meta.apkg");
-      // Create ZIP with media and database, but no meta file
+      // Anki's own detection falls back to file presence when `meta` is
+      // absent — the package must proceed to database validation, not fail
+      // on the missing meta file.
       await createTestZip(zipPath, [
         { content: "{}", name: "media" },
         { content: Buffer.alloc(100), name: "collection.anki21" }, // Dummy database
@@ -159,12 +157,26 @@ describe("Error Handling and Edge Cases", () => {
 
       const result = await AnkiPackage.fromAnkiExport(zipPath);
 
+      // The dummy database is not valid SQLite, so the failure must come
+      // from database validation — proving detection accepted the package.
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
-      expect(result.issues.length).toBeGreaterThan(0);
       expect(result.issues[0]?.severity).toBe("critical");
-      expect(result.issues[0]?.message).toMatch(/missing.*'meta'/iu);
-      expect(result.issues[0]?.message).toMatch(/re-export/iu);
+      expect(result.issues[0]?.message).toMatch(/not a valid SQLite database/iu);
+    });
+
+    it("should read a package without 'meta' successfully when the database is valid", async () => {
+      const tempDir = getTempDir();
+      const zipPath = join(tempDir, "missing-meta-valid.apkg");
+      await createTestZip(zipPath, [
+        { content: "{}", name: "media" },
+        { content: await getValidAnkiDatabaseBuffer(), name: "collection.anki21" },
+      ]);
+
+      const result = await AnkiPackage.fromAnkiExport(zipPath);
+
+      expect(result.data).toBeDefined();
+      expect(result.issues.filter((issue) => issue.severity === "critical")).toHaveLength(0);
     });
 
     it("should detect and report missing media file with specific message", async () => {
@@ -224,7 +236,7 @@ describe("Error Handling and Edge Cases", () => {
       expect(allMessages).toMatch(/collection\.anki21/iu);
     });
 
-    it("should detect empty ZIP archive and report missing meta file", async () => {
+    it("should detect empty ZIP archive and report it is not a valid Anki export", async () => {
       const tempDir = getTempDir();
       const zipPath = join(tempDir, "empty-archive.apkg");
       // Create an empty ZIP archive
@@ -234,10 +246,11 @@ describe("Error Handling and Edge Cases", () => {
 
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
-      // Should have critical issue for missing meta file (checked first)
+      // No meta file and no collection database → rejected during detection
       const criticalIssues = result.issues.filter((issue) => issue.severity === "critical");
       expect(criticalIssues.length).toBeGreaterThanOrEqual(1);
       expect(criticalIssues[0]?.message).toMatch(/meta/iu);
+      expect(criticalIssues[0]?.message).toMatch(/collection database/iu);
     });
 
     it("should provide actionable guidance for missing files", async () => {
@@ -1037,16 +1050,102 @@ describe("Error Handling and Edge Cases", () => {
       // TODO: Test compatibility with various DB versions
     });
 
-    it.todo("should handle different export versions", async () => {
-      // TODO: Test compatibility with various export versions
-    });
-
-    it.todo("should provide clear error messages for unsupported versions", async () => {
-      // TODO: Test error messaging for unsupported versions
-    });
-
     it.todo("should handle database schema migrations", async () => {
       // TODO: Test schema migration handling
+    });
+
+    async function detectVersionOf(
+      zipName: string,
+      files: { content: string | Buffer; name: string }[],
+    ) {
+      const zipPath = join(getTempDir(), zipName);
+      await createTestZip(zipPath, files);
+      return await AnkiPackage.fromAnkiExport(zipPath);
+    }
+
+    it("should report a modern package whose database is not valid zstd", async () => {
+      // Protobuf meta: field 1 (varint) = 3, but the database is garbage
+      const result = await detectVersionOf("modern-corrupt.apkg", [
+        { content: Buffer.from([0x08, 0x03]), name: "meta" },
+        { content: "{}", name: "media" },
+        { content: Buffer.alloc(100), name: "collection.anki21b" },
+      ]);
+
+      expect(result.status).toBe("failure");
+      expect(result.issues[0]?.severity).toBe("critical");
+      expect(result.issues[0]?.message).toMatch(/could not be decompressed/iu);
+      expect(result.issues[0]?.message).toMatch(/re-export/iu);
+    });
+
+    it("should report a modern package missing its database", async () => {
+      const result = await detectVersionOf("modern-missing-db.apkg", [
+        { content: Buffer.from([0x08, 0x03]), name: "meta" },
+        { content: "{}", name: "media" },
+      ]);
+
+      expect(result.status).toBe("failure");
+      expect(result.issues[0]?.severity).toBe("critical");
+      expect(result.issues[0]?.message).toMatch(/missing.*collection\.anki21b/iu);
+    });
+
+    it("should reject Legacy 1 exports (meta version 1) with re-export guidance", async () => {
+      const result = await detectVersionOf("legacy1.apkg", [
+        { content: Buffer.from([0x08, 0x01]), name: "meta" },
+        { content: "{}", name: "media" },
+        { content: Buffer.alloc(100), name: "collection.anki2" },
+      ]);
+
+      expect(result.status).toBe("failure");
+      expect(result.issues[0]?.severity).toBe("critical");
+      expect(result.issues[0]?.message).toMatch(/Legacy 1/u);
+      expect(result.issues[0]?.message).toMatch(/collection\.anki2/u);
+    });
+
+    it("should detect Legacy 1 via file presence when 'meta' is absent", async () => {
+      const result = await detectVersionOf("legacy1-no-meta.apkg", [
+        { content: "{}", name: "media" },
+        { content: Buffer.alloc(100), name: "collection.anki2" },
+      ]);
+
+      expect(result.status).toBe("failure");
+      expect(result.issues[0]?.severity).toBe("critical");
+      expect(result.issues[0]?.message).toMatch(/Legacy 1/u);
+    });
+
+    it("should report unrecognized future versions with the version number", async () => {
+      // Protobuf meta: field 1 (varint) = 99
+      const result = await detectVersionOf("future.apkg", [
+        { content: Buffer.from([0x08, 0x63]), name: "meta" },
+        { content: "{}", name: "media" },
+      ]);
+
+      expect(result.status).toBe("failure");
+      expect(result.issues[0]?.severity).toBe("critical");
+      expect(result.issues[0]?.message).toMatch(/Unrecognized Anki package version: 99/u);
+    });
+
+    it("should treat an explicit version 0 as unrecognized", async () => {
+      const result = await detectVersionOf("version-zero.apkg", [
+        { content: Buffer.from([0x08, 0x00]), name: "meta" },
+        { content: "{}", name: "media" },
+      ]);
+
+      expect(result.status).toBe("failure");
+      expect(result.issues[0]?.severity).toBe("critical");
+      expect(result.issues[0]?.message).toMatch(/Unrecognized Anki package version: 0/u);
+    });
+
+    it("should report an unparsable 'meta' file as corrupted", async () => {
+      // 0xff opens a varint that never terminates — invalid wire data
+      const result = await detectVersionOf("garbage-meta.apkg", [
+        { content: Buffer.from([0xff, 0xff, 0xff]), name: "meta" },
+        { content: "{}", name: "media" },
+        { content: Buffer.alloc(100), name: "collection.anki21" },
+      ]);
+
+      expect(result.status).toBe("failure");
+      expect(result.issues[0]?.severity).toBe("critical");
+      expect(result.issues[0]?.message).toMatch(/'meta' file.*could not be parsed/iu);
     });
   });
 });

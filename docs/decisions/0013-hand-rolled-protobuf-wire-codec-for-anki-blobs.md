@@ -14,7 +14,7 @@ Anki's modern collection schema (18) stores notetype, field, template, deck, and
 ## Decision Drivers
 
 - License hygiene: no AGPL text or codegen output may end up in the published package.
-- Dependency budget: the library currently has four runtime deps; a protobuf runtime plus codegen toolchain is a heavy add for ~10 small messages.
+- Dependency budget: the only protobuf need before schema 18 was the one-field package `meta` file, served by a `protobufjs` runtime dependency — a hand-rolled codec replaces that dependency instead of expanding its role, and avoids adding a codegen toolchain for ~10 small messages.
 - Fidelity: blobs contain opaque areas (`other = 255`, add-on data) and Anki adds fields over time; round-trips must not drop bytes we do not model.
 - The protobuf wire format is small, stable, and independently documented (<https://protobuf.dev/programming-guides/encoding/>); field numbers and types are interoperability facts, not copyrightable expression.
 
@@ -36,7 +36,7 @@ Chosen option 1: a small hand-written encoder/decoder over the protobuf wire for
 
 ### Consequences
 
-- Good, because zero new runtime dependencies and no AGPL-derived code in the package.
+- Good, because it removes a runtime dependency (`protobufjs`, previously used for the `meta` file) and keeps AGPL-derived code out of the package.
 - Good, because unknown-field passthrough gives forward compatibility a naive codegen setup would not.
 - Bad, because we own the maintenance: when Anki adds fields we care about, the spec doc must be re-pinned and the codec extended by hand.
 - Neutral, because re-encoding is semantically but not necessarily byte-identical (field order/varint canonicalization); Anki's importer does not require byte identity.

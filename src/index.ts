@@ -1,4 +1,5 @@
 export * from "./anki/anki-package";
+export * from "./anki/cards-data";
 export * from "./anki/constants";
 export * from "./anki/database";
 export * from "./anki/types";

@@ -1,11 +1,12 @@
+import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { copyFile, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
-import protobuf from "protobufjs";
 import type { CentralDirectory } from "unzipper";
 import { Open } from "unzipper";
 
@@ -30,8 +31,26 @@ import {
   createReview,
 } from "@/srs-package";
 
+import { mediaEntriesCodec } from "./anki-proto";
 import { defaultDeck } from "./constants";
+import type { ModernCollectionData } from "./database";
 import { AnkiDatabase, AnkiDatabaseError } from "./database";
+import { ANKI_SCHEMA_KEY, ANKI_SCHEMA_MODERN, fromStorable, toStorable } from "./native-blobs";
+import { decodePackageMeta, encodePackageMeta } from "./protobuf-wire";
+import type {
+  ConfigRow,
+  DeckConfigProtoBundle,
+  DeckProtoBundle,
+  NotetypeProtoBundle,
+  TagRow,
+} from "./schema-convert";
+import {
+  configRowsToConfJson,
+  deckConfigProtoToSchema11,
+  deckProtoToSchema11,
+  notetypeProtoToSchema11,
+  tagRowsToTagsJson,
+} from "./schema-convert";
 import type {
   CardsTable,
   Config,
@@ -57,6 +76,7 @@ import {
   splitAnkiFields,
   stripHtml,
 } from "./util";
+import { zstdCompress, zstdDecompress } from "./zstd";
 
 /**
  * Validation result for individual items
@@ -636,6 +656,45 @@ function parseAnkiBlob<T>(
 }
 
 /**
+ * Whether an entity's blobs are stored in the modern decoded-proto dialect
+ * (ADR-0016 schema marker).
+ * @param applicationSpecificData - The entity's application-specific data
+ * @returns True when the blobs need proto→11 conversion before use
+ */
+function isModernBlobSource(applicationSpecificData: Record<string, string> | undefined): boolean {
+  return applicationSpecificData?.[ANKI_SCHEMA_KEY] === ANKI_SCHEMA_MODERN;
+}
+
+/**
+ * Parses a modern-dialect blob (decoded-proto JSON per ADR-0016) and converts
+ * it to the schema-11 base the Legacy 2 writer works with — the write-time
+ * schema crossing.
+ * @param serialized - The stored blob
+ * @param entityDescription - Human-readable description for warnings
+ * @param collector - Issue collector for restore warnings
+ * @param convert - The proto→11 conversion for this entity kind
+ * @returns The schema-11 base, or undefined when missing/unparseable
+ */
+function parseModernBlob<T>(
+  serialized: string | undefined,
+  entityDescription: string,
+  collector: IssueCollector,
+  convert: (native: unknown) => unknown,
+): T | undefined {
+  if (serialized === undefined) {
+    return undefined;
+  }
+  try {
+    return convert(fromStorable(parseJsonWithBigInts(serialized))) as T;
+  } catch (error) {
+    collector.addWarning(
+      `Could not restore the original Anki data for ${entityDescription}; using default values instead. ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return undefined;
+  }
+}
+
+/**
  * Reconstructs an Anki deck, restoring the full captured deck JSON as the base
  * and overlaying the SRS-owned fields (id, name, description).
  * @param srsDeck - The SRS deck being converted
@@ -644,11 +703,18 @@ function parseAnkiBlob<T>(
  * @returns The reconstructed Anki deck
  */
 function restoreAnkiDeck(srsDeck: SrsDeck, deckId: number, collector: IssueCollector): Deck {
-  const base = parseAnkiBlob<Deck>(
-    srsDeck.applicationSpecificData?.["ankiDeck"],
-    `deck "${srsDeck.name}"`,
-    collector,
-  );
+  const base = isModernBlobSource(srsDeck.applicationSpecificData)
+    ? parseModernBlob<Deck>(
+        srsDeck.applicationSpecificData?.["ankiDeck"],
+        `deck "${srsDeck.name}"`,
+        collector,
+        (native) => deckProtoToSchema11(native as DeckProtoBundle),
+      )
+    : parseAnkiBlob<Deck>(
+        srsDeck.applicationSpecificData?.["ankiDeck"],
+        `deck "${srsDeck.name}"`,
+        collector,
+      );
 
   if (base) {
     return {
@@ -747,12 +813,19 @@ function restoreAnkiNoteType(
   fallbackDeckId: number | null,
   collector: IssueCollector,
 ): NoteType {
-  const base = parseAnkiBlob<NoteType>(
-    srsNoteType.applicationSpecificData?.["ankiNoteType"],
-    `note type "${srsNoteType.name}"`,
-    collector,
-    parseJsonWithBigInts,
-  );
+  const base = isModernBlobSource(srsNoteType.applicationSpecificData)
+    ? parseModernBlob<NoteType>(
+        srsNoteType.applicationSpecificData?.["ankiNoteType"],
+        `note type "${srsNoteType.name}"`,
+        collector,
+        (native) => notetypeProtoToSchema11(native as NotetypeProtoBundle),
+      )
+    : parseAnkiBlob<NoteType>(
+        srsNoteType.applicationSpecificData?.["ankiNoteType"],
+        `note type "${srsNoteType.name}"`,
+        collector,
+        parseJsonWithBigInts,
+      );
 
   const tmpls = srsNoteType.templates.map((template, index) => {
     const baseTemplate = base?.tmpls[index];
@@ -972,6 +1045,8 @@ export class AnkiPackage {
   private tempDir: string;
   private databaseContents: DatabaseDump | undefined;
   private mediaFiles: MediaFileMapping = {};
+  /** Native decoded entities when the source was a schema-18 package (ADR-0016). */
+  private modernData: ModernCollectionData | undefined;
 
   private constructor(tempDir: string) {
     this.tempDir = tempDir;
@@ -1118,27 +1193,66 @@ export class AnkiPackage {
         const mediaFilePath = join(instance.tempDir, "media");
         const dbFilePath = join(instance.tempDir, "collection.anki21");
 
-        // Step 1: Check for meta file (required for all Anki exports)
+        // Step 1: Determine the package version (docs/formats/anki.md,
+        // §Package v3 container layout): decode the protobuf `meta` file when
+        // present, otherwise fall back to Anki's file-presence rules.
         const metaExists = await stat(metaFilePath)
           .then(() => true)
           .catch(() => false);
 
-        if (!metaExists) {
+        let version: number;
+        if (metaExists) {
+          try {
+            version = decodePackageMeta(await readFile(metaFilePath)).version;
+          } catch {
+            collector.addCritical(
+              "The 'meta' file in this Anki package could not be parsed as version information. The file may be corrupted. Please re-export your deck from Anki.",
+            );
+            const cleanupIssues = await removeDirectory(instance.tempDir);
+            collector.addIssues(cleanupIssues);
+            return collector.createFailureResult<AnkiPackage>();
+          }
+        } else {
+          const [legacy2Exists, legacy1Exists] = await Promise.all([
+            stat(dbFilePath)
+              .then(() => true)
+              .catch(() => false),
+            stat(join(instance.tempDir, "collection.anki2"))
+              .then(() => true)
+              .catch(() => false),
+          ]);
+          if (legacy2Exists) {
+            version = ExportVersion.Legacy_V2.valueOf();
+          } else if (legacy1Exists) {
+            version = ExportVersion.Legacy_V1.valueOf();
+          } else {
+            collector.addCritical(
+              "The Anki package is missing the 'meta' file and does not contain a collection database ('collection.anki21' or 'collection.anki2'). This does not appear to be a valid Anki export. Please re-export your deck from Anki.",
+            );
+            const cleanupIssues = await removeDirectory(instance.tempDir);
+            collector.addIssues(cleanupIssues);
+            return collector.createFailureResult<AnkiPackage>();
+          }
+        }
+
+        // Step 2: Dispatch by version; reject versions this library cannot
+        // read, with guidance specific to each format.
+        if (version === ExportVersion.Latest.valueOf()) {
+          return await AnkiPackage.readModernPackage(instance, collector);
+        }
+
+        if (version === ExportVersion.Legacy_V1.valueOf()) {
           collector.addCritical(
-            "The Anki package is missing the 'meta' file which contains version information. This file is required for all Anki exports. Please re-export your deck from Anki.",
+            "This package is a Legacy 1 Anki export ('collection.anki2', created by Anki 2.0-era clients), which srs-converter does not support. Please import it into a current version of Anki and export it again.",
           );
           const cleanupIssues = await removeDirectory(instance.tempDir);
           collector.addIssues(cleanupIssues);
           return collector.createFailureResult<AnkiPackage>();
         }
 
-        // Step 2: Read and validate version before checking other files
-        const metaFileContent = await readFile(metaFilePath);
-        const meta = parseMeta(metaFileContent);
-
-        if (meta.version !== EXPORT_VERSION.valueOf()) {
+        if (version !== EXPORT_VERSION.valueOf()) {
           collector.addCritical(
-            `Unsupported Anki export package version: ${meta.version.toFixed(0)}. Make sure to check "Support older Anki versions" in the Anki export dialog.`,
+            `Unrecognized Anki package version: ${version.toFixed(0)}. This package may have been created by a newer Anki version than this library understands. Please check for an updated version of srs-converter.`,
           );
           const cleanupIssues = await removeDirectory(instance.tempDir);
           collector.addIssues(cleanupIssues);
@@ -1338,6 +1452,127 @@ export class AnkiPackage {
       );
       return collector.createFailureResult<AnkiPackage>();
     }
+  }
+
+  /**
+   * Reads a modern (package version 3 / schema 18) export whose files are
+   * already extracted into `instance.tempDir`: zstd-decompresses the
+   * collection, decodes the split entity tables into the legacy-shaped dump
+   * (keeping the native form for ADR-0016 blob storage), and restores the
+   * media files from the protobuf manifest.
+   */
+  private static async readModernPackage(
+    instance: AnkiPackage,
+    collector: IssueCollector,
+  ): Promise<ConversionResult<AnkiPackage>> {
+    const fail = async (): Promise<ConversionResult<AnkiPackage>> => {
+      const cleanupIssues = await removeDirectory(instance.tempDir);
+      collector.addIssues(cleanupIssues);
+      return collector.createFailureResult<AnkiPackage>();
+    };
+
+    // Collection database: whole-file zstd around a schema-18 SQLite file.
+    const dbFilePath = join(instance.tempDir, "collection.anki21b");
+    const dbExists = await stat(dbFilePath)
+      .then(() => true)
+      .catch(() => false);
+    if (!dbExists) {
+      collector.addCritical(
+        "The Anki package declares the modern format but is missing the 'collection.anki21b' database file. This file contains all your cards and decks. Please re-export your deck from Anki.",
+      );
+      return await fail();
+    }
+
+    let dbBuffer: Uint8Array;
+    try {
+      dbBuffer = await zstdDecompress(await readFile(dbFilePath));
+    } catch (error) {
+      collector.addCritical(
+        `The 'collection.anki21b' database could not be decompressed: ${error instanceof Error ? error.message : String(error)}. The package may be corrupted. Please re-export your deck from Anki.`,
+      );
+      return await fail();
+    }
+
+    let db: AnkiDatabase | undefined;
+    try {
+      db = await AnkiDatabase.fromBuffer(dbBuffer);
+      db.validateSchema();
+
+      const schemaVersion = db.getSchemaVersion();
+      if (schemaVersion !== 18) {
+        collector.addCritical(
+          `This modern Anki package uses database schema version ${schemaVersion.toFixed(0)}, which is not supported (expected 18). Please check for an updated version of srs-converter.`,
+        );
+        return await fail();
+      }
+
+      const { dump, modern } = await db.toModernObject();
+      instance.databaseContents = filterValidDatabaseItems(dump, collector);
+      instance.modernData = modern;
+    } catch (error) {
+      if (error instanceof AnkiDatabaseError) {
+        collector.addCritical(
+          `The 'collection.anki21b' database could not be read: ${error.message} Please re-export your deck from Anki.`,
+        );
+        return await fail();
+      }
+      throw error;
+    } finally {
+      await db?.close();
+    }
+
+    // Media: zstd-compressed protobuf manifest; entry position = zip entry
+    // name; each media file is individually zstd-compressed. A missing
+    // manifest is tolerated (old AnkiDroid wrote packages without one).
+    const mediaFilePath = join(instance.tempDir, "media");
+    const mediaExists = await stat(mediaFilePath)
+      .then(() => true)
+      .catch(() => false);
+
+    instance.mediaFiles = {};
+    if (mediaExists) {
+      let entries;
+      try {
+        entries = mediaEntriesCodec.decode(
+          await zstdDecompress(await readFile(mediaFilePath)),
+        ).entries;
+      } catch (error) {
+        collector.addCritical(
+          `The media manifest of this modern Anki package could not be read: ${error instanceof Error ? error.message : String(error)}. Please re-export your deck from Anki.`,
+        );
+        return await fail();
+      }
+
+      for (const [index, entry] of entries.entries()) {
+        const mediaPath = join(instance.tempDir, index.toFixed(0));
+        let data: Uint8Array;
+        try {
+          data = await zstdDecompress(await readFile(mediaPath));
+        } catch (error) {
+          collector.addWarning(
+            `Media file '${entry.name}' (ID: ${index.toFixed(0)}) is listed in the media manifest but could not be read: ${error instanceof Error ? error.message : String(error)}. References to this file may be broken.`,
+            { itemType: "media", originalData: { filename: entry.name, mediaId: index } },
+          );
+          continue;
+        }
+
+        const sha1 = createHash("sha1").update(data).digest();
+        if (data.length !== entry.size || !sha1.equals(Buffer.from(entry.sha1))) {
+          collector.addWarning(
+            `Media file '${entry.name}' (ID: ${index.toFixed(0)}) does not match its manifest checksum and was skipped. The package may be corrupted.`,
+            { itemType: "media", originalData: { filename: entry.name, mediaId: index } },
+          );
+          continue;
+        }
+
+        // Store the decompressed bytes in place so the numeric-id mapping
+        // works exactly like the legacy path downstream.
+        await writeFile(mediaPath, data);
+        instance.mediaFiles[index] = entry.name;
+      }
+    }
+
+    return collector.createResult(instance);
   }
 
   public static async fromSrsPackage(
@@ -1660,7 +1895,7 @@ export class AnkiPackage {
     }
     const collection = this.databaseContents.collection;
 
-    const col = parseAnkiBlob<{
+    interface RestoredCol {
       crt: number;
       mod: number;
       scm: number;
@@ -1669,7 +1904,42 @@ export class AnkiPackage {
       ls: number;
       conf: Config;
       tags: Record<string, never>;
-    }>(applicationSpecificData["ankiCol"], "collection metadata", collector);
+    }
+
+    const modernSource = isModernBlobSource(applicationSpecificData);
+    const col = modernSource
+      ? parseModernBlob<RestoredCol>(
+          applicationSpecificData["ankiCol"],
+          "collection metadata",
+          collector,
+          (native) => {
+            const nativeCol = native as {
+              crt: number;
+              mod: number;
+              scm: number;
+              dty: number;
+              usn: number;
+              ls: number;
+              configRows: ConfigRow[];
+              tagRows: TagRow[];
+            };
+            return {
+              crt: nativeCol.crt,
+              mod: nativeCol.mod,
+              scm: nativeCol.scm,
+              dty: nativeCol.dty,
+              usn: nativeCol.usn,
+              ls: nativeCol.ls,
+              conf: configRowsToConfJson(nativeCol.configRows),
+              tags: tagRowsToTagsJson(nativeCol.tagRows),
+            };
+          },
+        )
+      : parseAnkiBlob<RestoredCol>(
+          applicationSpecificData["ankiCol"],
+          "collection metadata",
+          collector,
+        );
     if (col) {
       collection.crt = col.crt;
       collection.mod = col.mod;
@@ -1681,11 +1951,19 @@ export class AnkiPackage {
       collection.tags = col.tags;
     }
 
-    const dconf = parseAnkiBlob<DeckConfigs>(
-      applicationSpecificData["ankiDconf"],
-      "deck options",
-      collector,
-    );
+    const dconf = modernSource
+      ? parseModernBlob<DeckConfigs>(
+          applicationSpecificData["ankiDconf"],
+          "deck options",
+          collector,
+          (native) =>
+            Object.fromEntries(
+              Object.entries(native as Record<string, DeckConfigProtoBundle>).map(
+                ([id, bundle]) => [id, deckConfigProtoToSchema11(bundle)],
+              ),
+            ),
+        )
+      : parseAnkiBlob<DeckConfigs>(applicationSpecificData["ankiDconf"], "deck options", collector);
     if (dconf) {
       collection.dconf = dconf;
     }
@@ -1715,7 +1993,18 @@ export class AnkiPackage {
     }
   }
 
-  public async toAnkiExport(filepath: string): Promise<void> {
+  /**
+   * Writes this package as an Anki export.
+   *
+   * By default this writes the modern package format (version 3,
+   * `collection.anki21b`, schema 18) — the same format current Anki
+   * produces. `options.legacy: true` mirrors Anki's "Support older Anki
+   * versions" checkbox and writes a Legacy 2 package (`collection.anki21`)
+   * instead, which every Anki version can import (ADR-0015).
+   * @param filepath - Where to write the .apkg file
+   * @param options - Export format options
+   */
+  public async toAnkiExport(filepath: string, options?: { legacy?: boolean }): Promise<void> {
     if (this.databaseContents === undefined) {
       throw new Error("Database contents not available");
     }
@@ -1724,8 +2013,13 @@ export class AnkiPackage {
       throw new Error("Export filepath cannot be empty");
     }
 
+    if (options?.legacy !== true) {
+      await this.toModernAnkiExport(filepath);
+      return;
+    }
+
     // Write the meta file
-    const meta = writeMeta({ version: EXPORT_VERSION.valueOf() });
+    const meta = encodePackageMeta({ version: EXPORT_VERSION.valueOf() });
     await writeFile(join(this.tempDir, "meta"), meta);
 
     // Write the media file mapping
@@ -1762,6 +2056,69 @@ export class AnkiPackage {
     }
 
     await createSelectiveZip(filepath, filesToZip);
+  }
+
+  /**
+   * Writes this package in the modern format (package version 3 / schema
+   * 18), mirroring Anki's own layout: `meta`, zstd-compressed
+   * `collection.anki21b`, a dummy legacy `collection.anki2` for pre-2.1.50
+   * clients, the zstd protobuf media manifest, and individually compressed
+   * media files (docs/formats/anki.md §Package v3 container layout).
+   * @param filepath - Where to write the .apkg file
+   */
+  private async toModernAnkiExport(filepath: string): Promise<void> {
+    if (this.databaseContents === undefined) {
+      throw new Error("Database contents not available");
+    }
+
+    // Write the meta file (version 3).
+    const meta = encodePackageMeta({ version: ExportVersion.Latest.valueOf() });
+    await writeFile(join(this.tempDir, "meta"), meta);
+
+    // Build and compress the schema-18 database.
+    const db = await AnkiDatabase.fromModernDump(this.databaseContents, this.modernData);
+    const dbBuffer = db.toBuffer();
+    await db.close();
+    await writeFile(join(this.tempDir, "collection.anki21b"), await zstdCompress(dbBuffer));
+
+    // Dummy legacy collection so pre-2.1.50 clients open an (empty) valid
+    // database instead of failing. Anki additionally puts an explanatory
+    // note inside; ours stays empty.
+    const dummyDb = await AnkiDatabase.fromDefault();
+    const dummyBuffer = dummyDb.toBuffer();
+    await dummyDb.close();
+    await writeFile(join(this.tempDir, "collection.anki2"), dummyBuffer);
+
+    // Media: manifest entry order defines the numeric zip entry names;
+    // names must be NFC-normalized; sha1 of the uncompressed bytes is
+    // mandatory. The compressed copies live in a subdirectory so the
+    // instance's own media files stay readable.
+    const modernMediaDir = join(this.tempDir, "modern-media");
+    await mkdir(modernMediaDir, { recursive: true });
+    const entries: { name: string; size: number; sha1: Uint8Array }[] = [];
+    const mediaZipFiles: { compress: boolean; path: string }[] = [];
+    for (const [mediaId, filename] of Object.entries(this.mediaFiles)) {
+      const data = await readFile(join(this.tempDir, mediaId));
+      const index = entries.length;
+      entries.push({
+        name: filename.normalize("NFC"),
+        size: data.length,
+        sha1: createHash("sha1").update(data).digest(),
+      });
+      const compressedPath = join(modernMediaDir, index.toFixed(0));
+      await writeFile(compressedPath, await zstdCompress(data));
+      mediaZipFiles.push({ compress: false, path: compressedPath });
+    }
+    const manifest = await zstdCompress(mediaEntriesCodec.encode({ entries }));
+    await writeFile(join(this.tempDir, "media"), manifest);
+
+    await createSelectiveZip(filepath, [
+      { compress: false, path: join(this.tempDir, "meta") },
+      { compress: false, path: join(this.tempDir, "collection.anki21b") },
+      { compress: false, path: join(this.tempDir, "collection.anki2") },
+      { compress: false, path: join(this.tempDir, "media") },
+      ...mediaZipFiles,
+    ]);
   }
 
   public async cleanup(): Promise<ConversionIssue[]> {
@@ -2058,9 +2415,36 @@ export class AnkiPackage {
 
     // Step 0: Capture collection-level metadata that has no per-entity home so
     // it can be restored on the way back (crt/conf/tags, deck options, graves).
+    // Modern-sourced packages store the native decoded form plus a schema
+    // marker instead of the legacy-shaped view (ADR-0016).
     const collection = this.databaseContents.collection;
-    srsPackage.setApplicationSpecificData({
-      ankiCol: serializeWithBigInts({
+    const packageData: Record<string, string> = {
+      ankiGraves: serializeWithBigInts(this.databaseContents.deletedItems),
+    };
+    if (this.modernData) {
+      packageData[ANKI_SCHEMA_KEY] = ANKI_SCHEMA_MODERN;
+      packageData["ankiCol"] = serializeWithBigInts(
+        toStorable({
+          crt: collection.crt,
+          mod: collection.mod,
+          scm: collection.scm,
+          dty: collection.dty,
+          usn: collection.usn,
+          ls: collection.ls,
+          ver: this.modernData.col.ver,
+          configRows: this.modernData.col.configRows,
+          tagRows: this.modernData.col.tagRows,
+        }),
+      );
+      packageData["ankiDconf"] = serializeWithBigInts(
+        toStorable(
+          Object.fromEntries(
+            [...this.modernData.deckConfigs.entries()].map(([id, bundle]) => [String(id), bundle]),
+          ),
+        ),
+      );
+    } else {
+      packageData["ankiCol"] = serializeWithBigInts({
         crt: collection.crt,
         mod: collection.mod,
         scm: collection.scm,
@@ -2069,18 +2453,22 @@ export class AnkiPackage {
         ls: collection.ls,
         conf: collection.conf,
         tags: collection.tags,
-      }),
-      ankiDconf: serializeWithBigInts(collection.dconf),
-      ankiGraves: serializeWithBigInts(this.databaseContents.deletedItems),
-    });
+      });
+      packageData["ankiDconf"] = serializeWithBigInts(collection.dconf);
+    }
+    srsPackage.setApplicationSpecificData(packageData);
 
     // Step 1: Convert and add decks
     const ankiToSrsDeckMap = new Map<number, string>();
 
     for (const [deckId, ankiDeck] of Object.entries(this.databaseContents.collection.decks)) {
+      const modernDeck = this.modernData?.decks.get(Number(deckId));
       const deckData: Parameters<typeof createDeck>[0] = {
         applicationSpecificData: {
-          ankiDeck: serializeWithBigInts(ankiDeck),
+          ankiDeck: modernDeck
+            ? serializeWithBigInts(toStorable(modernDeck))
+            : serializeWithBigInts(ankiDeck),
+          ...(modernDeck ? { [ANKI_SCHEMA_KEY]: ANKI_SCHEMA_MODERN } : {}),
           originalAnkiId: deckId,
         },
         name: ankiDeck.name,
@@ -2109,9 +2497,13 @@ export class AnkiPackage {
       const sortedTmpls = [...ankiNoteType.tmpls].sort((a, b) => a.ord - b.ord);
       const sortedNoteType = { ...ankiNoteType, flds: sortedFlds, tmpls: sortedTmpls };
 
+      const modernNoteType = this.modernData?.noteTypes.get(Number(noteTypeId));
       const srsNoteType = createNoteType({
         applicationSpecificData: {
-          ankiNoteType: serializeWithBigInts(sortedNoteType),
+          ankiNoteType: modernNoteType
+            ? serializeWithBigInts(toStorable(modernNoteType))
+            : serializeWithBigInts(sortedNoteType),
+          ...(modernNoteType ? { [ANKI_SCHEMA_KEY]: ANKI_SCHEMA_MODERN } : {}),
           originalAnkiId: noteTypeId,
         },
         fields: sortedFlds.map((field, index) => {
@@ -2363,27 +2755,6 @@ export class AnkiPackage {
 
     return collector.createResult(srsPackage);
   }
-}
-
-interface MetaMessage {
-  version: number;
-}
-
-function parseMeta(buffer: Uint8Array): MetaMessage {
-  const root = new protobuf.Root();
-  const Meta = new protobuf.Type("Meta").add(new protobuf.Field("version", 1, "int32", "required"));
-  root.add(Meta);
-
-  // Cast the decoded message to our interface
-  return Meta.decode(buffer) as unknown as MetaMessage;
-}
-
-function writeMeta(message: MetaMessage): Uint8Array {
-  const root = new protobuf.Root();
-  const Meta = new protobuf.Type("Meta").add(new protobuf.Field("version", 1, "int32", "required"));
-  root.add(Meta);
-
-  return Meta.encode(message).finish();
 }
 
 async function makeTempDir(): Promise<string> {

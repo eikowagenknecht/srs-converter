@@ -245,7 +245,7 @@ describe("Media File APIs", () => {
 
         // Export to file
         const exportPath = "out/test-with-added-media.apkg";
-        await pkg.toAnkiExport(exportPath);
+        await pkg.toAnkiExport(exportPath, { legacy: true });
 
         // Re-read the exported package
         const reimportResult = await AnkiPackage.fromAnkiExport(exportPath);
@@ -372,7 +372,7 @@ describe("Media File APIs", () => {
 
         // Export to file
         const exportPath = "out/test-with-removed-media.apkg";
-        await pkg.toAnkiExport(exportPath);
+        await pkg.toAnkiExport(exportPath, { legacy: true });
 
         // Re-read the exported package
         const reimportResult = await AnkiPackage.fromAnkiExport(exportPath);

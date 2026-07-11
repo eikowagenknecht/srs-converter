@@ -669,7 +669,7 @@ describe("Direct Anki → Anki models JSON fidelity (WP1)", () => {
     const outPath = join(getTempDir(), "mixed-direct.apkg");
 
     try {
-      await pkg.toAnkiExport(outPath);
+      await pkg.toAnkiExport(outPath, { legacy: true });
 
       // Compare the raw 16+ digit id literals directly — a JSON.parse-based
       // comparison would silently mask the precision loss (audit F6).
@@ -805,7 +805,7 @@ describe("SRS-authored input correctness (WP5)", () => {
       // Export must not throw `UNIQUE constraint failed: revlog.id`, and both
       // rows must be present in the exported database.
       const outPath = join(getTempDir(), "wp5-f16.apkg");
-      await ankiPackage.toAnkiExport(outPath);
+      await ankiPackage.toAnkiExport(outPath, { legacy: true });
       const revlogIds = await readRevlogIds(outPath);
       expect(revlogIds.sort((a, b) => a - b)).toEqual([timestamp, timestamp + 1]);
     } finally {

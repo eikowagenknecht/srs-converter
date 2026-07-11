@@ -5,7 +5,35 @@ import InitSqlJs from "sql.js";
 
 import type { ConversionIssue } from "@/error-handling";
 
-import { ankiDbSchema, ankiDefaultCollectionInsert } from "./constants";
+import type { FieldConfig, TemplateConfig } from "./anki-proto";
+import {
+  deckCommonCodec,
+  deckConfigCodec,
+  deckKindCodec,
+  fieldConfigCodec,
+  notetypeConfigCodec,
+  templateConfigCodec,
+} from "./anki-proto";
+import { ankiDbSchema, ankiDefaultCollectionInsert, ankiModernDbSchema } from "./constants";
+import type {
+  ConfigRow,
+  DeckConfigProtoBundle,
+  DeckProtoBundle,
+  NotetypeProtoBundle,
+  TagRow,
+} from "./schema-convert";
+import {
+  confJsonToConfigRows,
+  configRowsToConfJson,
+  deckConfigProtoToSchema11,
+  deckConfigSchema11ToProto,
+  deckProtoToSchema11,
+  deckSchema11ToProto,
+  notetypeProtoToSchema11,
+  notetypeSchema11ToProto,
+  tagRowsToTagsJson,
+  tagsJsonToTagRows,
+} from "./schema-convert";
 import type {
   CardsTable,
   ColTable,
@@ -44,6 +72,21 @@ export class AnkiDatabaseError extends Error {
     this.type = type;
     this.missingTables = missingTables;
   }
+}
+
+/**
+ * Native decoded entities of a schema-18 collection, carried alongside the
+ * legacy-shaped dump for ADR-0016 blob storage.
+ */
+export interface ModernCollectionData {
+  noteTypes: Map<number, NotetypeProtoBundle>;
+  decks: Map<number, DeckProtoBundle>;
+  deckConfigs: Map<number, DeckConfigProtoBundle>;
+  col: {
+    ver: number;
+    configRows: ConfigRow[];
+    tagRows: TagRow[];
+  };
 }
 
 export class AnkiDatabase {
@@ -120,6 +163,29 @@ export class AnkiDatabase {
     try {
       const SQL = await InitSqlJs();
       sqlJsInstance = new SQL.Database(buffer);
+
+      // Schema-18 collections use Anki's custom `unicase` collation, which
+      // sql.js cannot register — even reading the `tags` table fails ("no
+      // query solution"). Full table scans never rely on unicase ordering,
+      // so stripping the collation from the schema text is safe for reading
+      // (docs/formats/anki.md §Schema-18 DDL). Probe errors are ignored so
+      // corrupted databases keep their established error reporting below.
+      try {
+        const needsUnicasePatch =
+          sqlJsInstance.exec("SELECT 1 FROM sqlite_master WHERE sql LIKE '%unicase%' LIMIT 1")
+            .length > 0;
+        if (needsUnicasePatch) {
+          sqlJsInstance.exec("PRAGMA writable_schema=ON");
+          sqlJsInstance.exec(
+            "UPDATE sqlite_schema SET sql = REPLACE(sql, ' COLLATE unicase', '') WHERE sql LIKE '%unicase%'",
+          );
+          const patched = sqlJsInstance.export();
+          sqlJsInstance.close();
+          sqlJsInstance = new SQL.Database(patched);
+        }
+      } catch {
+        // Leave the database as-is; later validation reports the details.
+      }
     } catch (error) {
       // sql.js throws various errors for corrupted databases
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -230,11 +296,352 @@ export class AnkiDatabase {
     return newDb;
   }
 
+  /**
+   * Builds a schema-18 database from a legacy-shaped dump (ADR-0015 writer).
+   * Entities come from the native modern bundles when available (same-schema
+   * passthrough) and are up-converted from the schema-11 view otherwise.
+   *
+   * @returns A new AnkiDatabase holding the schema-18 collection.
+   */
+  static async fromModernDump(
+    dump: DatabaseDump,
+    modern: ModernCollectionData | undefined,
+  ): Promise<AnkiDatabase> {
+    const SQL = await InitSqlJs();
+    const sqlJsInstance = new SQL.Database();
+
+    const dialect = new SqlJsDialect({
+      database() {
+        return sqlJsInstance;
+      },
+    });
+    const db = new Kysely<DBTables>({ dialect });
+    const newDb = new AnkiDatabase(db, sqlJsInstance);
+    await newDb.executeQueries(ankiModernDbSchema);
+
+    // The col row keeps its schema-11 shape, but at schema 18 the JSON
+    // columns are stale empty strings and `ver` is 18.
+    await newDb.db
+      .insertInto("col")
+      .values({
+        id: dump.collection.id,
+        crt: dump.collection.crt,
+        mod: dump.collection.mod,
+        scm: dump.collection.scm,
+        ver: 18,
+        dty: dump.collection.dty,
+        usn: dump.collection.usn,
+        ls: dump.collection.ls,
+        conf: "",
+        models: "",
+        decks: "",
+        dconf: "",
+        tags: "",
+      })
+      .execute();
+
+    for (const card of dump.cards) {
+      await newDb.db.insertInto("cards").values(card).execute();
+    }
+    for (const note of dump.notes) {
+      await newDb.db.insertInto("notes").values(note).execute();
+    }
+    for (const review of dump.reviews) {
+      await newDb.db.insertInto("revlog").values(review).execute();
+    }
+    for (const grave of dump.deletedItems) {
+      sqlJsInstance.run("INSERT OR IGNORE INTO graves (oid, type, usn) VALUES (?, ?, ?)", [
+        grave.oid,
+        grave.type,
+        grave.usn,
+      ]);
+    }
+
+    // Entity tables: protobuf blobs, encoded with the ADR-0013 codec.
+    for (const [id, model] of Object.entries(dump.collection.models)) {
+      const bundle =
+        modern?.noteTypes.get(Number(id)) ??
+        notetypeSchema11ToProto(model as unknown as Record<string, unknown>);
+      sqlJsInstance.run(
+        "INSERT INTO notetypes (id, name, mtime_secs, usn, config) VALUES (?, ?, ?, ?, ?)",
+        [
+          bundle.row.id,
+          bundle.row.name,
+          bundle.row.mtimeSecs,
+          bundle.row.usn,
+          notetypeConfigCodec.encode(bundle.config as never),
+        ],
+      );
+      for (const field of bundle.fields) {
+        sqlJsInstance.run("INSERT INTO fields (ntid, ord, name, config) VALUES (?, ?, ?, ?)", [
+          bundle.row.id,
+          field.ord,
+          field.name,
+          fieldConfigCodec.encode(field.config as never),
+        ]);
+      }
+      for (const template of bundle.templates) {
+        // Schema 11 has no per-template mtime/usn; Anki's own upgrade zeroes
+        // them too.
+        sqlJsInstance.run(
+          "INSERT INTO templates (ntid, ord, name, mtime_secs, usn, config) VALUES (?, ?, ?, 0, 0, ?)",
+          [
+            bundle.row.id,
+            template.ord,
+            template.name,
+            templateConfigCodec.encode(template.config as never),
+          ],
+        );
+      }
+    }
+
+    for (const [id, deck] of Object.entries(dump.collection.decks)) {
+      const bundle =
+        modern?.decks.get(Number(id)) ??
+        deckSchema11ToProto(deck as unknown as Record<string, unknown>);
+      sqlJsInstance.run(
+        "INSERT INTO decks (id, name, mtime_secs, usn, common, kind) VALUES (?, ?, ?, ?, ?, ?)",
+        [
+          bundle.row.id,
+          bundle.row.name,
+          bundle.row.mtimeSecs,
+          bundle.row.usn,
+          deckCommonCodec.encode(bundle.common as never),
+          deckKindCodec.encode(bundle.kind as never),
+        ],
+      );
+    }
+
+    for (const [id, deckConfig] of Object.entries(dump.collection.dconf)) {
+      const bundle =
+        modern?.deckConfigs.get(Number(id)) ??
+        deckConfigSchema11ToProto(deckConfig as unknown as Record<string, unknown>);
+      sqlJsInstance.run(
+        "INSERT INTO deck_config (id, name, mtime_secs, usn, config) VALUES (?, ?, ?, ?, ?)",
+        [
+          bundle.row.id,
+          bundle.row.name,
+          bundle.row.mtimeSecs,
+          bundle.row.usn,
+          deckConfigCodec.encode(bundle.config as never),
+        ],
+      );
+    }
+
+    const configRows =
+      modern?.col.configRows ??
+      confJsonToConfigRows(dump.collection.conf as unknown as Record<string, unknown>);
+    for (const row of configRows) {
+      sqlJsInstance.run("INSERT INTO config (KEY, usn, mtime_secs, val) VALUES (?, ?, ?, ?)", [
+        row.key,
+        row.usn,
+        row.mtimeSecs,
+        row.val,
+      ]);
+    }
+
+    const tagRows =
+      modern?.col.tagRows ??
+      tagsJsonToTagRows(dump.collection.tags as unknown as Record<string, unknown>);
+    for (const row of tagRows) {
+      sqlJsInstance.run(
+        "INSERT OR IGNORE INTO tags (tag, usn, collapsed, config) VALUES (?, ?, ?, ?)",
+        [row.tag, row.usn, row.collapsed ? 1 : 0, row.config],
+      );
+    }
+
+    return newDb;
+  }
+
   toBuffer(): Uint8Array {
     if (!this.sqlJsInstance) {
       throw new Error("Database instance not available");
     }
     return this.sqlJsInstance.export();
+  }
+
+  /**
+   * Reads the collection's schema version (`col.ver`): 11 for legacy
+   * packages, 18 for modern ones.
+   *
+   * @returns The schema version number.
+   */
+  getSchemaVersion(): number {
+    const rows = this.rawRows("SELECT ver FROM col");
+    return Number(rows[0]?.["ver"] ?? 0);
+  }
+
+  /** Runs a raw query against sql.js (for tables Kysely does not model). */
+  private rawRows(sql: string): Record<string, unknown>[] {
+    if (!this.sqlJsInstance) {
+      throw new Error("Database instance not available");
+    }
+    const result = this.sqlJsInstance.exec(sql);
+    if (result.length === 0 || !result[0]) {
+      return [];
+    }
+    const { columns, values } = result[0];
+    return values.map((row) => Object.fromEntries(row.map((v, i) => [columns[i] ?? "", v])));
+  }
+
+  /**
+   * Reads a schema-18 collection: split entity tables are decoded (protobuf
+   * blobs) and converted into the legacy-shaped {@link DatabaseDump} so
+   * everything downstream of the reader stays format-agnostic, while the
+   * native decoded entities are returned alongside for ADR-0016 blob
+   * storage.
+   *
+   * @returns The legacy-shaped dump plus the native modern entities.
+   */
+  async toModernObject(): Promise<{ dump: DatabaseDump; modern: ModernCollectionData }> {
+    const fieldsByNt = new Map<number, { ord: number; name: string; config: FieldConfig }[]>();
+    for (const row of this.rawRows(
+      "SELECT ntid, ord, name, config FROM fields ORDER BY ntid, ord",
+    )) {
+      const ntid = row["ntid"] as number;
+      const list = fieldsByNt.get(ntid) ?? [];
+      list.push({
+        ord: row["ord"] as number,
+        name: row["name"] as string,
+        config: fieldConfigCodec.decode(row["config"] as Uint8Array),
+      });
+      fieldsByNt.set(ntid, list);
+    }
+    const templatesByNt = new Map<
+      number,
+      { ord: number; name: string; config: TemplateConfig }[]
+    >();
+    for (const row of this.rawRows(
+      "SELECT ntid, ord, name, config FROM templates ORDER BY ntid, ord",
+    )) {
+      const ntid = row["ntid"] as number;
+      const list = templatesByNt.get(ntid) ?? [];
+      list.push({
+        ord: row["ord"] as number,
+        name: row["name"] as string,
+        config: templateConfigCodec.decode(row["config"] as Uint8Array),
+      });
+      templatesByNt.set(ntid, list);
+    }
+
+    const noteTypes = new Map<number, NotetypeProtoBundle>();
+    for (const row of this.rawRows("SELECT id, name, mtime_secs, usn, config FROM notetypes")) {
+      const id = row["id"] as number;
+      noteTypes.set(id, {
+        row: {
+          id,
+          name: row["name"] as string,
+          mtimeSecs: row["mtime_secs"] as number,
+          usn: row["usn"] as number,
+        },
+        config: notetypeConfigCodec.decode(row["config"] as Uint8Array),
+        fields: fieldsByNt.get(id) ?? [],
+        templates: templatesByNt.get(id) ?? [],
+      });
+    }
+
+    const decks = new Map<number, DeckProtoBundle>();
+    for (const row of this.rawRows("SELECT id, name, mtime_secs, usn, common, kind FROM decks")) {
+      const id = row["id"] as number;
+      decks.set(id, {
+        row: {
+          id,
+          name: row["name"] as string,
+          mtimeSecs: row["mtime_secs"] as number,
+          usn: row["usn"] as number,
+        },
+        common: deckCommonCodec.decode(row["common"] as Uint8Array),
+        kind: deckKindCodec.decode(row["kind"] as Uint8Array),
+      });
+    }
+
+    const deckConfigs = new Map<number, DeckConfigProtoBundle>();
+    for (const row of this.rawRows("SELECT id, name, mtime_secs, usn, config FROM deck_config")) {
+      const id = row["id"] as number;
+      deckConfigs.set(id, {
+        row: {
+          id,
+          name: row["name"] as string,
+          mtimeSecs: row["mtime_secs"] as number,
+          usn: row["usn"] as number,
+        },
+        config: deckConfigCodec.decode(row["config"] as Uint8Array),
+      });
+    }
+
+    const configRows: ConfigRow[] = this.rawRows(
+      "SELECT KEY, usn, mtime_secs, val FROM config",
+    ).map((row) => ({
+      key: row["KEY"] as string,
+      usn: row["usn"] as number,
+      mtimeSecs: row["mtime_secs"] as number,
+      val: row["val"] as Uint8Array,
+    }));
+    const tagRows: TagRow[] = this.rawRows("SELECT tag, usn, collapsed, config FROM tags").map(
+      (row) => ({
+        tag: row["tag"] as string,
+        usn: row["usn"] as number,
+        collapsed: Boolean(row["collapsed"]),
+        config: (row["config"] as Uint8Array | null) ?? null,
+      }),
+    );
+
+    const colRow = this.rawRows("SELECT id, crt, mod, scm, ver, dty, usn, ls FROM col")[0];
+    if (!colRow) {
+      throw new AnkiDatabaseError("corrupted", "The collection row is missing.");
+    }
+
+    // Legacy-shaped view: models/decks/dconf as schema-11 JSON, ver as 11 —
+    // the blobs' native form travels separately in `modern`.
+    const collection: ColTable = {
+      id: colRow["id"] as number,
+      crt: colRow["crt"] as number,
+      mod: colRow["mod"] as number,
+      scm: colRow["scm"] as number,
+      ver: 11,
+      dty: colRow["dty"] as number,
+      usn: colRow["usn"] as number,
+      ls: colRow["ls"] as number,
+      conf: configRowsToConfJson(configRows) as unknown as Config,
+      models: Object.fromEntries(
+        [...noteTypes.entries()].map(([id, bundle]) => [
+          String(id),
+          notetypeProtoToSchema11(bundle),
+        ]),
+      ) as unknown as NoteTypes,
+      decks: Object.fromEntries(
+        [...decks.entries()].map(([id, bundle]) => [String(id), deckProtoToSchema11(bundle)]),
+      ) as unknown as Decks,
+      dconf: Object.fromEntries(
+        [...deckConfigs.entries()].map(([id, bundle]) => [
+          String(id),
+          deckConfigProtoToSchema11(bundle),
+        ]),
+      ) as unknown as DeckConfigs,
+      tags: tagRowsToTagsJson(tagRows) as Record<string, never>,
+    };
+
+    const dump: DatabaseDump = {
+      cards: await this.getCards(),
+      collection,
+      deletedItems: await this.getGraves(),
+      notes: await this.getNotes(),
+      reviews: await this.getRevlog(),
+    };
+
+    return {
+      dump,
+      modern: {
+        noteTypes,
+        decks,
+        deckConfigs,
+        col: {
+          ver: this.getSchemaVersion(),
+          configRows,
+          tagRows,
+        },
+      },
+    };
   }
 
   /**
