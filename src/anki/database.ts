@@ -305,7 +305,7 @@ export class AnkiDatabase {
    */
   static async fromModernDump(
     dump: DatabaseDump,
-    modern: ModernCollectionData | undefined,
+    modern?: ModernCollectionData,
   ): Promise<AnkiDatabase> {
     const SQL = await InitSqlJs();
     const sqlJsInstance = new SQL.Database();
