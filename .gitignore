@@ -29,5 +29,8 @@ npm-debug.log*
 # Vitest code coverage reports
 /coverage/
 
+# Claude Code worktrees
+.claude/worktrees/
+
 # Local configuration files
 *.local.*

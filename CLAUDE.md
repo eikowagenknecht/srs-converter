@@ -20,6 +20,27 @@ All of these must pass before any code change is considered done:
 
 A Stop hook (`.claude/hooks/quality-gates.sh`) runs them automatically at the end of every turn in which code files were edited and blocks completion until they pass. When a gate fails, fix the issue and re-run until it passes. Formatting is handled by the commands — never format code manually. Turns that only touch documentation skip the hook.
 
+## 🌳 Worktrees
+
+**Enter a worktree before making ANY code changes.** Several agents may work on this repo in parallel — the main checkout stays clean. The only exceptions:
+
+1. The user explicitly says "work in main" (or equivalent) in the current conversation.
+2. The task is purely read-only (answering questions, reviewing code, running read-only commands).
+3. You are already on a `claude/…` branch (e.g. spawned by the Claude Code web harness) — that is already isolated, work directly.
+4. Bookkeeping notes in `docs/working/*.md` (pending.md, issues.md) may be edited from main.
+
+If you are about to modify a repo file and no exception applies, stop and enter a worktree first. No "it's just a small change."
+
+**How:** use the `EnterWorktree` tool — never `git worktree add` manually. Hooks handle the rest: a PreToolUse hook makes sure worktrees branch from the latest local `main`, and a PostToolUse hook (`.claude/hooks/setup-worktree.sh`) starts `CI=1 pnpm install --frozen-lockfile` in the background. Do **not** run this setup manually. Before the first command that needs `node_modules`, wait for the install marker named in the hook output (`/tmp/srs-wt-install-<name>.exitcode`; 0 = success; on failure read the log and retry). Docs-only work never needs to wait. The quality-gates Stop hook runs inside the worktree and waits for the install on its own.
+
+**Worktree rules:**
+
+- Maintainer verification happens from the worktree: include the worktree path in verification requests so the steps can be run there.
+- Rebase inside the worktree onto local `main` before merging (the `/done` flow handles this). Never rebase onto `origin/main`.
+- Never `git stash` or discard changes in the main repo.
+
+**When done:** run `/done` — it commits remaining work, runs checks, rebases onto main, exits the worktree, and squash-merges into main after confirmation. From main, `/merge` squash-merges a finished worktree branch and `/commit` creates commits. The squash commit's subject is what semantic-release turns into the release/changelog entry — pick type and wording deliberately. Do not push or create PRs unless asked.
+
 ## 🤝 Working Style
 
 - Prefer asking over guessing: for approach choices (even between seemingly equivalent options), scope questions, or anything ambiguous, ask a brief question before proceeding. One question too many is better than a silent wrong guess.
