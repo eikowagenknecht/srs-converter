@@ -44,3 +44,5 @@ Chosen option 1.
 ## More Information
 
 Research basis: prior-art §8 and lessons 11/12; audit (docs/working/issues.md). Decision backlog: D4 in `docs/formats/open-decisions.md`. Supersedes: ADR-0003 (to be marked accordingly once this ADR is accepted).
+
+Refined by ADR-0017 (spec draft.2): the version field is named `usfVersion`; where a graduated core field and its namespace form are both present, the core field wins.

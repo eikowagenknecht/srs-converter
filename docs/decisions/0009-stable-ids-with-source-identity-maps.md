@@ -44,3 +44,5 @@ Chosen option 1.
 ## More Information
 
 Research basis: prior-art lessons 3, 4, 5; `docs/formats/README.md` identity row; audit F4. Decision backlog: D5 in `docs/formats/open-decisions.md`.
+
+Refined by ADR-0017 (spec draft.2): the optional content-hash guid is removed from 1.0 (retrofit-safe); reviews and the package id are exempt from deterministic derivation; the `entityType` strings are enumerated in the spec.

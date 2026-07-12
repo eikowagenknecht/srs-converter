@@ -43,3 +43,5 @@ Chosen option 1.
 ## More Information
 
 Research basis: `docs/formats/README.md` (divergence 3), `docs/formats/{anki,mochi,mnemosyne,supermemo}.md`, prior-art lesson 13. Decision backlog: D6 in `docs/formats/open-decisions.md`.
+
+Partially superseded by ADR-0017 (spec draft.2): the "Mnemosyne tags ↔ decks by documented convention (reversible)" mapping rule is dropped — Mnemosyne packages carry no decks, note `deckId` is nullable, and exporters to deck-requiring targets synthesize a reported package-default deck. Everything else stands.

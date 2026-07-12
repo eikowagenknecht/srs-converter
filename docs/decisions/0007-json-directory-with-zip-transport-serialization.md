@@ -61,3 +61,5 @@ my-deck.srspkg/
 ## More Information
 
 Research basis: `docs/formats/prior-art.md` (lessons 9, 10, 11), `docs/formats/mochi.md` §1 (EDN/Transit experience), Story 5.0.2 evaluation criteria in `docs/stories/phase-5.md`. Decision backlog entry: D3 in `docs/formats/open-decisions.md`. This ADR resolves Story 5.0.2's strategic question; benchmarking and sample-data validation remain as implementation-time checks. Related: ADR-0004 (review log), upcoming media/identity ADRs.
+
+Refined by ADR-0017 (spec draft.2): the manifest file is `manifest.json` (npm collision avoidance), the version field is `usfVersion`, and deck configs live in a separate `deck-configs.json`.

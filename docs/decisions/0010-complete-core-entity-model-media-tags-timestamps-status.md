@@ -43,3 +43,5 @@ Chosen option 1 — lean core, format-specific richness in extensions:
 ## More Information
 
 Research basis: `docs/formats/README.md` (media row, tags row, timestamps row; "Media handling approaches"), audit F1/F3/F5/F13/F14. Decision backlog: D7 + D8 in `docs/formats/open-decisions.md`.
+
+Refined by ADR-0017 (spec draft.2): timestamps are named `createdAt`/`modifiedAt`; the media external-resolution mode is removed from 1.0 (bytes always bundled, hash always required).

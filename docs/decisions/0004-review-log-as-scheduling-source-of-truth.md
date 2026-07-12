@@ -53,3 +53,5 @@ Chosen: **architecture option 1** and **rating option 1**.
 ## More Information
 
 Research basis: `docs/formats/README.md` (comparison matrix, "Scheduling algorithm commonalities"), `docs/formats/prior-art.md` (design lessons 1, 2, 8), `docs/formats/supermemo.md`, `docs/formats/mnemosyne.md`, `docs/formats/anki.md`. Decision backlog entry: D1 in `docs/formats/open-decisions.md`. Related: ADR-0003 (extension data), to be evolved by the D4 decision (namespaced extensions with restore obligations).
+
+Refined by ADR-0017 (spec draft.2): `rating` is conditional on review kind (ungraded bookkeeping rows carry none); the scheduled/actual interval fields moved from core to per-review extension blocks; the once-per-package scale declaration is reaffirmed.
