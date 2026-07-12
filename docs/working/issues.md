@@ -35,10 +35,11 @@ When the issue is resolved, remove it from the "Current Issues" section again.
 **Problem:** The Anki→SRS review conversion drops revlog rows with `ease` 0, which is the value Anki uses for manual-reschedule (type 4) and FSRS-reschedule (type 5) entries (2 of 9 rows in the fixture corpus). Package-level round trips (AnkiPackage → AnkiPackage) keep all rows — verified against real Anki — the loss happens only when crossing through `toSrsPackage`.
 **Steps to reproduce:** Read `tests/fixtures/anki/corpus/corpus-v3.apkg` and count `srsPackage.getReviews()` — 7 instead of 9 (see the assertion note in `src/anki/anki-package.modern.test.ts`).
 **Impact:** FSRS re-optimization in Anki after a round trip sees an incomplete review history; `docs/formats/anki.md` §Revlog explicitly requires preserving all rows including types 4/5.
-**Notes:** Surfaced by the Phase 1.3 fixture corpus; pre-existing behavior, not introduced by the modern reader. Fix belongs with ADR-0004 (review log as scheduling source of truth) work.
+**Notes:** Surfaced by the Phase 1.3 fixture corpus; pre-existing behavior, not introduced by the modern reader. Fix belongs with ADR-0004 (review log as scheduling source of truth) work. The spec-level model is now fixed: USF 1.0.0-draft.2 §8.6 imports these rows with `rating` absent for kinds `manual`/`rescheduled` (spec review 2026-07-11, finding H1).
 
-The 2026-07-10 round-trip fidelity audit (findings F1–F18, S1–S5) has been fully
-resolved by work packages WP1–WP7 in `docs/working/fixplan-2026-07-10.md`. The
+The 2026-07-10 round-trip fidelity audit (confirmed findings F1–F18; suspected
+findings S1–S5) has been resolved by work packages WP1–WP7 in
+`docs/working/fixplan-2026-07-10.md`. The
 full analysis and the executable repro harness are retained for reference in
 `docs/working/audit-2026-07-10-roundtrip.md` and
 `docs/working/audit-2026-07-10-repros.md`.

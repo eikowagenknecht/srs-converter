@@ -48,7 +48,7 @@ Single SQLite database, five tables of interest:
 
 - `id` — epoch ms of creation; `nid` — note id; `did` — deck id; `ord` — template ordinal (or cloze index for cloze note types)
 - `type` (`CardType`): 0 new, 1 learning, 2 review, 3 relearning
-- `queue` (`QueueType`): 0 new, 1 learning (due = timestamp), 2 review (due = days), 3 day-learning, 4 preview; -1 suspended, -2 user-buried, -3 sched-buried
+- `queue` (`QueueType`): 0 new, 1 learning (due = timestamp), 2 review (due = days), 3 day-learning, 4 preview; -1 suspended, -2 sched-buried (sibling), -3 user-buried (matches Anki rslib and `src/anki/types.ts`)
 - `due` — polymorphic: new → position; learning → epoch seconds; review → **days since `col.crt`**
 - `ivl` — interval; **negative = seconds, positive = days**
 - `factor` — ease in permille (2500 = 250%)
