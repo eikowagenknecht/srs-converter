@@ -32,4 +32,4 @@ This ADR is the single record of the spec-time deviations. Each affected ADR car
 
 ## More Information
 
-Review basis: `docs/spec/universal-srs-format.md` Appendix B (draft.2 change list); the five-agent fact-check findings against `docs/formats/` dossiers, `docs/working/audit-2026-07-10-roundtrip.md`, and ADRs 0002–0012; validation walk in `docs/formats/validation-walk.md`.
+Review basis: `docs/spec/universal-srs-format.md` Appendix B (draft.2 change list); the five-agent fact-check findings against `docs/formats/` dossiers, the 2026-07-10 round-trip fidelity audit, and ADRs 0002–0012; validation walk in `docs/formats/validation-walk.md`.

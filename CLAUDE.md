@@ -27,7 +27,7 @@ A Stop hook (`.claude/hooks/quality-gates.sh`) runs them automatically at the en
 1. The user explicitly says "work in main" (or equivalent) in the current conversation.
 2. The task is purely read-only (answering questions, reviewing code, running read-only commands).
 3. You are already on a `claude/…` branch (e.g. spawned by the Claude Code web harness) — that is already isolated, work directly.
-4. Bookkeeping notes in `docs/working/*.md` (pending.md, issues.md) may be edited from main.
+4. Bookkeeping (bugs, doc-change proposals) needs no worktree at all — it goes to GitHub Issues via `gh` (see below).
 
 If you are about to modify a repo file and no exception applies, stop and enter a worktree first. No "it's just a small change."
 
@@ -58,7 +58,7 @@ If you are about to modify a repo file and no exception applies, stop and enter 
 
 ## 🐛 Self-Improvement
 
-When you notice a bug (even if unrelated to the current work): fix it directly if it blocks the current story, otherwise document it in `docs/working/issues.md` to be resolved later.
+When you notice a bug (even if unrelated to the current work): fix it directly if it blocks the current story, otherwise file a GitHub issue (`gh issue create --label bug --label agent-found`, following the bug-report issue template) to be resolved later.
 
 ## 🌿 Git Workflow
 

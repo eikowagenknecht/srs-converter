@@ -33,7 +33,7 @@ describe("modern (schema 18) package reading", () => {
       expect(srs.getDecks().length).toBeGreaterThanOrEqual(4);
       expect(srs.getNoteTypes().length).toBeGreaterThanOrEqual(5);
       // 9 revlog rows exist; the two ease-0 reschedule rows (types 4/5) are
-      // currently dropped by review validation — see docs/working/issues.md.
+      // currently dropped by review validation — see GitHub issue #84.
       expect(srs.getReviews().length).toBeGreaterThanOrEqual(7);
     } finally {
       await anki.cleanup();

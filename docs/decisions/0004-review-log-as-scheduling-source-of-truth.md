@@ -17,7 +17,7 @@ Every SRS application stores different, mutually untranslatable scheduler state 
 - SuperMemo demonstrates the inverse: SM-17+ state cannot be rebuilt from snapshots, only from full history — snapshot-based migrations "start from zero" (see `docs/formats/supermemo.md` §3).
 - Some sources can only provide snapshots (SuperMemo XML exports aggregate scalars without history), so snapshots need _a_ home, just not a required one.
 - The two 0–5 scales disagree about what failure means, so any single normalized rating scale destroys information in one direction and fabricates it in the other.
-- The 2026-07-10 round-trip audit showed that scheduling data without a specified home silently resets (`docs/working/issues.md`).
+- The 2026-07-10 round-trip fidelity audit showed that scheduling data without a specified home silently resets; its findings are now pinned by regression tests (`src/anki/anki-package.roundtrip.test.ts`).
 
 ## Considered Options
 

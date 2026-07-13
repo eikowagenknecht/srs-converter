@@ -89,7 +89,7 @@ SM-2 derivative (v2/v3 scheduler): ease factor per card (permille, floor 1300), 
 
 - Reads/writes legacy 2 only; `ExportVersion` 3 (zstd) unsupported.
 - Anki → SRS keeps deck name/description, note type name/fields/templates (qfmt/afmt), field values, and review score natively, and captures the **full original entity JSON** into `applicationSpecificData` blobs: per-entity `ankiNote`/`ankiCard`/`ankiReview`/`ankiDeck`/`ankiNoteType`, package-level `ankiCol`/`ankiDconf`/`ankiGraves`, plus `ankiData` (add-on `data` column) and `originalAnkiId`. Media files are copied into the `SrsPackage`.
-- The 2026-07-10 fidelity audit (`docs/working/audit-2026-07-10-roundtrip.md`) originally found the write-back path restored almost none of this. The fixes (work packages WP1–WP6 in `docs/working/fixplan-2026-07-10.md`) completed the `applicationSpecificData` approach (ADR-0003): `fromSrsPackage` now parses each blob as the base row and overlays the fields the universal format owns, so scheduling state, review details, tags, GUIDs, media, CSS, deck presets, and collection metadata (findings F1–F5, F11–F13) survive the round-trip — verified by `src/anki/anki-package.roundtrip.test.ts`. Migrating these universal fields to first-class SRS model fields remains future (Phase 5) work.
+- The 2026-07-10 round-trip fidelity audit originally found the write-back path restored almost none of this. The fixes (work packages WP1–WP6) completed the `applicationSpecificData` approach (ADR-0003): `fromSrsPackage` now parses each blob as the base row and overlays the fields the universal format owns, so scheduling state, review details, tags, GUIDs, media, CSS, deck presets, and collection metadata (findings F1–F5, F11–F13) survive the round-trip — verified by `src/anki/anki-package.roundtrip.test.ts`. Migrating these universal fields to first-class SRS model fields remains future (Phase 5) work.
 - `fromSrsPackage` currently requires exactly one deck per package (`src/anki/anki-package.ts` `restoreDeck`/deck-count guard) — multi-deck export is a design gap, not just a bug.
 
 ## Modern Schema (Anki 23.10+ / schema 18)
@@ -374,7 +374,7 @@ The 2026-07-10 recommendations were decided and partly overridden by the maintai
 ## Sources
 
 - `src/anki/types.ts` (comprehensive, column-level documentation) — verified against code
-- `docs/working/audit-2026-07-10-roundtrip.md` — executed round-trip repros
+- 2026-07-10 round-trip fidelity audit — executed round-trip repros (findings since fixed and pinned by `src/anki/anki-package.roundtrip.test.ts`)
 - <https://eikowagenknecht.com/posts/understanding-the-anki-apkg-format-legacy-2/>
 - `ankitects/anki` tag 26.05, commit `e64c6b1aee3e8d668fb8bbe084beada8e070d985` (pinned 2026-07-11): `proto/anki/{import_export,notetypes,decks,deck_config,generic}.proto`, `rslib/src/import_export/package/{meta.rs,media.rs,colpkg/export.rs,colpkg/import.rs,apkg/export.rs}`, `rslib/src/storage/schema11.sql`, `rslib/src/storage/upgrades/*.sql` + `mod.rs`, `rslib/src/storage/{notetype,deck,deckconfig,tag,config}/mod.rs` (col-column clearing)
 - <https://protobuf.dev/programming-guides/encoding/> — wire-format reference (non-AGPL)

@@ -1,6 +1,6 @@
 # Universal Format: Open Design Decisions
 
-Decision backlog for the universal SRS format specification (Phase 5). Each item is a candidate ADR, to be decided with the maintainer one by one. Evidence references point into the dossiers in this directory ([README.md](README.md) has the comparison matrix) and the round-trip audit (`docs/working/audit-2026-07-10-roundtrip.md`).
+Decision backlog for the universal SRS format specification (Phase 5). Each item is a candidate ADR, to be decided with the maintainer one by one. Evidence references point into the dossiers in this directory ([README.md](README.md) has the comparison matrix) and the 2026-07-10 round-trip fidelity audit.
 
 Status: **decided 2026-07-10** — this backlog has been worked through with the maintainer and converted into ADRs. This file is kept as the research-to-decision record; the ADRs are authoritative:
 

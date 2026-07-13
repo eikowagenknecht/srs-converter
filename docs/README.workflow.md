@@ -30,7 +30,7 @@ This document outlines the story-driven development workflow for srs-converter.
 
 - Follow the architecture laid out in `docs/README.architecture.md` and existing code patterns and conventions.
 - Write clean, self-documenting code; handle errors gracefully; keep functions small and focused.
-- Note documentation changes you'll want to make in `docs/working/pending.md`; document unrelated bugs in `docs/working/issues.md`.
+- Note documentation changes you'll want to make as GitHub issues (`gh issue create --label documentation`, following the docs-change issue template); file unrelated bugs as GitHub issues (`--label bug --label agent-found`, following the bug-report template).
 - Run the quality gates while iterating; all of them must pass before moving on.
 
 ### 3. Request verification
@@ -47,7 +47,7 @@ If the maintainer reports issues: fix them, re-run the gates, and request verifi
 
 Propose documentation updates and apply them once approved:
 
-- Work from the notes in `docs/working/pending.md`.
+- Work from the open `documentation`-labeled GitHub issues (`gh issue list --label documentation`); close each one (`fixes #<n>` in the commit or `gh issue close`) when its change lands.
 - Make sure all `README.*` files — examples, usage instructions, architecture docs — reflect the changes.
 - Modified or added examples must pass the automated tests.
 
@@ -69,4 +69,4 @@ Once approved, mark the story ✅ **Completed** in `docs/stories/README.md` and 
 
 - **Story too complex** — propose a breakdown into smaller sub-stories and agree on it with the maintainer before proceeding.
 - **Architecture change needed** — document the proposed change and rationale, create an ADR in `docs/decisions/` for major decisions, get approval before sweeping changes, and update `docs/README.architecture.md` after implementation.
-- **Technical roadblock** — document the issue in `docs/working/issues.md`, research alternative approaches, and ask the maintainer for guidance.
+- **Technical roadblock** — file a GitHub issue describing it, research alternative approaches, and ask the maintainer for guidance.

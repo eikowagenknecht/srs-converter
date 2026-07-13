@@ -12,8 +12,8 @@ into real Anki with the same content as the fixture they came from:
 Strictly compared: notes (guid, tags, field hash), regular deck names, media
 hashes, and card scheduling states. Review-log, preset, and filtered-deck
 differences are reported informationally — the known gaps (ease-0 revlog
-rows, filtered decks as ephemeral study views) are tracked in
-docs/working/issues.md.
+rows, filtered decks as ephemeral study views) are tracked as GitHub
+issues #84 and #83.
 """
 
 from __future__ import annotations

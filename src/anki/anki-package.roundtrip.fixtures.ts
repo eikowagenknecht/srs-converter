@@ -1,8 +1,7 @@
 /**
  * Adversarial round-trip fixture builder (WP2).
  *
- * Ported from the audit repro harness in
- * `docs/working/audit-2026-07-10-repros.md`. Hand-builds a single-deck
+ * Ported from the 2026-07-10 round-trip audit repro harness. Hand-builds a single-deck
  * legacy-v2 `.apkg` with full control over every column so a full
  * Anki → SRS → Anki round-trip can be checked for silent data loss, and reads
  * the raw DB/zip contents back out without going through the library (ground

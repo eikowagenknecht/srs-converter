@@ -55,6 +55,6 @@ Chosen: **unit model option 1** and **topics option 3**.
 
 ## More Information
 
-Research basis: `docs/formats/README.md` (divergences 2 and 7), `docs/formats/mochi.md` §3/§5, `docs/formats/supermemo.md` §2, audit findings F9/S1/S2 in `docs/working/issues.md`. Decision backlog entry: D10 in `docs/formats/open-decisions.md`. Related: ADR-0004 (review log per card).
+Research basis: `docs/formats/README.md` (divergences 2 and 7), `docs/formats/mochi.md` §3/§5, `docs/formats/supermemo.md` §2, round-trip audit findings F9/S1/S2 (2026-07-10). Decision backlog entry: D10 in `docs/formats/open-decisions.md`. Related: ADR-0004 (review log per card).
 
 Refined by ADR-0017 (spec draft.2): the template generator references templates by name (`templateName`); the cloze `index` is the literal source group number.

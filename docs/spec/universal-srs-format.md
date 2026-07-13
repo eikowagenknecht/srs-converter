@@ -44,13 +44,13 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are to be interpreted 
 
 ### 3.1 Profiles (cumulative)
 
-| Profile   | Contains                                                               | Asserts                                                                                     | Intended use                       |
-| --------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------- |
-| `content` | note types, notes (fields, tags), decks, cards with generators, media  | no review log is included (`reviews.jsonl` MUST be absent)                                   | Sharing; scheduling-free by design |
-| `history` | `content` + the review log with original-scale ratings                 | the review log is the **complete** review history known to the source                        | Migration                          |
-| `full`    | `history` + the producer's own extension namespace                     | the producer's namespace captures **all** app-specific state needed for same-app round-trip | Same-app round-trip, backup        |
+| Profile   | Contains                                                              | Asserts                                                                                     | Intended use                       |
+| --------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `content` | note types, notes (fields, tags), decks, cards with generators, media | no review log is included (`reviews.jsonl` MUST be absent)                                  | Sharing; scheduling-free by design |
+| `history` | `content` + the review log with original-scale ratings                | the review log is the **complete** review history known to the source                       | Migration                          |
+| `full`    | `history` + the producer's own extension namespace                    | the producer's namespace captures **all** app-specific state needed for same-app round-trip | Same-app round-trip, backup        |
 
-Extension namespaces (§11) are legal at **every** profile; the profiles differ in what they *assert*, not in which fields may appear. A package declares its profile in the manifest (§5). A converter MUST declare, per direction and format, the highest profile it supports.
+Extension namespaces (§11) are legal at **every** profile; the profiles differ in what they _assert_, not in which fields may appear. A package declares its profile in the manifest (§5). A converter MUST declare, per direction and format, the highest profile it supports.
 
 ### 3.2 Loss reporting
 
@@ -79,7 +79,7 @@ Structural invariants — a package violating any of these is **invalid**:
 - `fieldValues` keys exactly match the note type's field names (§8.4).
 - `notes.json` and `notes/` (or `cards.json` and `cards/`) do not coexist (§4.3).
 
-Producers MUST NOT emit invalid packages. Where the *source* contains violations (e.g. Anki's orphan revlog rows referencing deleted cards), importers MUST drop the offending source rows with a reported issue rather than emit dangling references.
+Producers MUST NOT emit invalid packages. Where the _source_ contains violations (e.g. Anki's orphan revlog rows referencing deleted cards), importers MUST drop the offending source rows with a reported issue rather than emit dangling references.
 
 Consumers encountering an invalid package MUST NOT crash or hang (cycle detection in the deck graph is mandatory), MUST report every violation found, SHOULD salvage the referentially intact remainder (mirroring the tri-state partial-success philosophy of ADR-0002), and MAY reject the package outright.
 
@@ -137,7 +137,7 @@ All files MUST satisfy I-JSON (RFC 7493). Integers outside ±(2^53 − 1) MUST b
 
 - `usfVersion` (REQUIRED): semver of this spec. See §14 for compatibility rules.
 - `profile` (REQUIRED): `content` | `history` | `full` (§3.1).
-- `id` (REQUIRED): package UUID. A package identifies one export *artifact*: producers MUST generate a fresh UUIDv7 per export. The package id is exempt from the deterministic derivation of §7.1 (re-exporting the same source yields a new package id; entity ids remain stable).
+- `id` (REQUIRED): package UUID. A package identifies one export _artifact_: producers MUST generate a fresh UUIDv7 per export. The package id is exempt from the deterministic derivation of §7.1 (re-exporting the same source yields a new package id; entity ids remain stable).
 - `createdAt` (OPTIONAL, RECOMMENDED): export timestamp, epoch ms UTC.
 - `source` (OPTIONAL but RECOMMENDED): provenance; `application` SHOULD be a registered namespace name (§11) when one exists.
 - `ratingScale` (REQUIRED for history/full): the rating scale for all reviews in the package (§9). The scale is declared once per package (ADR-0004); there are no per-entity or per-review overrides in 1.x (§14).
@@ -159,7 +159,7 @@ Every entity has an `id`: a UUID string (lowercase, hyphenated). Natively create
 
 The `entityType` strings are fixed: `deck`, `deck-config`, `note-type`, `note`, `card`. Reviews and the package itself are exempt from derivation (§5, §8.6).
 
-Imported entities **without** usable source identity get fresh UUIDv7 ids, reported as weak identity where re-import stability matters (ADR-0009; e.g. SuperMemo, §12.3). Entities a converter *synthesizes* (rather than reads from the source) use fixed, format-defined synthetic sourceKeys (§12) so re-imports converge instead of duplicating.
+Imported entities **without** usable source identity get fresh UUIDv7 ids, reported as weak identity where re-import stability matters (ADR-0009; e.g. SuperMemo, §12.3). Entities a converter _synthesizes_ (rather than reads from the source) use fixed, format-defined synthetic sourceKeys (§12) so re-imports converge instead of duplicating.
 
 ### 7.2 Source identity
 
@@ -341,12 +341,12 @@ Registered scales:
 
 **Normative cross-scale mappings** (applied ONLY on export to a target needing a different scale; the stored value never changes):
 
-| From \ To   | `anki`                 | `mnemosyne`            | `binary`     |
-| ----------- | ---------------------- | ---------------------- | ------------ |
-| `mnemosyne` | 0,1→1; 2,3→2; 4→3; 5→4 | —                      | 0,1→0; 2–5→1 |
+| From \ To   | `anki`                 | `mnemosyne`               | `binary`     |
+| ----------- | ---------------------- | ------------------------- | ------------ |
+| `mnemosyne` | 0,1→1; 2,3→2; 4→3; 5→4 | —                         | 0,1→0; 2–5→1 |
 | `supermemo` | 0,1,2→1; 3→2; 4→3; 5→4 | 0→0; 1,2→1; 3→2; 4→4; 5→5 | 0–2→0; 3–5→1 |
-| `anki`      | —                      | 1→1; 2→2; 3→4; 4→5     | 1→0; 2–4→1   |
-| `binary`    | 0→1; 1→3               | 0→1; 1→4               | —            |
+| `anki`      | —                      | 1→1; 2→2; 3→4; 4→5        | 1→0; 2–4→1   |
+| `binary`    | 0→1; 1→3               | 0→1; 1→4                  | —            |
 
 The `mnemosyne`→`anki` fold maps grades 2 and 3 to Hard: Mnemosyne's own easiness deltas penalize grade 3 (−0.14) almost identically to grade 2 (−0.16), while grade 4 is ease-neutral like Anki's Good (see `docs/formats/mnemosyne.md`). No `→ supermemo` column exists because SuperMemo export writes no review log (§12.3).
 
@@ -364,16 +364,16 @@ UTL is deliberately small: every construct is attested in at least two researche
 
 Templates are text in the note type's `contentFormat` dialect, with UTL constructs in `{{ … }}`:
 
-| Construct                   | Meaning                                                                    | Attestation                             |
-| --------------------------- | -------------------------------------------------------------------------- | --------------------------------------- |
-| `{{ Field }}`               | interpolate field value                                                     | all four formats                        |
-| `{{# Field }}…{{/ Field }}` | render iff field non-empty                                                  | Anki, Mochi                             |
-| `{{^ Field }}…{{/ Field }}` | render iff field empty                                                      | Anki, Mochi                             |
-| `{{ question }}`            | the rendered question side (answer templates only)                          | Anki `FrontSide`, Mnemosyne `a_on_top_of_q` |
-| `{{cloze Field }}`          | field with the card's cloze group occluded (question) / revealed (answer)   | Anki, Mnemosyne, Mochi                  |
-| `{{hint Field }}`           | collapsed until requested                                                   | Anki `{{hint:}}`, Mnemosyne `[…:hint]` ¹ |
+| Construct                   | Meaning                                                                   | Attestation                                 |
+| --------------------------- | ------------------------------------------------------------------------- | ------------------------------------------- |
+| `{{ Field }}`               | interpolate field value                                                   | all four formats                            |
+| `{{# Field }}…{{/ Field }}` | render iff field non-empty                                                | Anki, Mochi                                 |
+| `{{^ Field }}…{{/ Field }}` | render iff field empty                                                    | Anki, Mochi                                 |
+| `{{ question }}`            | the rendered question side (answer templates only)                        | Anki `FrontSide`, Mnemosyne `a_on_top_of_q` |
+| `{{cloze Field }}`          | field with the card's cloze group occluded (question) / revealed (answer) | Anki, Mnemosyne, Mochi                      |
+| `{{hint Field }}`           | collapsed until requested                                                 | Anki `{{hint:}}`, Mnemosyne `[…:hint]` ¹    |
 
-¹ The deferred-hint *capability* is attested in two researched formats; the template-construct locus is Anki's, Mnemosyne's lives in its cloze-marker syntax.
+¹ The deferred-hint _capability_ is attested in two researched formats; the template-construct locus is Anki's, Mnemosyne's lives in its cloze-marker syntax.
 
 Literal `{{` is escaped `\{{`. Field names are matched exactly; whitespace inside `{{ }}` is insignificant. `typedAnswer` (note-type template field, §8.3) names a field the consumer MAY prompt for typed recall (Anki `{{type:}}`, Mnemosyne `type_answer`) — a capability flag, not a rendering construct. Unknown constructs degrade per §3.3.
 
@@ -462,7 +462,7 @@ The entity-by-entity walk of all four formats through import→export against th
 - `usfVersion` is semver. Within a major version: minors only add optional fields and registered names; consumers MUST ignore unknown fields (§3.3) and apply the defined fallbacks for unknown values (§3.3), so any 1.x consumer reads any 1.y package (upward compatibility as promised in the project README).
 - Producers MUST write the lowest 1.x version whose features they use.
 - Majors may break; a major bump requires a published migration note per changed field.
-- Changes that alter how existing data is *interpreted* — e.g. introducing per-review rating-scale overrides — cannot ship in a minor (old consumers would silently misread packages); they are major-version territory by definition.
+- Changes that alter how existing data is _interpreted_ — e.g. introducing per-review rating-scale overrides — cannot ship in a minor (old consumers would silently misread packages); they are major-version territory by definition.
 
 ## 15. Worked Example
 
@@ -566,7 +566,7 @@ example.srspkg/
 
 - Format dossiers, comparison matrix, and validation walk: `docs/formats/`
 - Decisions: ADR-0004 … ADR-0012 and ADR-0017 (`docs/decisions/`)
-- Round-trip audit motivating the loss-reporting stance: `docs/working/audit-2026-07-10-roundtrip.md`
+- The 2026-07-10 round-trip fidelity audit motivating the loss-reporting stance (findings F1–F18/S1–S5, since fixed; pinned by `src/anki/anki-package.roundtrip.test.ts`)
 - RFC 2119 (key words); RFC 7493 (I-JSON); RFC 5545/7986 and GPX (extension-mechanism prior art)
 
 ---
