@@ -15,8 +15,8 @@ importers:
         specifier: 0.29.3
         version: 0.29.3
       kysely-wasm:
-        specifier: 1.2.1
-        version: 1.2.1(kysely@0.29.3)
+        specifier: 2.0.0
+        version: 2.0.0(kysely@0.29.3)
       sql.js:
         specifier: 1.14.1
         version: 1.14.1
@@ -2243,15 +2243,15 @@ packages:
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
 
-  kysely-generic-sqlite@1.2.1:
-    resolution: {integrity: sha512-/Bs3/Uktn04nQ9g/4oSphLMEtSHkS5+j5hbKjK5gMqXQfqr/v3V3FKtoN4pLTmo2W35hNdrIpQnBukGL1zZc6g==}
+  kysely-generic-sqlite@2.0.0:
+    resolution: {integrity: sha512-+VSwk73w2G83nepX66dWDHaijMzLXYPBvxcwb9vAKXIK+8aUwOVuLF9+q1HsUEKHmnlPtbH+QDzv3hJPeZJrsA==}
     peerDependencies:
-      kysely: '>=0.26'
+      kysely: '>=0.29'
 
-  kysely-wasm@1.2.1:
-    resolution: {integrity: sha512-VXzSiTu6gDmfZdCIq04hFWucvTepcgurIP+dlCONF+p3jFU3cHhEvVN1X+TUlMHt1/7t9Q/2Vr9JyxLOxv4WIw==}
+  kysely-wasm@2.0.0:
+    resolution: {integrity: sha512-o0esSo54LCQ/ZwVCn3BPutTmas3UOZqmAWzumKQ8H9q3rFZRuXDk1b/b37LteIa9GX5V79/rCmXdNfxXLafyOg==}
     peerDependencies:
-      kysely: '>=0.26'
+      kysely: '>=0.29'
 
   kysely@0.29.3:
     resolution: {integrity: sha512-VHtBdW6XB/pgoTSqraM3UAa2rYoYdNXqnNPpX+8XXP+cwYbVEFuAp3HyPt1vpNfU9l7Y2kpUrA9QDPsy8uUqOQ==}
@@ -5115,14 +5115,14 @@ snapshots:
       yaml: 2.9.0
       zod: 4.4.3
 
-  kysely-generic-sqlite@1.2.1(kysely@0.29.3):
+  kysely-generic-sqlite@2.0.0(kysely@0.29.3):
     dependencies:
       kysely: 0.29.3
 
-  kysely-wasm@1.2.1(kysely@0.29.3):
+  kysely-wasm@2.0.0(kysely@0.29.3):
     dependencies:
       kysely: 0.29.3
-      kysely-generic-sqlite: 1.2.1(kysely@0.29.3)
+      kysely-generic-sqlite: 2.0.0(kysely@0.29.3)
 
   kysely@0.29.3: {}
 
