@@ -62,7 +62,7 @@
   "dependencies": {
     "archiver": "8.0.0",
     "kysely": "0.29.3",
-    "kysely-wasm": "1.2.1",
+    "kysely-wasm": "2.0.0",
     "sql.js": "1.14.1",
     "unzipper": "0.12.5",
     "uuid": "14.0.1"

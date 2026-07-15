@@ -15,8 +15,8 @@ importers:
         specifier: 0.29.3
         version: 0.29.3
       kysely-wasm:
-        specifier: 1.2.1
-        version: 1.2.1(kysely@0.29.3)
+        specifier: 2.0.0
+        version: 2.0.0(kysely@0.29.3)
       sql.js:
         specifier: 1.14.1
         version: 1.14.1
@@ -2243,15 +2243,15 @@ packages:
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
 
-  kysely-generic-sqlite@1.2.1:
-    resolution: {integrity: sha512-/Bs3/Uktn04nQ9g/4oSphLMEtSHkS5+j5hbKjK5gMqXQfqr/v3V3FKtoN4pLTmo2W35hNdrIpQnBukGL1zZc6g==}
+  kysely-generic-sqlite@2.0.0:
+    resolution: {integrity: sha512-+VSwk73w2G83nepX66dWDHaijMzLXYPBvxcwb9vAKXIK+8aUwOVuLF9+q1HsUEKHmnlPtbH+QDzv3hJPeZJrsA==}
     peerDependencies:
-      kysely: '>=0.26'
+      kysely: '>=0.29'
 
-  kysely-wasm@1.2.1:
-    resolution: {integrity: sha512-VXzSiTu6gDmfZdCIq04hFWucvTepcgurIP+dlCONF+p3jFU3cHhEvVN1X+TUlMHt1/7t9Q/2Vr9JyxLOxv4WIw==}
+  kysely-wasm@2.0.0:
+    resolution: {integrity: sha512-o0esSo54LCQ/ZwVCn3BPutTmas3UOZqmAWzumKQ8H9q3rFZRuXDk1b/b37LteIa9GX5V79/rCmXdNfxXLafyOg==}
     peerDependencies:
-      kysely: '>=0.26'
+      kysely: '>=0.29'
 
   kysely@0.29.3:
     resolution: {integrity: sha512-VHtBdW6XB/pgoTSqraM3UAa2rYoYdNXqnNPpX+8XXP+cwYbVEFuAp3HyPt1vpNfU9l7Y2kpUrA9QDPsy8uUqOQ==}
@@ -2416,8 +2416,8 @@ packages:
   mz@2.7.0:
     resolution: {integrity: sha512-z81GNO7nnYMEhrGh9LeymoE4+Yr0Wn5McHIZMK5cfQCl+NDX08sCZgUc9/6MHni9IWuFLm1Z3HTCXu2z9fN62Q==}
 
-  nanoid@3.3.15:
-    resolution: {integrity: sha512-y7Wygv/7mEOvxTuEQDB8StXdMRBWf1kR/tlhAzBRUFkB2jfcLOAxO/SHmOO2zgz1pVgK29/kyupn059/bCHdjA==}
+  nanoid@3.3.16:
+    resolution: {integrity: sha512-bzlKTyNJ7+LdGIIwy8ijFpIqEQIvafahV7eYykJ8Cvh42EdJeODoJ6gUJXpQJvej1BddH8OqTXZNE/KfbWAu8Q==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
@@ -2689,8 +2689,8 @@ packages:
     resolution: {integrity: sha512-C+VUP+8jis7EsQZIhDYmS5qlNtjv2yP4SNtjXK9AP1ZcTRlnSfuumaTnRfYZnYgUUYVIKqL0fRvmUGDV2fmp6g==}
     engines: {node: '>=4'}
 
-  postcss@8.5.16:
-    resolution: {integrity: sha512-vuwillviilfKZsg0VGj5R/YwwcHx4SLsIOI/7K6mQkWx+l5cUHTjj5g0AasTBcyXsbfTgrwsUNmVUb5xVwyPwg==}
+  postcss@8.5.19:
+    resolution: {integrity: sha512-Mz8SaolMd8nB+G13WkORcxQKHZ/NE4xXevtkJHVuG+guo9/wYKlIMTKAqGdEmYOXR2ijPjTYNHssizdaVSUNdQ==}
     engines: {node: ^10 || ^12 || >=14}
 
   pretty-ms@9.3.0:
@@ -5115,14 +5115,14 @@ snapshots:
       yaml: 2.9.0
       zod: 4.4.3
 
-  kysely-generic-sqlite@1.2.1(kysely@0.29.3):
+  kysely-generic-sqlite@2.0.0(kysely@0.29.3):
     dependencies:
       kysely: 0.29.3
 
-  kysely-wasm@1.2.1(kysely@0.29.3):
+  kysely-wasm@2.0.0(kysely@0.29.3):
     dependencies:
       kysely: 0.29.3
-      kysely-generic-sqlite: 1.2.1(kysely@0.29.3)
+      kysely-generic-sqlite: 2.0.0(kysely@0.29.3)
 
   kysely@0.29.3: {}
 
@@ -5267,7 +5267,7 @@ snapshots:
       object-assign: 4.1.1
       thenify-all: 1.6.0
 
-  nanoid@3.3.15: {}
+  nanoid@3.3.16: {}
 
   neo-async@2.6.2: {}
 
@@ -5501,9 +5501,9 @@ snapshots:
       find-up: 2.1.0
       load-json-file: 4.0.0
 
-  postcss@8.5.16:
+  postcss@8.5.19:
     dependencies:
-      nanoid: 3.3.15
+      nanoid: 3.3.16
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
@@ -6033,7 +6033,7 @@ snapshots:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.5)
       picomatch: 4.0.5
-      postcss: 8.5.16
+      postcss: 8.5.19
       rollup: 4.62.2
       tinyglobby: 0.2.17
     optionalDependencies:
