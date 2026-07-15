@@ -19,7 +19,7 @@ A TypeScript library for converting between different spaced repetition system (
 
 - **Anki Support**: Convert `.apkg` and `.colpkg` packages to a universal SRS format
 - **Complete Data**: Support for notes, cards, decks, review history, and media files
-- **Node.js Only**: Currently requires Node.js (browser support planned for future releases)
+- **Runs Everywhere**: Node.js, Bun, Deno, browsers — and browser-based app shells like Tauri and Capacitor
 - **Type-Safe**: Full TypeScript support with comprehensive type definitions
 - **Error Handling**: Robust validation and tri-state error reporting
 - **Well-Tested Dependencies**: Uses established libraries for SQLite parsing, archive handling, and data processing
@@ -68,15 +68,67 @@ pnpm build
 
 ## Platform Compatibility
 
-- **Node.js**: Full support (v22+ recommended)
-- **Bun** / **Deno**: Not tested
-- **Browser**: Not currently supported (uses Node.js-specific filesystem APIs)
+- **Node.js**: Full support (v22.15+, uses native zstd)
+- **Bun** / **Deno**: Supported (smoke-tested against the built package)
+- **Browser**: Supported (verified in Chromium via the browser test suite)
+- **Tauri** / **Capacitor**: Supported — their webviews are browser environments, so the browser build applies
 
-**Note**: Browser support is planned for future releases by abstracting file system operations.
+The public API is bytes-based (`Uint8Array` in, `Uint8Array` out): reading and
+writing files is up to you, which is what makes the same API work in every
+environment. Package internals pick the right implementation per platform
+automatically (native zstd and disk-backed media staging on Node, WASM zstd and
+in-memory staging in browsers).
 
 ## Usage
 
 For usage examples and API documentation, see the [Usage Guide](docs/usage/README.md).
+
+### Quick Start (Node.js)
+
+```typescript
+import { readFile, writeFile } from "node:fs/promises";
+import { AnkiPackage } from "srs-converter";
+
+// Read an Anki export (you load the bytes, the library parses them)
+const data = new Uint8Array(await readFile("my-deck.apkg"));
+const result = await AnkiPackage.fromAnkiExport(data);
+
+if (result.status !== "failure" && result.data) {
+  console.log(`Notes: ${result.data.getNotes().length}`);
+
+  // Write it back out (modern format by default)
+  await writeFile("out.apkg", await result.data.toAnkiExport());
+  await result.data.cleanup();
+}
+```
+
+### Browser / Tauri / Capacitor
+
+The same API works in the browser — only sql.js needs to know where its wasm
+asset lives (zstd's wasm is bundled automatically). With Vite:
+
+```typescript
+import sqlWasmUrl from "sql.js/dist/sql-wasm.wasm?url";
+import { AnkiPackage, configureSqlJs } from "srs-converter";
+
+// Once, before the first package operation
+configureSqlJs({ locateFile: () => sqlWasmUrl });
+
+// Bytes come from wherever your app gets files: file input, fetch,
+// Tauri/Capacitor filesystem plugins, drag-and-drop, ...
+const data = new Uint8Array(await file.arrayBuffer());
+const result = await AnkiPackage.fromAnkiExport(data);
+```
+
+Notes for browser use:
+
+- Packages are processed in memory (media staging included), so very large
+  decks are bounded by available RAM. Node instead stages media on disk by
+  default. You can plug in your own storage (e.g. OPFS-backed) via the
+  `storage` option (`MediaStorage` interface).
+- ZIP64 archives (over 4 GiB or more than 65535 files) are not supported.
+- Tauri and Capacitor need no special setup beyond bundling
+  `sql-wasm.wasm` as an asset, like any other web app resource.
 
 ## Project Status
 
@@ -105,8 +157,8 @@ For detailed technical information about the Anki package format, see: [Understa
 | **Notes**              | ✅ Full       | Content in all fields, tags, modification timestamps                                                                                                                                                                     |
 | **Cards**              | ✅ Full       | Question/answer templates, due dates, intervals, ease factors                                                                                                                                                            |
 | **Review History**     | ✅ Full       | Complete review logs: timestamps, scores, intervals, factor, duration, and type                                                                                                                                          |
-| **Media Files**        | ✅ Full       | List files, get file size, stream content, add files from paths/buffers/streams; round-tripped through the universal format                                                                                              |
-| **Formats**            | ✅ Full       | Reads and writes both the modern format (Anki 23.10+ default, schema 18) and Legacy v2; modern is the default output, `toAnkiExport(path, { legacy: true })` writes Legacy v2                                            |
+| **Media Files**        | ✅ Full       | List files, get file size, read and add content as bytes; round-tripped through the universal format                                                                                                                     |
+| **Formats**            | ✅ Full       | Reads and writes both the modern format (Anki 23.10+ default, schema 18) and Legacy v2; modern is the default output, `toAnkiExport({ legacy: true })` writes Legacy v2                                                  |
 | **Plugin Data**        | ✅ Full       | Preserved in direct operations and round-trip conversions                                                                                                                                                                |
 | **Conversion Quality** | ✅ Good       | Anki → SRS → Anki preserves scheduling, review history, GUIDs, tags, note-type internals, deck options, media, and collection metadata (verified by round-trip tests). SRS → Anki requires exactly one deck per package. |
 | **Advanced Features**  | ⚠️ Partial    | Cloze note types are supported and tested; Image Occlusion is untested                                                                                                                                                   |

@@ -11,8 +11,6 @@
  * WP4 (first-class media) has since landed: media files now round-trip, so the
  * manifest and file bytes are asserted in the "Media round-trip (WP4)" block.
  */
-import { join } from "node:path";
-
 import { describe, expect, it } from "vitest";
 
 import {
@@ -26,12 +24,7 @@ import {
 } from "@/srs-package";
 
 import { AnkiPackage } from "./anki-package";
-import {
-  createBasicSrsPackage,
-  expectSuccess,
-  getTempDir,
-  setupTempDir,
-} from "./anki-package.fixtures";
+import { createBasicSrsPackage, expectSuccess } from "./anki-package.fixtures";
 import {
   MEDIA_MP3,
   MEDIA_PNG,
@@ -43,10 +36,8 @@ import {
 } from "./anki-package.roundtrip.fixtures";
 import { fieldChecksum, splitAnkiFields, stripHtml } from "./util";
 
-setupTempDir();
-
-async function roundTrip(srcPath: string): Promise<ReturnType<typeof readApkgRaw>> {
-  const readResult = await AnkiPackage.fromAnkiExport(srcPath);
+async function roundTrip(srcBytes: Uint8Array): Promise<ReturnType<typeof readApkgRaw>> {
+  const readResult = await AnkiPackage.fromAnkiExport(srcBytes);
   const src = expectSuccess(readResult);
   try {
     const srsResult = await src.toSrsPackage();
@@ -56,9 +47,8 @@ async function roundTrip(srcPath: string): Promise<ReturnType<typeof readApkgRaw
       const backResult = await AnkiPackage.fromSrsPackage(srs);
       const back = expectSuccess(backResult);
       try {
-        const outPath = join(getTempDir(), "roundtrip.apkg");
-        await back.toAnkiExport(outPath, { legacy: true });
-        return await readApkgRaw(outPath);
+        const out = await back.toAnkiExport({ legacy: true });
+        return await readApkgRaw(out);
       } finally {
         await back.cleanup();
       }
@@ -247,8 +237,8 @@ describe("Anki → SRS → Anki full-fidelity round-trip", () => {
   });
 
   it("reports success with no error/critical issues (warnings allowed)", async () => {
-    const srcPath = await buildSourceApkg();
-    const readResult = await AnkiPackage.fromAnkiExport(srcPath);
+    const srcBytes = await buildSourceApkg();
+    const readResult = await AnkiPackage.fromAnkiExport(srcBytes);
     const src = expectSuccess(readResult);
     try {
       const srs = expectSuccess(await src.toSrsPackage());
@@ -269,8 +259,8 @@ describe("Anki → SRS → Anki full-fidelity round-trip", () => {
 
 describe("Round-trip with SRS-side edits (overlay precedence)", () => {
   it("applies renamed deck and edited field while keeping scheduling/guid/tags", async () => {
-    const srcPath = await buildSourceApkg();
-    const readResult = await AnkiPackage.fromAnkiExport(srcPath);
+    const srcBytes = await buildSourceApkg();
+    const readResult = await AnkiPackage.fromAnkiExport(srcBytes);
     const src = expectSuccess(readResult);
 
     try {
@@ -299,9 +289,8 @@ describe("Round-trip with SRS-side edits (overlay precedence)", () => {
         const backResult = await AnkiPackage.fromSrsPackage(srs);
         const back = expectSuccess(backResult);
         try {
-          const outPath = join(getTempDir(), "overlay.apkg");
-          await back.toAnkiExport(outPath, { legacy: true });
-          const after = await readApkgRaw(outPath);
+          const out = await back.toAnkiExport({ legacy: true });
+          const after = await readApkgRaw(out);
 
           // Edits win.
           expect(Object.values(after.col.decks).some((d) => d["name"] === "Renamed Deck")).toBe(
@@ -335,8 +324,8 @@ describe("Round-trip with SRS-side edits (overlay precedence)", () => {
 
 describe("Round-trip with a corrupt blob", () => {
   it("warns and falls back to a default card when ankiCard is unparseable", async () => {
-    const srcPath = await buildSourceApkg();
-    const readResult = await AnkiPackage.fromAnkiExport(srcPath);
+    const srcBytes = await buildSourceApkg();
+    const readResult = await AnkiPackage.fromAnkiExport(srcBytes);
     const src = expectSuccess(readResult);
 
     try {
@@ -707,8 +696,8 @@ describe("Media round-trip (WP4)", () => {
     );
 
     // Byte-for-byte content preserved.
-    expect(after.mediaByName["image üñï.png"]?.equals(MEDIA_PNG)).toBe(true);
-    expect(after.mediaByName["sound.mp3"]?.equals(MEDIA_MP3)).toBe(true);
+    expect(after.mediaByName["image üñï.png"]).toEqual(MEDIA_PNG);
+    expect(after.mediaByName["sound.mp3"]).toEqual(MEDIA_MP3);
   });
 
   it("exports no media entries for a package without media", async () => {
@@ -716,9 +705,8 @@ describe("Media round-trip (WP4)", () => {
     try {
       const anki = expectSuccess(await AnkiPackage.fromSrsPackage(srsPackage));
       try {
-        const outPath = join(getTempDir(), "no-media.apkg");
-        await anki.toAnkiExport(outPath, { legacy: true });
-        const after = await readApkgRaw(outPath);
+        const out = await anki.toAnkiExport({ legacy: true });
+        const after = await readApkgRaw(out);
 
         expect(after.mediaManifest).toEqual({});
         expect(after.zipEntries).toEqual(["collection.anki21", "media", "meta"]);
@@ -736,9 +724,8 @@ describe("Media round-trip (WP4)", () => {
     try {
       const anki = expectSuccess(await AnkiPackage.fromSrsPackage(srsPackage));
       try {
-        const outPath = join(getTempDir(), "authored-media.apkg");
-        await anki.toAnkiExport(outPath, { legacy: true });
-        const after = await readApkgRaw(outPath);
+        const out = await anki.toAnkiExport({ legacy: true });
+        const after = await readApkgRaw(out);
 
         // The manifest maps a numeric id to the filename.
         expect(Object.values(after.mediaManifest)).toEqual(["hello.png"]);
@@ -748,7 +735,7 @@ describe("Media round-trip (WP4)", () => {
         }
         // The numbered zip entry is present with the exact bytes.
         expect(after.zipEntries).toContain(mediaId);
-        expect(after.mediaByName["hello.png"]?.equals(MEDIA_PNG)).toBe(true);
+        expect(after.mediaByName["hello.png"]).toEqual(MEDIA_PNG);
       } finally {
         await anki.cleanup();
       }

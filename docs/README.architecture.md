@@ -74,7 +74,7 @@ Universal SRS format implementation:
 - `SrsDeck`, `SrsNote`, `SrsCard`, `SrsReview` - Core data types
 - Factory functions for creating instances
 - Referential integrity validation
-- Media management mirroring `AnkiPackage`: `addMediaFile()`, `getMediaFile()`, `getMediaFileSize()`, `listMediaFiles()`, `removeMediaFile()`, and `cleanup()`. Media lives in a lazily-created temporary directory owned by the package; conversions copy content across, so source and target packages have independent lifetimes and each owner must call `cleanup()`.
+- Media management mirroring `AnkiPackage`: `addMediaFile()`, `getMediaFile()`, `getMediaFileSize()`, `listMediaFiles()`, `removeMediaFile()`, and `cleanup()`. Media content is `Uint8Array`-based and lives in a `MediaStorage` backend owned by the package (disk-backed temp directory on Node, in-memory in browsers; ADR-0018); conversions copy content across, so source and target packages have independent lifetimes and each owner must call `cleanup()`.
 - Package-level `applicationSpecificData` (`getApplicationSpecificData()` / `setApplicationSpecificData()`) for collection-scoped metadata that has no per-entity home (e.g. the Anki `col`/`dconf`/`graves` blobs captured for round-trip restoration)
 
 ### `/src/anki/`
@@ -84,8 +84,8 @@ Anki format support module:
 #### `anki-package.ts`
 
 - `AnkiPackage` class - Main interface for Anki data
-- Static factories: `fromAnkiExport()`, `fromSrsPackage()`, `fromDefault()`
-- Export method: `toAnkiExport()`
+- Static factories: `fromAnkiExport()` (takes the `.apkg` bytes as `Uint8Array`), `fromSrsPackage()`, `fromDefault()` — all accept `AnkiPackageOptions` (error handling + optional `storage` backend)
+- Export method: `toAnkiExport()` — returns the `.apkg` bytes as `Uint8Array`
 - Conversion method: `toSrsPackage()` (async — it copies media into the new `SrsPackage`)
 
 #### `database.ts`
@@ -117,25 +117,26 @@ Anki format support module:
 ### Reading Anki Files
 
 ```plaintext
-.apkg file → unzip → SQLite DB + media → AnkiDatabase → AnkiPackage → SrsPackage
+.apkg bytes → unzip (in memory) → SQLite DB + media → AnkiDatabase → AnkiPackage → SrsPackage
 ```
 
-1. **File Extraction**: Unzip .apkg/.colpkg to temporary directory
+1. **Entry Extraction**: Read the ZIP entries from the passed bytes (fflate, in memory)
 2. **Database Parsing**: Load SQLite database using sql.js
 3. **Data Validation**: Validate schema and data integrity
-4. **Object Creation**: Create AnkiPackage instance with validated data
-5. **Format Conversion**: Transform to universal SRS format
+4. **Media Staging**: Store media content in the package's `MediaStorage` backend
+5. **Object Creation**: Create AnkiPackage instance with validated data
+6. **Format Conversion**: Transform to universal SRS format
 
 ### Writing Anki Files
 
 ```plaintext
-SrsPackage → AnkiPackage → SQLite DB + media → zip → .apkg file
+SrsPackage → AnkiPackage → SQLite DB + media → zip (in memory) → .apkg bytes
 ```
 
 1. **Data Transformation**: Convert from universal format to Anki structures
 2. **Database Creation**: Build SQLite database with proper schema
-3. **File Assembly**: Create temporary directory with database and media
-4. **Archive Creation**: Zip contents to create .apkg file
+3. **Archive Assembly**: Stream database and media entries into the ZIP (media is read from storage one file at a time)
+4. **Result**: `toAnkiExport()` returns the `.apkg` bytes; writing them to disk (or elsewhere) is the caller's job
 
 ## Error Handling Architecture
 
@@ -225,15 +226,18 @@ This project is built with **TypeScript** and follows modern Node.js development
 
 The library uses carefully selected runtime dependencies:
 
-- **`sql.js`**: SQLite database engine compiled to JavaScript for reading Anki databases
+- **`sql.js`**: SQLite database engine compiled to WebAssembly for reading Anki databases
 - **`kysely`**: Type-safe SQL query builder for database operations
 - **`kysely-wasm`**: WASM support for Kysely to work with sql.js
-- **`unzipper`**: Extract contents from Anki .apkg/.colpkg archive files
-- **`archiver`**: Create zip archives (used for testing and potential export features)
-- **`protobufjs`**: Parse Protocol Buffer data used in some Anki formats
+- **`fflate`**: Read and write the .apkg/.colpkg ZIP containers, fully in memory (ADR-0018)
+- **`@hpcc-js/wasm-zstd`**: zstd compression for the browser build; Node uses native `node:zlib` zstd instead (ADR-0019)
 - **`uuid`**: Generate unique identifiers for SRS components
 
-All dependencies are well-maintained, widely-used libraries in the JavaScript ecosystem.
+All dependencies are well-maintained, widely-used libraries in the JavaScript ecosystem, and all of them run in browsers as well as in Node/Bun/Deno.
+
+### Platform Portability (ADR-0018)
+
+The public API is bytes-based (`Uint8Array` in/out); file I/O belongs to the caller. The only per-platform code — zstd and the default `MediaStorage` — lives behind the internal `#platform` module with a Node and a browser implementation. Two bundles are published and selected via package.json `exports` conditions (`node` → native zstd + disk-backed media staging, `default` → WASM zstd + in-memory staging). Checksums use a pure-TS SHA-1 for the synchronous field checksum and WebCrypto for media digests. Browser consumers configure the sql.js wasm asset once via `configureSqlJs()`.
 
 ### Development Dependencies
 
@@ -282,15 +286,10 @@ The library development follows a structured approach documented in [Development
 - Stream processing for large files
 - Lazy loading of media files
 - Incremental conversion for large datasets
-
-### Browser Compatibility
-
-- Replace Node.js filesystem APIs with File API
-- Bundle optimization for different environments
-- Web Worker support for large conversions
+- Web Worker support for large conversions in browsers
 
 ## Security Considerations
 
 - Input validation for all external data
-- Temporary file cleanup
+- Temporary file cleanup (Node media staging)
 - SQL injection prevention through parameterized queries

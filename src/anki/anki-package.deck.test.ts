@@ -1,7 +1,6 @@
-import { access } from "node:fs/promises";
-import { join } from "node:path";
-
 import { describe, expect, it } from "vitest";
+
+import type { MediaStorage } from "@/storage";
 
 import { AnkiPackage } from "./anki-package";
 import {
@@ -10,17 +9,12 @@ import {
   createTestAnkiReview,
   createTimestampGenerator,
   expectSuccess,
-  setupTempDir,
 } from "./anki-package.fixtures";
 import { basicAndReversedCardModel, basicModel, clozeModel, defaultDeck } from "./constants";
 import type { Ease } from "./types";
 
-setupTempDir();
-
 describe("Create Deck", () => {
   it("should create valid Anki database directly using only Anki methods", async () => {
-    const directOutputPath = join(process.cwd(), "out", "direct-anki-creation.apkg");
-
     const getTimestamp = createTimestampGenerator();
 
     // Start with a fresh Anki package
@@ -253,11 +247,11 @@ describe("Create Deck", () => {
       expect(reviews.length).toBe(5); // Our 5 reviews
 
       // Export to Anki file format
-      await ankiPackage.toAnkiExport(directOutputPath);
-      await access(directOutputPath); // Will throw if file doesn't exist
+      const exportBytes = await ankiPackage.toAnkiExport();
+      expect(exportBytes.length).toBeGreaterThan(0);
 
-      // Test that the exported file can be imported back
-      const reimportResult = await AnkiPackage.fromAnkiExport(directOutputPath);
+      // Test that the exported bytes can be imported back
+      const reimportResult = await AnkiPackage.fromAnkiExport(exportBytes);
       expect(reimportResult.status).toBe("success");
       if (!reimportResult.data) {
         throw new Error("Expected reimportResult.data to be defined");
@@ -297,8 +291,6 @@ describe("Create Deck", () => {
       } finally {
         await reimportedPackage.cleanup();
       }
-
-      console.log(`✅ Created Anki database directly at: ${directOutputPath}.`);
     } finally {
       await ankiPackage.cleanup();
     }
@@ -402,19 +394,23 @@ describe("Data Management", () => {
       }
     });
 
-    it("should cleanup() return warning when directory removal fails", async () => {
-      const result = await AnkiPackage.fromDefault();
+    it("should cleanup() return warning when storage disposal fails", async () => {
+      // Inject a storage backend whose disposal fails to trigger the warning.
+      const failingStorage: MediaStorage = {
+        delete: () => Promise.resolve(),
+        dispose: () => Promise.reject(new Error("disk on fire")),
+        read: () => Promise.resolve(new Uint8Array()),
+        size: () => Promise.resolve(0),
+        write: () => Promise.resolve(),
+      };
+      const result = await AnkiPackage.fromDefault({ storage: failingStorage });
       const pkg = expectSuccess(result);
-
-      // Replace the temp directory with a non-existent path to trigger cleanup failure
-      const nonExistentPath = "/non/existent/path/that/should/not/exist";
-      (pkg as unknown as { tempDir: string }).tempDir = nonExistentPath;
 
       const cleanupIssues = await pkg.cleanup();
 
       expect(cleanupIssues).toHaveLength(1);
       expect(cleanupIssues[0]?.severity).toBe("warning");
-      expect(cleanupIssues[0]?.message).toContain("Could not clean up temporary files");
+      expect(cleanupIssues[0]?.message).toContain("Could not clean up temporary media files");
       expect(cleanupIssues[0]?.message).toContain("This does not affect your converted data");
       expect(cleanupIssues[0]?.context?.originalData).toBeDefined();
     });

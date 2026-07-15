@@ -3,7 +3,7 @@
  * Covers all code samples from srs-to-anki.md
  */
 
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -88,7 +88,7 @@ describe("SRS to Anki Conversion Documentation Examples", () => {
         // console.log("✅ Conversion successful!");
         const exportPath = join(tempDir, "output.apkg");
         if (ankiResult.data) {
-          await ankiResult.data.toAnkiExport(exportPath);
+          await writeFile(exportPath, await ankiResult.data.toAnkiExport());
         }
         expect(ankiResult.data).toBeDefined();
         break;
@@ -102,7 +102,7 @@ describe("SRS to Anki Conversion Documentation Examples", () => {
         // Still usable, but might miss some data
         const partialExportPath = join(tempDir, "output-partial.apkg");
         if (ankiResult.data) {
-          await ankiResult.data.toAnkiExport(partialExportPath);
+          await writeFile(partialExportPath, await ankiResult.data.toAnkiExport());
         }
         expect(ankiResult.data).toBeDefined();
         break;
@@ -138,7 +138,7 @@ describe("SRS to Anki Conversion Documentation Examples", () => {
         // console.log("✅ Conversion successful!");
         const exportPath = join(tempDir, "output.apkg");
         if (ankiResult.data) {
-          await ankiResult.data.toAnkiExport(exportPath);
+          await writeFile(exportPath, await ankiResult.data.toAnkiExport());
           expect(ankiResult.data.getDecks().length).toBeGreaterThan(0);
         }
         expect(ankiResult.data).toBeDefined();

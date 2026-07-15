@@ -2,7 +2,6 @@ import { readFile } from "node:fs/promises";
 
 import type { Database } from "sql.js";
 import InitSqlJs from "sql.js";
-import { Open } from "unzipper";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import {
@@ -30,6 +29,7 @@ import {
   tagsJsonToTagRows,
 } from "./schema-convert";
 import { parseJsonWithBigInts, serializeWithBigInts } from "./util";
+import { readZipEntries } from "./zip";
 
 type Json = Record<string, unknown>;
 
@@ -240,12 +240,14 @@ beforeAll(async () => {
   };
 
   // Legacy side: what Anki itself wrote when downgrading the same collection.
-  const zip = await Open.file("tests/fixtures/anki/corpus/corpus-legacy2.apkg");
-  const dbEntry = zip.files.find((file) => file.path === "collection.anki21");
+  const legacyEntries = readZipEntries(
+    new Uint8Array(await readFile("tests/fixtures/anki/corpus/corpus-legacy2.apkg")),
+  );
+  const dbEntry = legacyEntries.get("collection.anki21");
   if (!dbEntry) {
     throw new Error("collection.anki21 missing from legacy corpus");
   }
-  const legacyDb = new SQL.Database(new Uint8Array(await dbEntry.buffer()));
+  const legacyDb = new SQL.Database(dbEntry);
   const colRow = allRows(legacyDb, "SELECT * FROM col")[0];
   if (!colRow) {
     throw new Error("col row missing from legacy corpus");

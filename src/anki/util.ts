@@ -1,10 +1,6 @@
-import { createHash } from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
-
-import type { ArchiverError, ZipEntryData } from "archiver";
-import { ZipArchive } from "archiver";
 import { v7 as uuidv7 } from "uuid";
+
+import { sha1Hex } from "./sha1";
 
 /**
  * Converts a number to a base91 string representation.
@@ -118,65 +114,22 @@ export function generateUniqueIdFromUuid(uuid: string): number {
   return Math.abs(hash);
 }
 
-interface FileConfig {
-  path: string;
-  compress: boolean;
-}
-
 /**
- * Creates a ZIP file with selective compression for individual files.
- *
- * Allows fine-grained control over compression on a per-file basis.
- * @param outputPath - Path where the ZIP file should be created (parent directories will be created if needed)
- * @param files - Array of file configurations, each specifying the file path and whether to compress it
- * @returns Promise that resolves when ZIP creation is complete
- * @throws {Error} if file operations fail or archive creation encounters errors
+ * Compares two byte arrays for equality.
+ * @param a - First byte array
+ * @param b - Second byte array
+ * @returns Whether both arrays have identical length and content
  */
-export async function createSelectiveZip(outputPath: string, files: FileConfig[]): Promise<void> {
-  // Create the output directory if it doesn't exist
-  await fs.promises.mkdir(path.dirname(outputPath), { recursive: true });
-
-  const output = fs.createWriteStream(outputPath);
-  const archive = new ZipArchive();
-
-  // Set up event handling using a separate promise
-  const closePromise = new Promise<void>((resolve, reject) => {
-    output.on("close", resolve);
-    output.on("error", reject); // Catch output stream errors
-    archive.on("error", reject);
-    archive.on("warning", (err: ArchiverError) => {
-      if (err.code === "ENOENT") {
-        console.warn("Warning:", err);
-      } else {
-        reject(err);
-      }
-    });
-  });
-
-  // Pipe archive data to the file
-  archive.pipe(output);
-
-  // Add each file with appropriate compression
-  for (const file of files) {
-    const filename = path.basename(file.path);
-    const opts: ZipEntryData = {
-      name: filename,
-      store: !file.compress,
-    };
-    archive.file(file.path, opts);
+export function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) {
+    return false;
   }
-
-  try {
-    // Finalize the archive and wait for completion
-    await archive.finalize();
-    await closePromise;
-
-    // console.log(`ZIP created successfully: ${archive.pointer()} total bytes`);
-  } catch (error) {
-    // Clean up the output stream if there's an error
-    output.destroy();
-    throw error; // Re-throw the error for handling by the caller
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
   }
+  return true;
 }
 
 export function joinAnkiFields(fields: string[]): string {
@@ -367,6 +320,5 @@ export function stripHtml(html: string): string {
  */
 export function fieldChecksum(field: string): number {
   const stripped = stripHtml(field);
-  const digest = createHash("sha1").update(stripped, "utf8").digest("hex");
-  return Number.parseInt(digest.slice(0, 8), 16);
+  return Number.parseInt(sha1Hex(stripped).slice(0, 8), 16);
 }

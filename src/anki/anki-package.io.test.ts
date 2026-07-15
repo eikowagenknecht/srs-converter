@@ -1,6 +1,3 @@
-import { access, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-
 import { describe, expect, it } from "vitest";
 
 import { AnkiPackage } from "./anki-package";
@@ -9,16 +6,15 @@ import {
   createMultiCardPackage,
   expectFailure,
   expectSuccess,
-  getTempDir,
-  setupTempDir,
+  loadFixture,
 } from "./anki-package.fixtures";
-
-setupTempDir();
 
 describe("Import / Export", () => {
   describe("fromAnkiExport()", () => {
     it("should load valid .apkg files", async () => {
-      const result = await AnkiPackage.fromAnkiExport("./tests/fixtures/anki/empty-legacy-2.apkg");
+      const result = await AnkiPackage.fromAnkiExport(
+        await loadFixture("anki/empty-legacy-2.apkg"),
+      );
       const ankiPackage = expectSuccess(result);
 
       try {
@@ -30,7 +26,7 @@ describe("Import / Export", () => {
 
     it("should load valid .colpkg files", async () => {
       const result = await AnkiPackage.fromAnkiExport(
-        "./tests/fixtures/anki/empty-legacy-2.colpkg",
+        await loadFixture("anki/empty-legacy-2.colpkg"),
       );
       const ankiPackage = expectSuccess(result);
 
@@ -42,7 +38,7 @@ describe("Import / Export", () => {
     });
 
     it("should load modern (package version 3) exports", async () => {
-      const result = await AnkiPackage.fromAnkiExport("./tests/fixtures/anki/empty-latest.apkg");
+      const result = await AnkiPackage.fromAnkiExport(await loadFixture("anki/empty-latest.apkg"));
       const ankiPackage = expectSuccess(result);
 
       try {
@@ -52,32 +48,17 @@ describe("Import / Export", () => {
       }
     });
 
-    it("should reject corrupted .apkg files", async () => {
-      const tempDir = getTempDir();
-      const corruptedFile = join(tempDir, "corrupted.apkg");
-      await writeFile(corruptedFile, "This is not a valid zip file");
+    it("should reject corrupted (non-ZIP) input", async () => {
+      const corrupted = new TextEncoder().encode("This is not a valid zip file");
 
-      const result = await AnkiPackage.fromAnkiExport(corruptedFile);
+      const result = await AnkiPackage.fromAnkiExport(corrupted);
       expectFailure(result);
-      // Text content without ZIP magic bytes should be detected as "not a valid ZIP archive"
+      // Content without ZIP magic bytes should be detected as "not a valid ZIP archive"
       expect(result.issues[0]?.message).toMatch(/not a valid ZIP archive/iu);
     });
 
-    it("should reject invalid file extensions", async () => {
-      const tempDir = getTempDir();
-      const invalidPath = join(tempDir, "test.txt");
-      await writeFile(invalidPath, "invalid content");
-
-      const result = await AnkiPackage.fromAnkiExport(invalidPath);
-      expectFailure(result);
-      expect(result.issues[0]?.message).toMatch(/Invalid file extension.*/u);
-    });
-
-    it("should reject non-existent files", async () => {
-      const tempDir = getTempDir();
-      const nonExistentPath = join(tempDir, "nonexistent.apkg");
-
-      const result = await AnkiPackage.fromAnkiExport(nonExistentPath);
+    it("should reject empty input", async () => {
+      const result = await AnkiPackage.fromAnkiExport(new Uint8Array(0));
       expectFailure(result);
       expect(result.issues).toHaveLength(1);
     });
@@ -85,17 +66,16 @@ describe("Import / Export", () => {
 
   describe("toAnkiExport()", () => {
     it("should write back the contents of the default zip file", async () => {
-      const result = await AnkiPackage.fromAnkiExport("./tests/fixtures/anki/empty-legacy-2.apkg");
+      const result = await AnkiPackage.fromAnkiExport(
+        await loadFixture("anki/empty-legacy-2.apkg"),
+      );
       const pack = expectSuccess(result);
 
       try {
-        await pack.toAnkiExport("./out/empty-legacy-2.apkg", { legacy: true });
+        const exported = await pack.toAnkiExport({ legacy: true });
 
-        // Verify the exported file exists
-        await access("./out/empty-legacy-2.apkg"); // Will throw if file doesn't exist
-
-        // Verify the exported file can be re-imported and contains expected data
-        const reimportResult = await AnkiPackage.fromAnkiExport("./out/empty-legacy-2.apkg");
+        // Verify the exported bytes can be re-imported and contain expected data
+        const reimportResult = await AnkiPackage.fromAnkiExport(exported);
         const reimportedPackage = expectSuccess(reimportResult);
 
         try {
@@ -122,7 +102,6 @@ describe("Import / Export", () => {
     });
 
     it("should create valid .apkg files", async () => {
-      const tempDir = getTempDir();
       const { srsPackage } = createBasicSrsPackage({
         backValue: "Export Test Answer",
         deckDescription: "A test deck for export validation",
@@ -136,14 +115,10 @@ describe("Import / Export", () => {
       const ankiPackage = expectSuccess(ankiResult);
 
       try {
-        const exportPath = join(tempDir, "test-export.apkg");
-        await ankiPackage.toAnkiExport(exportPath);
+        const exported = await ankiPackage.toAnkiExport();
 
-        // Verify the exported file exists
-        await access(exportPath); // Will throw if file doesn't exist
-
-        // Verify the exported file can be re-imported
-        const reimportResult = await AnkiPackage.fromAnkiExport(exportPath);
+        // Verify the exported bytes can be re-imported
+        const reimportResult = await AnkiPackage.fromAnkiExport(exported);
         const reimportedPackage = expectSuccess(reimportResult);
 
         try {
@@ -170,57 +145,16 @@ describe("Import / Export", () => {
       }
     });
 
-    it("should handle export path creation", async () => {
-      const tempDir = getTempDir();
-      // Test that the export method creates necessary directories if they don't exist
-      const { srsPackage } = createBasicSrsPackage({
-        deckDescription: "Testing directory creation",
-        deckName: "Test Deck for Directory Creation",
-      });
-
-      const ankiResult = await AnkiPackage.fromSrsPackage(srsPackage);
-      const ankiPackage = expectSuccess(ankiResult);
-
-      try {
-        // Create a nested directory path that doesn't exist
-        const nestedDir = join(tempDir, "nested", "path", "that", "does", "not", "exist");
-        const exportPath = join(nestedDir, "test-nested.apkg");
-
-        // Export should create the directories and succeed
-        await ankiPackage.toAnkiExport(exportPath);
-
-        // Verify the exported file exists
-        await access(exportPath); // Will throw if file doesn't exist
-
-        // Verify the file can be re-imported (basic validation)
-        const reimportResult = await AnkiPackage.fromAnkiExport(exportPath);
-        const reimportedPackage = expectSuccess(reimportResult);
-        try {
-          expect(reimportedPackage.getDecks()).toHaveLength(1);
-          expect(reimportedPackage.getDecks()[0]?.name).toBe("Test Deck for Directory Creation");
-        } finally {
-          await reimportedPackage.cleanup();
-        }
-      } finally {
-        await ankiPackage.cleanup();
-      }
-    });
-
     it("should write proper meta file format", async () => {
-      const tempDir = getTempDir();
       // Test that the meta file is written with correct protobuf format and version information
       const result = await AnkiPackage.fromDefault();
       const ankiPackage = expectSuccess(result);
 
       try {
-        const exportPath = join(tempDir, "meta-test.apkg");
-        await ankiPackage.toAnkiExport(exportPath);
-
-        // Verify the exported file exists
-        await access(exportPath); // Will throw if file doesn't exist
+        const exported = await ankiPackage.toAnkiExport();
 
         // Re-import and verify the version information is preserved
-        const reimportResult = await AnkiPackage.fromAnkiExport(exportPath);
+        const reimportResult = await AnkiPackage.fromAnkiExport(exported);
         const reimportedPackage = expectSuccess(reimportResult);
 
         try {
@@ -245,20 +179,15 @@ describe("Import / Export", () => {
     });
 
     it("should write media mapping correctly", async () => {
-      const tempDir = getTempDir();
       // Test that media file mappings are preserved in export
       const result = await AnkiPackage.fromDefault();
       const ankiPackage = expectSuccess(result);
 
       try {
-        const exportPath = join(tempDir, "media-test.apkg");
-        await ankiPackage.toAnkiExport(exportPath);
-
-        // Verify the exported file exists
-        await access(exportPath); // Will throw if file doesn't exist
+        const exported = await ankiPackage.toAnkiExport();
 
         // Re-import and verify the media mapping is preserved
-        const reimportResult = await AnkiPackage.fromAnkiExport(exportPath);
+        const reimportResult = await AnkiPackage.fromAnkiExport(exported);
         const reimportedPackage = expectSuccess(reimportResult);
 
         try {
@@ -282,7 +211,6 @@ describe("Import / Export", () => {
     });
 
     it("should compress database properly", async () => {
-      const tempDir = getTempDir();
       // Test that the SQLite database is properly compressed in the export
       const srsPackage = createMultiCardPackage(10);
 
@@ -290,14 +218,10 @@ describe("Import / Export", () => {
       const ankiPackage = expectSuccess(ankiResult);
 
       try {
-        const exportPath = join(tempDir, "compression-test.apkg");
-        await ankiPackage.toAnkiExport(exportPath);
+        const exported = await ankiPackage.toAnkiExport();
 
-        // Verify the exported file exists
-        await access(exportPath); // Will throw if file doesn't exist
-
-        // Verify the file can be re-imported and contains all the data
-        const reimportResult = await AnkiPackage.fromAnkiExport(exportPath);
+        // Verify the bytes can be re-imported and contain all the data
+        const reimportResult = await AnkiPackage.fromAnkiExport(exported);
         const reimportedPackage = expectSuccess(reimportResult);
 
         try {
@@ -315,45 +239,6 @@ describe("Import / Export", () => {
           const reimportedNoteTypes = reimportedPackage.getNoteTypes();
           expect(reimportedNoteTypes).toHaveLength(1);
           expect(reimportedNoteTypes[0]?.name).toBe("Basic");
-        } finally {
-          await reimportedPackage.cleanup();
-        }
-      } finally {
-        await ankiPackage.cleanup();
-      }
-    });
-
-    it("should handle export failures gracefully", async () => {
-      const tempDir = getTempDir();
-      // Test error handling when export fails (disk full, permissions, etc.)
-      const result = await AnkiPackage.fromDefault();
-      const ankiPackage = expectSuccess(result);
-
-      try {
-        // Test with invalid export path (trying to write to a directory that exists as a file)
-        const invalidPath = join(tempDir, "invalid-path");
-        await writeFile(invalidPath, "This is a file, not a directory");
-
-        const exportPathToFile = join(invalidPath, "test.apkg"); // This should fail
-
-        // Export should handle the error gracefully
-        await expect(ankiPackage.toAnkiExport(exportPathToFile)).rejects.toThrow();
-
-        // Test with an empty string path (invalid)
-        await expect(ankiPackage.toAnkiExport("")).rejects.toThrow();
-
-        // Test that the AnkiPackage instance is still functional after failures
-        const validPath = join(tempDir, "recovery-test.apkg");
-        await ankiPackage.toAnkiExport(validPath);
-
-        // Verify the valid export worked
-        await access(validPath); // Will throw if file doesn't exist
-
-        // Verify the exported file can be re-imported
-        const reimportResult = await AnkiPackage.fromAnkiExport(validPath);
-        const reimportedPackage = expectSuccess(reimportResult);
-        try {
-          expect(reimportedPackage.getDecks()).toHaveLength(1);
         } finally {
           await reimportedPackage.cleanup();
         }

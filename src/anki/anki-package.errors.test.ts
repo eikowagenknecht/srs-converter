@@ -1,27 +1,15 @@
-import { Buffer } from "node:buffer";
-import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
-
 import { describe, expect, it } from "vitest";
 
 import { AnkiPackage } from "./anki-package";
 import {
   createAnkiDatabaseWithData,
-  createTestZip,
-  getTempDir,
+  createTestZipBytes,
   getValidAnkiDatabaseBuffer,
-  setupTempDir,
   validMetaV2,
 } from "./anki-package.fixtures";
 
-setupTempDir();
-
 describe("Error Handling and Edge Cases", () => {
   describe("File Format Validation", () => {
-    it.todo("should reject files with wrong extensions", async () => {
-      // TODO: Test rejection of non-.apkg/.colpkg files
-    });
-
     it.todo("should handle zip files without required entries", async () => {
       // TODO: Test behavior with incomplete zip archives
     });
@@ -37,11 +25,8 @@ describe("Error Handling and Edge Cases", () => {
 
   describe("Corrupted ZIP Archive Handling", () => {
     it("should detect and report truncated ZIP files with specific message", async () => {
-      const tempDir = getTempDir();
-      // Create a truncated ZIP file (valid ZIP header but incomplete)
-      const truncatedZipPath = join(tempDir, "truncated.apkg");
-      // ZIP file signature (PK\x03\x04) followed by partial local file header
-      const truncatedContent = Buffer.from([
+      // Truncated ZIP: valid ZIP header (PK\x03\x04) but incomplete
+      const truncatedContent = Uint8Array.of(
         0x50,
         0x4b,
         0x03,
@@ -53,10 +38,9 @@ describe("Error Handling and Edge Cases", () => {
         0x08,
         0x00, // Compression method (deflate)
         // Truncated - missing rest of header and data
-      ]);
-      await writeFile(truncatedZipPath, truncatedContent);
+      );
 
-      const result = await AnkiPackage.fromAnkiExport(truncatedZipPath);
+      const result = await AnkiPackage.fromAnkiExport(truncatedContent);
 
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
@@ -68,12 +52,9 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should detect and report non-ZIP files with specific message", async () => {
-      const tempDir = getTempDir();
-      // Create a text file renamed to .apkg
-      const textFilePath = join(tempDir, "not-a-zip.apkg");
-      await writeFile(textFilePath, "This is not a ZIP file, just plain text content.");
-
-      const result = await AnkiPackage.fromAnkiExport(textFilePath);
+      const result = await AnkiPackage.fromAnkiExport(
+        new TextEncoder().encode("This is not a ZIP file, just plain text content."),
+      );
 
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
@@ -85,12 +66,7 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should detect and report empty files with specific message", async () => {
-      const tempDir = getTempDir();
-      // Create an empty file
-      const emptyFilePath = join(tempDir, "empty.apkg");
-      await writeFile(emptyFilePath, Buffer.alloc(0));
-
-      const result = await AnkiPackage.fromAnkiExport(emptyFilePath);
+      const result = await AnkiPackage.fromAnkiExport(new Uint8Array(0));
 
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
@@ -102,20 +78,16 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should detect and report random binary data as invalid ZIP", async () => {
-      const tempDir = getTempDir();
-      // Create a file with random binary data (no ZIP magic bytes)
-      const binaryFilePath = join(tempDir, "random-binary.apkg");
-      // Ensure we don't accidentally create a valid ZIP signature
-      const randomBytes = Buffer.from([
+      // Random binary data with no ZIP magic bytes
+      const randomBytes = Uint8Array.from([
         0x00,
         0x01,
         0x02,
         0x03, // Not PK\x03\x04
         ...Array.from({ length: 1020 }, () => Math.floor(Math.random() * 256)),
       ]);
-      await writeFile(binaryFilePath, randomBytes);
 
-      const result = await AnkiPackage.fromAnkiExport(binaryFilePath);
+      const result = await AnkiPackage.fromAnkiExport(randomBytes);
 
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
@@ -126,12 +98,7 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should provide actionable error messages with guidance", async () => {
-      const tempDir = getTempDir();
-      // Create a non-ZIP file
-      const textFilePath = join(tempDir, "not-a-zip.apkg");
-      await writeFile(textFilePath, "Not a ZIP file");
-
-      const result = await AnkiPackage.fromAnkiExport(textFilePath);
+      const result = await AnkiPackage.fromAnkiExport(new TextEncoder().encode("Not a ZIP file"));
 
       expect(result.status).toBe("failure");
       expect(result.issues[0]?.message).toBeTruthy();
@@ -145,17 +112,15 @@ describe("Error Handling and Edge Cases", () => {
 
   describe("Missing Required Files Handling", () => {
     it("should treat a package without 'meta' but with collection.anki21 as Legacy 2", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "missing-meta.apkg");
       // Anki's own detection falls back to file presence when `meta` is
       // absent — the package must proceed to database validation, not fail
       // on the missing meta file.
-      await createTestZip(zipPath, [
-        { content: "{}", name: "media" },
-        { content: Buffer.alloc(100), name: "collection.anki21" }, // Dummy database
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: "{}", name: "media" },
+          { content: new Uint8Array(100), name: "collection.anki21" }, // Dummy database
+        ]),
+      );
 
       // The dummy database is not valid SQLite, so the failure must come
       // from database validation — proving detection accepted the package.
@@ -166,29 +131,25 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should read a package without 'meta' successfully when the database is valid", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "missing-meta-valid.apkg");
-      await createTestZip(zipPath, [
-        { content: "{}", name: "media" },
-        { content: await getValidAnkiDatabaseBuffer(), name: "collection.anki21" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: "{}", name: "media" },
+          { content: await getValidAnkiDatabaseBuffer(), name: "collection.anki21" },
+        ]),
+      );
 
       expect(result.data).toBeDefined();
       expect(result.issues.filter((issue) => issue.severity === "critical")).toHaveLength(0);
     });
 
     it("should detect and report missing media file with specific message", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "missing-media.apkg");
-      // Create ZIP with valid meta and database, but no media file
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: Buffer.alloc(100), name: "collection.anki21" }, // Dummy database
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      // ZIP with valid meta and database, but no media file
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: new Uint8Array(100), name: "collection.anki21" }, // Dummy database
+        ]),
+      );
 
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
@@ -199,15 +160,13 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should detect and report missing database file with specific message", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "missing-database.apkg");
-      // Create ZIP with valid meta and media, but no database file
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: "{}", name: "media" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      // ZIP with valid meta and media, but no database file
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: "{}", name: "media" },
+        ]),
+      );
 
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
@@ -218,12 +177,10 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should report all missing files when multiple are missing", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "missing-multiple.apkg");
-      // Create ZIP with only valid meta, missing media and database
-      await createTestZip(zipPath, [{ content: validMetaV2, name: "meta" }]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      // ZIP with only valid meta, missing media and database
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([{ content: validMetaV2, name: "meta" }]),
+      );
 
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
@@ -237,12 +194,8 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should detect empty ZIP archive and report it is not a valid Anki export", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "empty-archive.apkg");
-      // Create an empty ZIP archive
-      await createTestZip(zipPath, []);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      // An empty ZIP archive
+      const result = await AnkiPackage.fromAnkiExport(createTestZipBytes([]));
 
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
@@ -254,16 +207,14 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should provide actionable guidance for missing files", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "missing-files-guidance.apkg");
-      // Create ZIP with valid meta and database, but missing media file
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: Buffer.alloc(100), name: "collection.anki21" },
-        // Missing media file
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      // ZIP with valid meta and database, but missing media file
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: new Uint8Array(100), name: "collection.anki21" },
+          // Missing media file
+        ]),
+      );
 
       expect(result.status).toBe("failure");
       const message = result.issues[0]?.message ?? "";
@@ -278,19 +229,18 @@ describe("Error Handling and Edge Cases", () => {
 
   describe("Corrupted SQLite Database Handling", () => {
     it("should detect and report corrupted database file (random bytes) with specific message", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "corrupted-db.apkg");
-      // Create database file with random bytes (not valid SQLite)
-      const randomBytes = Buffer.from(
+      // Database file with random bytes (not valid SQLite)
+      const randomBytes = Uint8Array.from(
         Array.from({ length: 100 }, () => Math.floor(Math.random() * 256)),
       );
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: "{}", name: "media" },
-        { content: randomBytes, name: "collection.anki21" },
-      ]);
 
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: "{}", name: "media" },
+          { content: randomBytes, name: "collection.anki21" },
+        ]),
+      );
 
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
@@ -301,16 +251,14 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should detect and report empty database file with specific message", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "empty-db.apkg");
-      // Create an empty database file (0 bytes)
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: "{}", name: "media" },
-        { content: Buffer.alloc(0), name: "collection.anki21" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      // An empty database file (0 bytes)
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: "{}", name: "media" },
+          { content: new Uint8Array(0), name: "collection.anki21" },
+        ]),
+      );
 
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
@@ -321,21 +269,20 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should detect and report truncated database file with specific message", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "truncated-db.apkg");
-      // Create a truncated database file (valid SQLite header but too short)
+      // Truncated database file (valid SQLite header but too short)
       // SQLite header is "SQLite format 3\0" (16 bytes)
-      const truncatedDb = Buffer.from("SQLite format 3\0");
+      const header = new TextEncoder().encode("SQLite format 3\0");
       // Add just a few more bytes to make it seem truncated
-      const truncatedContent = Buffer.concat([truncatedDb, Buffer.alloc(10)]);
+      const truncatedContent = new Uint8Array(header.length + 10);
+      truncatedContent.set(header);
 
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: "{}", name: "media" },
-        { content: truncatedContent, name: "collection.anki21" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: "{}", name: "media" },
+          { content: truncatedContent, name: "collection.anki21" },
+        ]),
+      );
 
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
@@ -346,7 +293,6 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should detect and report database with missing required tables", async () => {
-      const tempDir = getTempDir();
       // Create a valid SQLite database but without Anki's required tables
       const sqlJsModule = await import("sql.js");
       const InitSqlJs = sqlJsModule.default;
@@ -354,16 +300,15 @@ describe("Error Handling and Edge Cases", () => {
       const emptyDb = new SQL.Database();
       // Create a simple table that is NOT an Anki table
       emptyDb.run("CREATE TABLE dummy (id INTEGER PRIMARY KEY, name TEXT)");
-      const dbBuffer = Buffer.from(emptyDb.export());
+      const dbBuffer = emptyDb.export();
 
-      const zipPath = join(tempDir, "missing-tables-db.apkg");
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: "{}", name: "media" },
-        { content: dbBuffer, name: "collection.anki21" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: "{}", name: "media" },
+          { content: dbBuffer, name: "collection.anki21" },
+        ]),
+      );
 
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
@@ -376,18 +321,16 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should detect database file that is too small to be valid SQLite", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "tiny-db.apkg");
-      // Create a file that's smaller than the SQLite header (16 bytes)
-      const tinyContent = Buffer.from("SQLite"); // Only 6 bytes
+      // A file that's smaller than the SQLite header (16 bytes)
+      const tinyContent = new TextEncoder().encode("SQLite"); // Only 6 bytes
 
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: "{}", name: "media" },
-        { content: tinyContent, name: "collection.anki21" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: "{}", name: "media" },
+          { content: tinyContent, name: "collection.anki21" },
+        ]),
+      );
 
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
@@ -398,18 +341,16 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should provide actionable guidance for corrupted database", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "corrupted-db-guidance.apkg");
-      // Create database file with invalid content
-      const invalidContent = Buffer.from("This is not a database file!");
+      // Database file with invalid content
+      const invalidContent = new TextEncoder().encode("This is not a database file!");
 
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: "{}", name: "media" },
-        { content: invalidContent, name: "collection.anki21" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: "{}", name: "media" },
+          { content: invalidContent, name: "collection.anki21" },
+        ]),
+      );
 
       expect(result.status).toBe("failure");
       const message = result.issues[0]?.message ?? "";
@@ -421,19 +362,17 @@ describe("Error Handling and Edge Cases", () => {
 
   describe("Invalid JSON in Media Metadata Handling", () => {
     it("should detect and report malformed JSON syntax in media file", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "malformed-json-media.apkg");
       const validDb = await getValidAnkiDatabaseBuffer();
-      // Create media file with invalid JSON syntax
+      // Media file with invalid JSON syntax
       const malformedJson = '{ "0": "image.png", "1": }'; // Missing value
 
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: malformedJson, name: "media" },
-        { content: validDb, name: "collection.anki21" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: malformedJson, name: "media" },
+          { content: validDb, name: "collection.anki21" },
+        ]),
+      );
 
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
@@ -444,19 +383,17 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should detect and report wrong JSON structure (array instead of object)", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "array-media.apkg");
       const validDb = await getValidAnkiDatabaseBuffer();
-      // Create media file with array instead of object
+      // Media file with array instead of object
       const arrayJson = '["image.png", "audio.mp3"]';
 
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: arrayJson, name: "media" },
-        { content: validDb, name: "collection.anki21" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: arrayJson, name: "media" },
+          { content: validDb, name: "collection.anki21" },
+        ]),
+      );
 
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
@@ -467,19 +404,17 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should handle empty media file gracefully (valid case - no media)", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "empty-media-file.apkg");
       const validDb = await getValidAnkiDatabaseBuffer();
-      // Create empty media file (0 bytes)
+      // Empty media file (0 bytes)
       const emptyContent = "";
 
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: emptyContent, name: "media" },
-        { content: validDb, name: "collection.anki21" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: emptyContent, name: "media" },
+          { content: validDb, name: "collection.anki21" },
+        ]),
+      );
 
       // Should succeed - empty media file is valid
       expect(result.status).toBe("success");
@@ -492,19 +427,17 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should handle valid empty JSON object {} (no media)", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "empty-json-object-media.apkg");
       const validDb = await getValidAnkiDatabaseBuffer();
-      // Create media file with empty JSON object
+      // Media file with empty JSON object
       const emptyObjectJson = "{}";
 
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: emptyObjectJson, name: "media" },
-        { content: validDb, name: "collection.anki21" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: emptyObjectJson, name: "media" },
+          { content: validDb, name: "collection.anki21" },
+        ]),
+      );
 
       // Should succeed - empty object is valid
       expect(result.status).toBe("success");
@@ -517,19 +450,17 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should detect invalid value type in media mapping (number instead of string)", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "invalid-value-type-media.apkg");
       const validDb = await getValidAnkiDatabaseBuffer();
-      // Create media file with number value instead of string
+      // Media file with number value instead of string
       const invalidValueJson = '{ "0": 12345 }';
 
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: invalidValueJson, name: "media" },
-        { content: validDb, name: "collection.anki21" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: invalidValueJson, name: "media" },
+          { content: validDb, name: "collection.anki21" },
+        ]),
+      );
 
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
@@ -540,19 +471,17 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should detect null value in media mapping", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "null-value-media.apkg");
       const validDb = await getValidAnkiDatabaseBuffer();
-      // Create media file with null value
+      // Media file with null value
       const nullValueJson = '{ "0": null }';
 
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: nullValueJson, name: "media" },
-        { content: validDb, name: "collection.anki21" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: nullValueJson, name: "media" },
+          { content: validDb, name: "collection.anki21" },
+        ]),
+      );
 
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
@@ -563,19 +492,17 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should provide actionable guidance for invalid media JSON", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "guidance-test-media.apkg");
       const validDb = await getValidAnkiDatabaseBuffer();
-      // Create media file with invalid JSON
+      // Media file with invalid JSON
       const brokenJson = "not valid json at all {{{";
 
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: brokenJson, name: "media" },
-        { content: validDb, name: "collection.anki21" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath);
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: brokenJson, name: "media" },
+          { content: validDb, name: "collection.anki21" },
+        ]),
+      );
 
       expect(result.status).toBe("failure");
       const message = result.issues[0]?.message ?? "";
@@ -587,9 +514,6 @@ describe("Error Handling and Edge Cases", () => {
 
   describe("Partial Data Recovery", () => {
     it("should return partial status with valid and invalid notes (best-effort mode)", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "partial-notes.apkg");
-
       // Create database with 2 valid notes and 1 note referencing non-existent note type
       const validDb = await createAnkiDatabaseWithData({
         cards: [
@@ -602,32 +526,33 @@ describe("Error Handling and Edge Cases", () => {
             id: 1000,
             guid: "valid1",
             mid: 1_234_567_890_123, // Valid note type
-            flds: "Front 1\u001FBack 1",
+            flds: "Front 1Back 1",
           },
           {
             id: 2000,
             guid: "valid2",
             mid: 1_234_567_890_123, // Valid note type
-            flds: "Front 2\u001FBack 2",
+            flds: "Front 2Back 2",
           },
           {
             id: 3000,
             guid: "invalid",
             mid: 9_999_999_999_999, // Non-existent note type
-            flds: "Invalid\u001FNote",
+            flds: "InvalidNote",
           },
         ],
       });
 
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: "{}", name: "media" },
-        { content: validDb, name: "collection.anki21" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath, {
-        errorHandling: "best-effort",
-      });
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: "{}", name: "media" },
+          { content: validDb, name: "collection.anki21" },
+        ]),
+        {
+          errorHandling: "best-effort",
+        },
+      );
 
       expect(result.status).toBe("partial");
       expect(result.data).toBeDefined();
@@ -652,15 +577,12 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should return failure status in strict mode with recoverable errors", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "strict-mode.apkg");
-
       // Create database with a note referencing non-existent note type
       const validDb = await createAnkiDatabaseWithData({
         cards: [{ did: 1, id: 100, nid: 1000 }],
         notes: [
           {
-            flds: "Front\u001FBack",
+            flds: "FrontBack",
             guid: "valid",
             id: 1000,
             mid: 1_234_567_890_123,
@@ -669,20 +591,21 @@ describe("Error Handling and Edge Cases", () => {
             id: 2000,
             guid: "invalid",
             mid: 9_999_999_999_999, // Non-existent note type
-            flds: "Invalid\u001FNote",
+            flds: "InvalidNote",
           },
         ],
       });
 
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: "{}", name: "media" },
-        { content: validDb, name: "collection.anki21" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath, {
-        errorHandling: "strict",
-      });
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: "{}", name: "media" },
+          { content: validDb, name: "collection.anki21" },
+        ]),
+        {
+          errorHandling: "strict",
+        },
+      );
 
       expect(result.status).toBe("failure");
       expect(result.data).toBeUndefined();
@@ -695,9 +618,6 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should skip cards referencing non-existent decks", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "missing-deck-ref.apkg");
-
       // Create database with card referencing non-existent deck
       const validDb = await createAnkiDatabaseWithData({
         cards: [
@@ -706,7 +626,7 @@ describe("Error Handling and Edge Cases", () => {
         ],
         notes: [
           {
-            flds: "Front\u001FBack",
+            flds: "FrontBack",
             guid: "note1",
             id: 1000,
             mid: 1_234_567_890_123,
@@ -714,15 +634,16 @@ describe("Error Handling and Edge Cases", () => {
         ],
       });
 
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: "{}", name: "media" },
-        { content: validDb, name: "collection.anki21" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath, {
-        errorHandling: "best-effort",
-      });
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: "{}", name: "media" },
+          { content: validDb, name: "collection.anki21" },
+        ]),
+        {
+          errorHandling: "best-effort",
+        },
+      );
 
       expect(result.status).toBe("partial");
       expect(result.data).toBeDefined();
@@ -741,15 +662,12 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should skip reviews referencing non-existent cards", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "missing-card-ref.apkg");
-
       // Create database with review referencing non-existent card
       const validDb = await createAnkiDatabaseWithData({
         cards: [{ did: 1, id: 100, nid: 1000 }],
         notes: [
           {
-            flds: "Front\u001FBack",
+            flds: "FrontBack",
             guid: "note1",
             id: 1000,
             mid: 1_234_567_890_123,
@@ -761,15 +679,16 @@ describe("Error Handling and Edge Cases", () => {
         ],
       });
 
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: "{}", name: "media" },
-        { content: validDb, name: "collection.anki21" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath, {
-        errorHandling: "best-effort",
-      });
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: "{}", name: "media" },
+          { content: validDb, name: "collection.anki21" },
+        ]),
+        {
+          errorHandling: "best-effort",
+        },
+      );
 
       expect(result.status).toBe("partial");
       expect(result.data).toBeDefined();
@@ -786,9 +705,6 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should report all issues in the result", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "multiple-issues.apkg");
-
       // Create database with multiple types of issues
       const validDb = await createAnkiDatabaseWithData({
         cards: [
@@ -798,13 +714,13 @@ describe("Error Handling and Edge Cases", () => {
         ],
         notes: [
           {
-            flds: "Front\u001FBack",
+            flds: "FrontBack",
             guid: "valid",
             id: 1000,
             mid: 1_234_567_890_123,
           },
           {
-            flds: "Bad\u001FNote",
+            flds: "BadNote",
             guid: "invalid-model",
             id: 2000,
             mid: 8_888_888_888_888,
@@ -817,15 +733,16 @@ describe("Error Handling and Edge Cases", () => {
         ],
       });
 
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: "{}", name: "media" },
-        { content: validDb, name: "collection.anki21" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath, {
-        errorHandling: "best-effort",
-      });
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: "{}", name: "media" },
+          { content: validDb, name: "collection.anki21" },
+        ]),
+        {
+          errorHandling: "best-effort",
+        },
+      );
 
       expect(result.status).toBe("partial");
       expect(result.data).toBeDefined();
@@ -841,9 +758,6 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should warn about missing media files", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "missing-media-files.apkg");
-
       // Create a valid database
       const validDb = await createAnkiDatabaseWithData({});
 
@@ -853,16 +767,17 @@ describe("Error Handling and Edge Cases", () => {
         "1": "audio.mp3",
       });
 
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: mediaMapping, name: "media" },
-        { content: validDb, name: "collection.anki21" },
-        // Note: NOT including the actual media files "0" and "1"
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath, {
-        errorHandling: "best-effort",
-      });
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: mediaMapping, name: "media" },
+          { content: validDb, name: "collection.anki21" },
+          // Note: NOT including the actual media files "0" and "1"
+        ]),
+        {
+          errorHandling: "best-effort",
+        },
+      );
 
       // Should succeed (missing media is just a warning)
       expect(["success", "partial"]).toContain(result.status);
@@ -878,15 +793,12 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should return success when there are no issues", async () => {
-      const tempDir = getTempDir();
-      const zipPath = join(tempDir, "clean-package.apkg");
-
       // Create a completely valid database
       const validDb = await createAnkiDatabaseWithData({
         cards: [{ did: 1, id: 100, nid: 1000 }],
         notes: [
           {
-            flds: "Front 1\u001FBack 1",
+            flds: "Front 1Back 1",
             guid: "note1",
             id: 1000,
             mid: 1_234_567_890_123,
@@ -895,15 +807,16 @@ describe("Error Handling and Edge Cases", () => {
         reviews: [{ cid: 100, id: 1001 }],
       });
 
-      await createTestZip(zipPath, [
-        { content: validMetaV2, name: "meta" },
-        { content: "{}", name: "media" },
-        { content: validDb, name: "collection.anki21" },
-      ]);
-
-      const result = await AnkiPackage.fromAnkiExport(zipPath, {
-        errorHandling: "best-effort",
-      });
+      const result = await AnkiPackage.fromAnkiExport(
+        createTestZipBytes([
+          { content: validMetaV2, name: "meta" },
+          { content: "{}", name: "media" },
+          { content: validDb, name: "collection.anki21" },
+        ]),
+        {
+          errorHandling: "best-effort",
+        },
+      );
 
       expect(result.status).toBe("success");
       expect(result.data).toBeDefined();
@@ -1054,21 +967,16 @@ describe("Error Handling and Edge Cases", () => {
       // TODO: Test schema migration handling
     });
 
-    async function detectVersionOf(
-      zipName: string,
-      files: { content: string | Buffer; name: string }[],
-    ) {
-      const zipPath = join(getTempDir(), zipName);
-      await createTestZip(zipPath, files);
-      return await AnkiPackage.fromAnkiExport(zipPath);
+    async function detectVersionOf(files: { content: string | Uint8Array; name: string }[]) {
+      return await AnkiPackage.fromAnkiExport(createTestZipBytes(files));
     }
 
     it("should report a modern package whose database is not valid zstd", async () => {
       // Protobuf meta: field 1 (varint) = 3, but the database is garbage
-      const result = await detectVersionOf("modern-corrupt.apkg", [
-        { content: Buffer.from([0x08, 0x03]), name: "meta" },
+      const result = await detectVersionOf([
+        { content: Uint8Array.of(0x08, 0x03), name: "meta" },
         { content: "{}", name: "media" },
-        { content: Buffer.alloc(100), name: "collection.anki21b" },
+        { content: new Uint8Array(100), name: "collection.anki21b" },
       ]);
 
       expect(result.status).toBe("failure");
@@ -1078,8 +986,8 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should report a modern package missing its database", async () => {
-      const result = await detectVersionOf("modern-missing-db.apkg", [
-        { content: Buffer.from([0x08, 0x03]), name: "meta" },
+      const result = await detectVersionOf([
+        { content: Uint8Array.of(0x08, 0x03), name: "meta" },
         { content: "{}", name: "media" },
       ]);
 
@@ -1089,10 +997,10 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should reject Legacy 1 exports (meta version 1) with re-export guidance", async () => {
-      const result = await detectVersionOf("legacy1.apkg", [
-        { content: Buffer.from([0x08, 0x01]), name: "meta" },
+      const result = await detectVersionOf([
+        { content: Uint8Array.of(0x08, 0x01), name: "meta" },
         { content: "{}", name: "media" },
-        { content: Buffer.alloc(100), name: "collection.anki2" },
+        { content: new Uint8Array(100), name: "collection.anki2" },
       ]);
 
       expect(result.status).toBe("failure");
@@ -1102,9 +1010,9 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should detect Legacy 1 via file presence when 'meta' is absent", async () => {
-      const result = await detectVersionOf("legacy1-no-meta.apkg", [
+      const result = await detectVersionOf([
         { content: "{}", name: "media" },
-        { content: Buffer.alloc(100), name: "collection.anki2" },
+        { content: new Uint8Array(100), name: "collection.anki2" },
       ]);
 
       expect(result.status).toBe("failure");
@@ -1114,8 +1022,8 @@ describe("Error Handling and Edge Cases", () => {
 
     it("should report unrecognized future versions with the version number", async () => {
       // Protobuf meta: field 1 (varint) = 99
-      const result = await detectVersionOf("future.apkg", [
-        { content: Buffer.from([0x08, 0x63]), name: "meta" },
+      const result = await detectVersionOf([
+        { content: Uint8Array.of(0x08, 0x63), name: "meta" },
         { content: "{}", name: "media" },
       ]);
 
@@ -1125,8 +1033,8 @@ describe("Error Handling and Edge Cases", () => {
     });
 
     it("should treat an explicit version 0 as unrecognized", async () => {
-      const result = await detectVersionOf("version-zero.apkg", [
-        { content: Buffer.from([0x08, 0x00]), name: "meta" },
+      const result = await detectVersionOf([
+        { content: Uint8Array.of(0x08, 0x00), name: "meta" },
         { content: "{}", name: "media" },
       ]);
 
@@ -1137,10 +1045,10 @@ describe("Error Handling and Edge Cases", () => {
 
     it("should report an unparsable 'meta' file as corrupted", async () => {
       // 0xff opens a varint that never terminates — invalid wire data
-      const result = await detectVersionOf("garbage-meta.apkg", [
-        { content: Buffer.from([0xff, 0xff, 0xff]), name: "meta" },
+      const result = await detectVersionOf([
+        { content: Uint8Array.of(0xff, 0xff, 0xff), name: "meta" },
         { content: "{}", name: "media" },
-        { content: Buffer.alloc(100), name: "collection.anki21" },
+        { content: new Uint8Array(100), name: "collection.anki21" },
       ]);
 
       expect(result.status).toBe("failure");

@@ -10,10 +10,13 @@ Load an Anki deck file without converting it to the universal format.
 **Output**: `AnkiPackage` object with access to raw Anki data
 
 ```typescript
+import { readFile } from "node:fs/promises";
+
 import { AnkiPackage } from "srs-converter";
 
-// Load an Anki .apkg/.colpkg file
-const result = await AnkiPackage.fromAnkiExport("./path/to/deck.apkg");
+// Read the .apkg/.colpkg file's bytes, then hand them to the parser.
+const data = new Uint8Array(await readFile("./path/to/deck.apkg"));
+const result = await AnkiPackage.fromAnkiExport(data);
 
 switch (result.status) {
   case "success":
@@ -49,11 +52,14 @@ switch (result.status) {
 Here's a complete example that loads an Anki package and extracts some information:
 
 ```typescript
+import { readFile } from "node:fs/promises";
+
 import { AnkiPackage } from "srs-converter";
 
 console.log(`Analyzing: ${filePath}`);
 
-const result = await AnkiPackage.fromAnkiExport(filePath);
+const data = new Uint8Array(await readFile(filePath));
+const result = await AnkiPackage.fromAnkiExport(data);
 
 if (result.status === "failure") {
   console.error(
@@ -106,10 +112,12 @@ Anki packages can contain media files (e.g., images, audio, video).
 You can list and retrieve these files using the media file APIs:
 
 ```typescript
-import { AnkiPackage } from "srs-converter";
-import { createWriteStream } from "node:fs";
+import { readFile, writeFile } from "node:fs/promises";
 
-const result = await AnkiPackage.fromAnkiExport("./deck-with-media.apkg");
+import { AnkiPackage } from "srs-converter";
+
+const data = new Uint8Array(await readFile("./deck-with-media.apkg"));
+const result = await AnkiPackage.fromAnkiExport(data);
 
 if (result.status === "failure") {
   console.error("Failed to load package");
@@ -127,24 +135,18 @@ for (const filename of mediaFiles) {
   const size = await ankiPackage.getMediaFileSize(filename);
   console.log(`${filename}: ${size} bytes`);
 
-  // Stream the file content
-  const stream = ankiPackage.getMediaFile(filename);
+  // Get the file content as bytes
+  const bytes = await ankiPackage.getMediaFile(filename);
 
   // Example: Save to disk
-  const writeStream = createWriteStream(`./output/${filename}`);
-  stream.pipe(writeStream);
-
-  await new Promise((resolve, reject) => {
-    writeStream.on("finish", resolve);
-    writeStream.on("error", reject);
-  });
+  await writeFile(`./output/${filename}`, bytes);
 }
 
 console.log("Media files extracted successfully");
 ```
 
-The `getMediaFile()` method returns a Node.js ReadableStream for memory-efficient handling of large files.
-You can pipe it to a file, process it in chunks, or convert it to a buffer.
+The `getMediaFile()` method returns the file's contents as a `Uint8Array`.
+In Node you can write it straight to disk with `writeFile`; in the browser you can wrap it in a `Blob` or object URL.
 
 > 📋 **Test:** This example is tested in [`anki/README.test.ts`](README.test.ts) - "should list and retrieve media files from an Anki package"
 

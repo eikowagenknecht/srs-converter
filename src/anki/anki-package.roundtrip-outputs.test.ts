@@ -1,9 +1,10 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import { AnkiPackage } from "./anki-package";
+import { loadFixture } from "./anki-package.fixtures";
 
 /**
  * Produces the ADR-0016 four-direction round-trip outputs under
@@ -13,7 +14,8 @@ import { AnkiPackage } from "./anki-package";
  * happens in the CI step.
  */
 
-const CORPUS = "tests/fixtures/anki/corpus";
+// loadFixture resolves relative to tests/fixtures/, so the corpus prefix omits it.
+const CORPUS = "anki/corpus";
 const OUT = "out/roundtrip";
 
 const DIRECTIONS = [
@@ -27,7 +29,7 @@ describe("round-trip output matrix (Story 1.3.10)", () => {
   it.each(DIRECTIONS)("produces $output from $source", async ({ source, legacy, output }) => {
     await mkdir(OUT, { recursive: true });
 
-    const sourceResult = await AnkiPackage.fromAnkiExport(join(CORPUS, source));
+    const sourceResult = await AnkiPackage.fromAnkiExport(await loadFixture(join(CORPUS, source)));
     const sourcePackage = sourceResult.data;
     expect(sourcePackage, `reading ${source}`).toBeDefined();
     if (!sourcePackage) {
@@ -47,11 +49,12 @@ describe("round-trip output matrix (Story 1.3.10)", () => {
       if (!written) {
         return;
       }
-      const outPath = join(OUT, output);
-      await written.toAnkiExport(outPath, { legacy });
+      // Write the .apkg to disk so a later CI job can import it with real Anki.
+      const outBytes = await written.toAnkiExport({ legacy });
+      await writeFile(join(OUT, output), outBytes);
 
       // Sanity: our own reader accepts the output without critical issues.
-      const rereadResult = await AnkiPackage.fromAnkiExport(outPath);
+      const rereadResult = await AnkiPackage.fromAnkiExport(outBytes);
       expect(
         rereadResult.issues.filter((issue) => issue.severity === "critical"),
         `re-reading ${output}`,

@@ -261,13 +261,14 @@ const completeDeck = createCompleteDeckStructure({
 ## Media Files
 
 An `SrsPackage` can also carry media files (images, audio) that its notes
-reference. The API mirrors `AnkiPackage`: `addMediaFile(filename, source)`
-(source may be a file path, `Buffer`, or `Readable`), `getMediaFile(filename)`,
+reference. The API mirrors `AnkiPackage`: `addMediaFile(filename, data)` (where
+`data` is a `Uint8Array`), `getMediaFile(filename)` (returns a `Uint8Array`),
 `getMediaFileSize(filename)`, `listMediaFiles()`, and `removeMediaFile(filename)`.
-Media is stored in a temporary directory owned by the package, so once you are
-done you must call `await srsPackage.cleanup()` to release it. Converting to
-another format copies the media across, so the source and target packages have
-independent lifetimes and each must be cleaned up by its owner.
+The media is held in a storage backend owned by the package (by default a
+temporary directory on Node, in memory in browsers), so once you are done you
+must call `await srsPackage.cleanup()` to release it.
+Converting to another format copies the media across, so the source and target
+packages have independent lifetimes and each must be cleaned up by its owner.
 
 ## Application-Specific Data
 

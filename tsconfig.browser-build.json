@@ -1,0 +1,13 @@
+{
+  // Used only by tsdown's browser bundle (see tsdown.config.ts): overrides
+  // the #platform mapping so the browser implementation is bundled. tsc and
+  // vitest keep resolving #platform to the Node implementation via
+  // tsconfig.json.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "#platform": ["./src/platform/browser.ts"]
+    }
+  }
+}

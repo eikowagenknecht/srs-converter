@@ -1,20 +1,16 @@
-import { Buffer } from "node:buffer";
-
 import { describe, expect, it } from "vitest";
 
 import { AnkiPackage } from "./anki-package";
-import { createTestAnkiNote, expectSuccess, setupTempDir } from "./anki-package.fixtures";
+import { createTestAnkiNote, expectSuccess, loadFixture } from "./anki-package.fixtures";
 import { basicModel } from "./constants";
 
-setupTempDir();
-
 describe("Media File APIs", () => {
-  const MEDIA_PACKAGE_PATH = "tests/fixtures/anki/mixed-legacy-2.apkg";
+  const MEDIA_FIXTURE = "anki/mixed-legacy-2.apkg";
   const EXPECTED_FILENAME = "paste-ab21b25dd3e4ba4af2a1d8bdfa4c47455e53abac.jpg";
 
   describe("listMediaFiles()", () => {
     it("should return list of media filenames", async () => {
-      const result = await AnkiPackage.fromAnkiExport(MEDIA_PACKAGE_PATH);
+      const result = await AnkiPackage.fromAnkiExport(await loadFixture(MEDIA_FIXTURE));
       const pkg = expectSuccess(result);
 
       try {
@@ -45,7 +41,7 @@ describe("Media File APIs", () => {
 
   describe("getMediaFileSize()", () => {
     it("should return correct size for existing media file", async () => {
-      const result = await AnkiPackage.fromAnkiExport(MEDIA_PACKAGE_PATH);
+      const result = await AnkiPackage.fromAnkiExport(await loadFixture(MEDIA_FIXTURE));
       const pkg = expectSuccess(result);
 
       try {
@@ -58,7 +54,7 @@ describe("Media File APIs", () => {
     });
 
     it("should throw error for non-existent media file", async () => {
-      const result = await AnkiPackage.fromAnkiExport(MEDIA_PACKAGE_PATH);
+      const result = await AnkiPackage.fromAnkiExport(await loadFixture(MEDIA_FIXTURE));
       const pkg = expectSuccess(result);
 
       try {
@@ -72,37 +68,30 @@ describe("Media File APIs", () => {
   });
 
   describe("getMediaFile()", () => {
-    it("should return ReadableStream for media file", async () => {
-      const result = await AnkiPackage.fromAnkiExport(MEDIA_PACKAGE_PATH);
+    it("should return bytes for media file", async () => {
+      const result = await AnkiPackage.fromAnkiExport(await loadFixture(MEDIA_FIXTURE));
       const pkg = expectSuccess(result);
 
       try {
-        const stream = pkg.getMediaFile(EXPECTED_FILENAME);
+        const bytes = await pkg.getMediaFile(EXPECTED_FILENAME);
 
-        // Read the stream into memory to verify content
-        const chunks: Buffer[] = [];
-        for await (const chunk of stream) {
-          chunks.push(chunk as Buffer);
-        }
-
-        const buffer = Buffer.concat(chunks);
-        expect(buffer.length).toBe(10_701); // Known size
+        expect(bytes.length).toBe(10_701); // Known size
 
         // Verify it's a valid JPEG by checking magic bytes
-        expect(buffer[0]).toBe(0xff);
-        expect(buffer[1]).toBe(0xd8);
-        expect(buffer[2]).toBe(0xff);
+        expect(bytes[0]).toBe(0xff);
+        expect(bytes[1]).toBe(0xd8);
+        expect(bytes[2]).toBe(0xff);
       } finally {
         await pkg.cleanup();
       }
     });
 
     it("should throw error for non-existent media file", async () => {
-      const result = await AnkiPackage.fromAnkiExport(MEDIA_PACKAGE_PATH);
+      const result = await AnkiPackage.fromAnkiExport(await loadFixture(MEDIA_FIXTURE));
       const pkg = expectSuccess(result);
 
       try {
-        expect(() => pkg.getMediaFile("non-existent-file.jpg")).toThrow(
+        await expect(pkg.getMediaFile("non-existent-file.jpg")).rejects.toThrow(
           "Media file 'non-existent-file.jpg' not found in package",
         );
       } finally {
@@ -112,16 +101,16 @@ describe("Media File APIs", () => {
   });
 
   describe("addMediaFile()", () => {
-    const TEST_IMAGE_PATH = "tests/fixtures/media/image.png";
+    const TEST_IMAGE_FIXTURE = "media/image.png";
     const TEST_IMAGE_NAME = "test-image.png";
 
-    it("should add media file from file path", async () => {
+    it("should add media file", async () => {
       const result = await AnkiPackage.fromDefault();
       const pkg = expectSuccess(result);
 
       try {
         // Add the media file
-        await pkg.addMediaFile(TEST_IMAGE_NAME, TEST_IMAGE_PATH);
+        await pkg.addMediaFile(TEST_IMAGE_NAME, await loadFixture(TEST_IMAGE_FIXTURE));
 
         // Verify it's in the list
         const mediaFiles = pkg.listMediaFiles();
@@ -136,49 +125,22 @@ describe("Media File APIs", () => {
       }
     });
 
-    it("should add media file from Buffer", async () => {
+    it("should add media file from bytes", async () => {
       const result = await AnkiPackage.fromDefault();
       const pkg = expectSuccess(result);
 
       try {
-        const buffer = Buffer.from("test content");
-        await pkg.addMediaFile("test-buffer.txt", buffer);
+        const content = new TextEncoder().encode("test content");
+        await pkg.addMediaFile("test-bytes.txt", content);
 
         // Verify it's in the list
         const mediaFiles = pkg.listMediaFiles();
-        expect(mediaFiles).toContain("test-buffer.txt");
+        expect(mediaFiles).toContain("test-bytes.txt");
 
         // Verify content is correct
-        const stream = pkg.getMediaFile("test-buffer.txt");
-        const chunks: Buffer[] = [];
-        for await (const chunk of stream) {
-          chunks.push(chunk as Buffer);
-        }
-        const retrievedBuffer = Buffer.concat(chunks);
-        expect(retrievedBuffer.toString()).toBe("test content");
-      } finally {
-        await pkg.cleanup();
-      }
-    });
-
-    it("should add media file from Readable stream", async () => {
-      const result = await AnkiPackage.fromDefault();
-      const pkg = expectSuccess(result);
-
-      try {
-        const { createReadStream } = await import("node:fs");
-        const stream = createReadStream(TEST_IMAGE_PATH);
-        await pkg.addMediaFile("stream-image.png", stream);
-
-        // Verify it's in the list
-        const mediaFiles = pkg.listMediaFiles();
-        expect(mediaFiles).toContain("stream-image.png");
-
-        // Verify size matches original
-        const size = await pkg.getMediaFileSize("stream-image.png");
-        const { stat } = await import("node:fs/promises");
-        const originalStats = await stat(TEST_IMAGE_PATH);
-        expect(size).toBe(originalStats.size);
+        const retrieved = await pkg.getMediaFile("test-bytes.txt");
+        expect(retrieved).toEqual(content);
+        expect(new TextDecoder().decode(retrieved)).toBe("test content");
       } finally {
         await pkg.cleanup();
       }
@@ -189,25 +151,12 @@ describe("Media File APIs", () => {
       const pkg = expectSuccess(result);
 
       try {
-        const buffer = Buffer.from("content");
-        await pkg.addMediaFile("duplicate.txt", buffer);
+        const content = new TextEncoder().encode("content");
+        await pkg.addMediaFile("duplicate.txt", content);
 
         // Try to add the same filename again
-        await expect(pkg.addMediaFile("duplicate.txt", buffer)).rejects.toThrow(
+        await expect(pkg.addMediaFile("duplicate.txt", content)).rejects.toThrow(
           "Media file 'duplicate.txt' already exists in package",
-        );
-      } finally {
-        await pkg.cleanup();
-      }
-    });
-
-    it("should throw error for non-existent source file path", async () => {
-      const result = await AnkiPackage.fromDefault();
-      const pkg = expectSuccess(result);
-
-      try {
-        await expect(pkg.addMediaFile("test.txt", "/non/existent/path.txt")).rejects.toThrow(
-          "Failed to add media file 'test.txt'",
         );
       } finally {
         await pkg.cleanup();
@@ -220,9 +169,9 @@ describe("Media File APIs", () => {
 
       try {
         // Add three files
-        await pkg.addMediaFile("file1.txt", Buffer.from("content1"));
-        await pkg.addMediaFile("file2.txt", Buffer.from("content2"));
-        await pkg.addMediaFile("file3.txt", Buffer.from("content3"));
+        await pkg.addMediaFile("file1.txt", new TextEncoder().encode("content1"));
+        await pkg.addMediaFile("file2.txt", new TextEncoder().encode("content2"));
+        await pkg.addMediaFile("file3.txt", new TextEncoder().encode("content3"));
 
         // All three should be in the list
         const mediaFiles = pkg.listMediaFiles();
@@ -241,14 +190,14 @@ describe("Media File APIs", () => {
 
       try {
         // Add a media file
-        await pkg.addMediaFile(TEST_IMAGE_NAME, TEST_IMAGE_PATH);
+        const imageBytes = await loadFixture(TEST_IMAGE_FIXTURE);
+        await pkg.addMediaFile(TEST_IMAGE_NAME, imageBytes);
 
-        // Export to file
-        const exportPath = "out/test-with-added-media.apkg";
-        await pkg.toAnkiExport(exportPath, { legacy: true });
+        // Export to bytes
+        const exported = await pkg.toAnkiExport({ legacy: true });
 
         // Re-read the exported package
-        const reimportResult = await AnkiPackage.fromAnkiExport(exportPath);
+        const reimportResult = await AnkiPackage.fromAnkiExport(exported);
         const reimportedPkg = expectSuccess(reimportResult);
 
         try {
@@ -257,10 +206,8 @@ describe("Media File APIs", () => {
           expect(mediaFiles).toContain(TEST_IMAGE_NAME);
 
           // Verify content matches
-          const fsPromises = await import("node:fs/promises");
-          const originalStats = await fsPromises.stat(TEST_IMAGE_PATH);
           const reimportedSize = await reimportedPkg.getMediaFileSize(TEST_IMAGE_NAME);
-          expect(reimportedSize).toBe(originalStats.size);
+          expect(reimportedSize).toBe(imageBytes.length);
         } finally {
           await reimportedPkg.cleanup();
         }
@@ -270,7 +217,7 @@ describe("Media File APIs", () => {
     });
 
     it("should work with packages that already have media", async () => {
-      const result = await AnkiPackage.fromAnkiExport(MEDIA_PACKAGE_PATH);
+      const result = await AnkiPackage.fromAnkiExport(await loadFixture(MEDIA_FIXTURE));
       const pkg = expectSuccess(result);
 
       try {
@@ -279,7 +226,7 @@ describe("Media File APIs", () => {
         expect(initialFiles).toHaveLength(1);
 
         // Add another media file
-        await pkg.addMediaFile("new-file.txt", Buffer.from("new content"));
+        await pkg.addMediaFile("new-file.txt", new TextEncoder().encode("new content"));
 
         // Now should have two
         const updatedFiles = pkg.listMediaFiles();
@@ -293,7 +240,7 @@ describe("Media File APIs", () => {
   });
 
   describe("removeMediaFile()", () => {
-    const TEST_IMAGE_PATH = "tests/fixtures/media/image.png";
+    const TEST_IMAGE_FIXTURE = "media/image.png";
     const TEST_IMAGE_NAME = "test-image.png";
 
     it("should remove an existing media file", async () => {
@@ -302,7 +249,7 @@ describe("Media File APIs", () => {
 
       try {
         // Add a media file
-        await pkg.addMediaFile(TEST_IMAGE_NAME, TEST_IMAGE_PATH);
+        await pkg.addMediaFile(TEST_IMAGE_NAME, await loadFixture(TEST_IMAGE_FIXTURE));
 
         // Verify it's there
         let mediaFiles = pkg.listMediaFiles();
@@ -334,13 +281,13 @@ describe("Media File APIs", () => {
       }
     });
 
-    it("should remove file from disk", async () => {
+    it("should remove file from the backing store", async () => {
       const result = await AnkiPackage.fromDefault();
       const pkg = expectSuccess(result);
 
       try {
         // Add a media file
-        await pkg.addMediaFile(TEST_IMAGE_NAME, TEST_IMAGE_PATH);
+        await pkg.addMediaFile(TEST_IMAGE_NAME, await loadFixture(TEST_IMAGE_FIXTURE));
 
         // Verify we can access it (test image is 21053 bytes)
         const size = await pkg.getMediaFileSize(TEST_IMAGE_NAME);
@@ -364,18 +311,17 @@ describe("Media File APIs", () => {
 
       try {
         // Add two media files
-        await pkg.addMediaFile(TEST_IMAGE_NAME, TEST_IMAGE_PATH);
-        await pkg.addMediaFile("keep-this.txt", Buffer.from("keep this content"));
+        await pkg.addMediaFile(TEST_IMAGE_NAME, await loadFixture(TEST_IMAGE_FIXTURE));
+        await pkg.addMediaFile("keep-this.txt", new TextEncoder().encode("keep this content"));
 
         // Remove one
         await pkg.removeMediaFile(TEST_IMAGE_NAME);
 
-        // Export to file
-        const exportPath = "out/test-with-removed-media.apkg";
-        await pkg.toAnkiExport(exportPath, { legacy: true });
+        // Export to bytes
+        const exported = await pkg.toAnkiExport({ legacy: true });
 
         // Re-read the exported package
-        const reimportResult = await AnkiPackage.fromAnkiExport(exportPath);
+        const reimportResult = await AnkiPackage.fromAnkiExport(exported);
         const reimportedPkg = expectSuccess(reimportResult);
 
         try {
@@ -393,7 +339,7 @@ describe("Media File APIs", () => {
     });
 
     it("should work with packages loaded from file", async () => {
-      const result = await AnkiPackage.fromAnkiExport(MEDIA_PACKAGE_PATH);
+      const result = await AnkiPackage.fromAnkiExport(await loadFixture(MEDIA_FIXTURE));
       const pkg = expectSuccess(result);
 
       try {
@@ -420,9 +366,9 @@ describe("Media File APIs", () => {
 
       try {
         // Add three files
-        await pkg.addMediaFile("file1.txt", Buffer.from("content1"));
-        await pkg.addMediaFile("file2.txt", Buffer.from("content2"));
-        await pkg.addMediaFile("file3.txt", Buffer.from("content3"));
+        await pkg.addMediaFile("file1.txt", new TextEncoder().encode("content1"));
+        await pkg.addMediaFile("file2.txt", new TextEncoder().encode("content2"));
+        await pkg.addMediaFile("file3.txt", new TextEncoder().encode("content3"));
 
         // Verify all are present
         let mediaFiles = pkg.listMediaFiles();
@@ -456,7 +402,7 @@ describe("Media File APIs", () => {
 
       try {
         // Add a file
-        await pkg.addMediaFile(TEST_IMAGE_NAME, TEST_IMAGE_PATH);
+        await pkg.addMediaFile(TEST_IMAGE_NAME, await loadFixture(TEST_IMAGE_FIXTURE));
 
         // Remove it once (should succeed)
         await pkg.removeMediaFile(TEST_IMAGE_NAME);
@@ -476,14 +422,14 @@ describe("Media File APIs", () => {
 
       try {
         // Add a file
-        await pkg.addMediaFile(TEST_IMAGE_NAME, TEST_IMAGE_PATH);
+        await pkg.addMediaFile(TEST_IMAGE_NAME, await loadFixture(TEST_IMAGE_FIXTURE));
         const originalSize = await pkg.getMediaFileSize(TEST_IMAGE_NAME);
 
         // Remove it
         await pkg.removeMediaFile(TEST_IMAGE_NAME);
 
         // Add a different file with the same name
-        const newContent = Buffer.from("new content with same name");
+        const newContent = new TextEncoder().encode("new content with same name");
         await pkg.addMediaFile(TEST_IMAGE_NAME, newContent);
 
         // Verify the new file is present
@@ -501,9 +447,9 @@ describe("Media File APIs", () => {
   });
 
   describe("removeUnreferencedMediaFiles()", () => {
-    const TEST_IMAGE_PATH = "tests/fixtures/media/image.png";
-    const TEST_AUDIO_PATH = "tests/fixtures/media/audio.mp3";
-    const TEST_VIDEO_PATH = "tests/fixtures/media/video.mp4"; // Anki uses [sound:] for video too
+    const TEST_IMAGE_FIXTURE = "media/image.png";
+    const TEST_AUDIO_FIXTURE = "media/audio.mp3";
+    const TEST_VIDEO_FIXTURE = "media/video.mp4"; // Anki uses [sound:] for video too
 
     it("should remove unreferenced media files", async () => {
       const result = await AnkiPackage.fromDefault();
@@ -511,9 +457,11 @@ describe("Media File APIs", () => {
 
       try {
         // Add media files
-        await pkg.addMediaFile("referenced-image.png", TEST_IMAGE_PATH);
-        await pkg.addMediaFile("unreferenced.png", TEST_IMAGE_PATH);
-        await pkg.addMediaFile("referenced-sound.mp3", TEST_AUDIO_PATH);
+        const image = await loadFixture(TEST_IMAGE_FIXTURE);
+        const audio = await loadFixture(TEST_AUDIO_FIXTURE);
+        await pkg.addMediaFile("referenced-image.png", image);
+        await pkg.addMediaFile("unreferenced.png", image);
+        await pkg.addMediaFile("referenced-sound.mp3", audio);
 
         // Add a note that references some media
         pkg.addNote(
@@ -547,10 +495,11 @@ describe("Media File APIs", () => {
       const pkg = expectSuccess(result);
 
       try {
-        await pkg.addMediaFile("with-quotes.png", TEST_IMAGE_PATH);
-        await pkg.addMediaFile("without-quotes.png", TEST_IMAGE_PATH);
-        await pkg.addMediaFile("single-quotes.png", TEST_IMAGE_PATH);
-        await pkg.addMediaFile("unreferenced.png", TEST_IMAGE_PATH);
+        const image = await loadFixture(TEST_IMAGE_FIXTURE);
+        await pkg.addMediaFile("with-quotes.png", image);
+        await pkg.addMediaFile("without-quotes.png", image);
+        await pkg.addMediaFile("single-quotes.png", image);
+        await pkg.addMediaFile("unreferenced.png", image);
 
         // Add notes with different img tag formats
         pkg.addNote(
@@ -590,9 +539,10 @@ describe("Media File APIs", () => {
       const pkg = expectSuccess(result);
 
       try {
-        await pkg.addMediaFile("audio1.mp3", TEST_AUDIO_PATH);
-        await pkg.addMediaFile("audio2.mp3", TEST_AUDIO_PATH);
-        await pkg.addMediaFile("unreferenced.mp3", TEST_AUDIO_PATH);
+        const audio = await loadFixture(TEST_AUDIO_FIXTURE);
+        await pkg.addMediaFile("audio1.mp3", audio);
+        await pkg.addMediaFile("audio2.mp3", audio);
+        await pkg.addMediaFile("unreferenced.mp3", audio);
 
         pkg.addNote(
           createTestAnkiNote({
@@ -618,9 +568,10 @@ describe("Media File APIs", () => {
       const pkg = expectSuccess(result);
 
       try {
-        await pkg.addMediaFile("video1.mp4", TEST_VIDEO_PATH);
-        await pkg.addMediaFile("video2.mp4", TEST_VIDEO_PATH);
-        await pkg.addMediaFile("unreferenced.mp4", TEST_VIDEO_PATH);
+        const video = await loadFixture(TEST_VIDEO_FIXTURE);
+        await pkg.addMediaFile("video1.mp4", video);
+        await pkg.addMediaFile("video2.mp4", video);
+        await pkg.addMediaFile("unreferenced.mp4", video);
 
         // Anki uses [sound:] syntax for both audio and video files
         pkg.addNote(
@@ -647,7 +598,7 @@ describe("Media File APIs", () => {
       const pkg = expectSuccess(result);
 
       try {
-        await pkg.addMediaFile("referenced.png", TEST_IMAGE_PATH);
+        await pkg.addMediaFile("referenced.png", await loadFixture(TEST_IMAGE_FIXTURE));
 
         pkg.addNote(
           createTestAnkiNote({
@@ -672,9 +623,11 @@ describe("Media File APIs", () => {
       const pkg = expectSuccess(result);
 
       try {
-        await pkg.addMediaFile("file1.png", TEST_IMAGE_PATH);
-        await pkg.addMediaFile("file2.mp3", TEST_AUDIO_PATH);
-        await pkg.addMediaFile("file3.png", TEST_IMAGE_PATH);
+        const image = await loadFixture(TEST_IMAGE_FIXTURE);
+        const audio = await loadFixture(TEST_AUDIO_FIXTURE);
+        await pkg.addMediaFile("file1.png", image);
+        await pkg.addMediaFile("file2.mp3", audio);
+        await pkg.addMediaFile("file3.png", image);
 
         pkg.addNote(
           createTestAnkiNote({
@@ -723,9 +676,11 @@ describe("Media File APIs", () => {
       const pkg = expectSuccess(result);
 
       try {
-        await pkg.addMediaFile("in-field1.png", TEST_IMAGE_PATH);
-        await pkg.addMediaFile("in-field2.mp3", TEST_AUDIO_PATH);
-        await pkg.addMediaFile("unreferenced.png", TEST_IMAGE_PATH);
+        const image = await loadFixture(TEST_IMAGE_FIXTURE);
+        const audio = await loadFixture(TEST_AUDIO_FIXTURE);
+        await pkg.addMediaFile("in-field1.png", image);
+        await pkg.addMediaFile("in-field2.mp3", audio);
+        await pkg.addMediaFile("unreferenced.png", image);
 
         // Note with media in different fields
         pkg.addNote(
@@ -752,10 +707,12 @@ describe("Media File APIs", () => {
       const pkg = expectSuccess(result);
 
       try {
-        await pkg.addMediaFile("img1.png", TEST_IMAGE_PATH);
-        await pkg.addMediaFile("img2.png", TEST_IMAGE_PATH);
-        await pkg.addMediaFile("sound1.mp3", TEST_AUDIO_PATH);
-        await pkg.addMediaFile("unreferenced.png", TEST_IMAGE_PATH);
+        const image = await loadFixture(TEST_IMAGE_FIXTURE);
+        const audio = await loadFixture(TEST_AUDIO_FIXTURE);
+        await pkg.addMediaFile("img1.png", image);
+        await pkg.addMediaFile("img2.png", image);
+        await pkg.addMediaFile("sound1.mp3", audio);
+        await pkg.addMediaFile("unreferenced.png", image);
 
         pkg.addNote(
           createTestAnkiNote({

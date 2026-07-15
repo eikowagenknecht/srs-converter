@@ -1,8 +1,7 @@
-import type { Readable } from "node:stream";
-
 import { generateUuid } from "./anki/util";
 import type { ConversionIssue } from "./error-handling";
 import { MediaStore } from "./media-store";
+import type { MediaStorage } from "./storage";
 
 /**
  * Represents a complete SRS (Spaced Repetition System) package containing all
@@ -12,12 +11,13 @@ import { MediaStore } from "./media-store";
  * ensuring referential integrity between components.
  *
  * Media lifecycle: media files added via {@link SrsPackage.addMediaFile} (or
- * copied in during a conversion) are stored in a temporary directory owned by
- * the package. Callers must eventually call {@link SrsPackage.cleanup} to remove
- * it. Conversions copy media content rather than sharing it, so a source and a
- * target package have fully independent lifetimes and each must be cleaned up by
- * its own owner. A package that never holds media never creates the directory,
- * and {@link SrsPackage.cleanup} is a safe no-op in that case.
+ * copied in during a conversion) are stored in a media storage owned by the
+ * package (a temporary directory on Node, memory in browsers; see ADR-0018).
+ * Callers must eventually call {@link SrsPackage.cleanup} to release it.
+ * Conversions copy media content rather than sharing it, so a source and a
+ * target package have fully independent lifetimes and each must be cleaned up
+ * by its own owner. A package that never holds media allocates no backing
+ * resources, and {@link SrsPackage.cleanup} is a safe no-op in that case.
  */
 export class SrsPackage {
   private decks: SrsDeck[];
@@ -28,14 +28,20 @@ export class SrsPackage {
   private applicationSpecificData: Record<string, string>;
   private readonly media: MediaStore;
 
-  constructor() {
+  /**
+   * Creates an empty package.
+   * @param storage - Optional media storage backend; defaults to the
+   * platform's default (disk-backed temp directory on Node, in-memory in
+   * browsers). One storage instance must not be shared between packages.
+   */
+  constructor(storage?: MediaStorage) {
     this.decks = [];
     this.noteTypes = [];
     this.notes = [];
     this.cards = [];
     this.reviews = [];
     this.applicationSpecificData = {};
-    this.media = new MediaStore();
+    this.media = new MediaStore(storage);
   }
 
   /**
@@ -210,13 +216,13 @@ export class SrsPackage {
   }
 
   /**
-   * Opens a media file for reading.
+   * Retrieves the content of a media file.
    * @param filename - The media filename to read
-   * @returns A readable stream of the file's bytes
+   * @returns The media file's bytes
    * @throws {Error} if no media file with that name exists
    */
-  public getMediaFile(filename: string): Readable {
-    return this.media.getMediaFile(filename);
+  public async getMediaFile(filename: string): Promise<Uint8Array> {
+    return await this.media.getMediaFile(filename);
   }
 
   /**
@@ -232,15 +238,15 @@ export class SrsPackage {
   /**
    * Adds a media file to the package.
    *
-   * The content is copied into a temporary directory owned by this package, so
-   * the caller keeps ownership of `source`. See the class-level media lifecycle
-   * note: the caller must eventually call {@link SrsPackage.cleanup}.
+   * The content is copied into the package's media storage, so the caller
+   * keeps ownership of `data`. See the class-level media lifecycle note: the
+   * caller must eventually call {@link SrsPackage.cleanup}.
    * @param filename - The name to store the media under (used verbatim, may be Unicode)
-   * @param source - The media content as a file path, Buffer, or readable stream
+   * @param data - The content of the media file
    * @throws {Error} if a media file with that name already exists
    */
-  public async addMediaFile(filename: string, source: string | Buffer | Readable): Promise<void> {
-    await this.media.addMediaFile(filename, source);
+  public async addMediaFile(filename: string, data: Uint8Array): Promise<void> {
+    await this.media.addMediaFile(filename, data);
   }
 
   /**
@@ -253,12 +259,12 @@ export class SrsPackage {
   }
 
   /**
-   * Releases the temporary directory backing this package's media files.
+   * Releases the media storage backing this package's media files.
    *
    * Safe to call when no media was ever added (a no-op). Because conversions
    * copy media content rather than sharing it, a source and target package have
    * independent lifetimes and must each be cleaned up by their owner.
-   * @returns Any warnings raised while removing the temporary directory
+   * @returns Any warnings raised while disposing the storage
    */
   public async cleanup(): Promise<ConversionIssue[]> {
     return await this.media.cleanup();

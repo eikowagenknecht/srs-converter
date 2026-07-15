@@ -2,23 +2,36 @@ import { readFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
 
-import { mediaEntriesCodec } from "./anki-proto";
-import { zstdCompress, zstdDecompress } from "./zstd";
+import { platform as browserPlatform } from "@/platform/browser";
+import { platform as nodePlatform } from "@/platform/node";
 
-describe("zstd helpers (ADR-0014 hardening)", () => {
+import { mediaEntriesCodec } from "./anki-proto";
+
+/**
+ * Both platform adapters (ADR-0019) run under Node, so the node and browser
+ * zstd implementations are tested side by side, including cross-implementation
+ * frame compatibility (node-compressed → wasm-decompressed and vice versa).
+ */
+const IMPLEMENTATIONS = [
+  ["node (node:zlib)", nodePlatform],
+  ["browser (@hpcc-js/wasm-zstd)", browserPlatform],
+] as const;
+
+describe.each(IMPLEMENTATIONS)("zstd via %s (ADR-0014/0019)", (_name, impl) => {
   it("round-trips data through compress and decompress", async () => {
     const data = new TextEncoder().encode("srs-converter ".repeat(1000));
-    const compressed = await zstdCompress(data);
+    const compressed = await impl.zstdCompress(data);
     expect(compressed.length).toBeLessThan(data.length);
-    expect(await zstdDecompress(compressed)).toEqual(data);
+    expect(await impl.zstdDecompress(compressed)).toEqual(data);
   });
 
   it("round-trips empty input", async () => {
-    expect(await zstdDecompress(await zstdCompress(new Uint8Array(0)))).toEqual(new Uint8Array(0));
+    const compressed = await impl.zstdCompress(new Uint8Array(0));
+    expect(await impl.zstdDecompress(compressed)).toEqual(new Uint8Array(0));
   });
 
   it("rejects data that is not a zstd frame", async () => {
-    await expect(zstdDecompress(Uint8Array.from([1, 2, 3, 4]))).rejects.toThrow();
+    await expect(impl.zstdDecompress(Uint8Array.from([1, 2, 3, 4]))).rejects.toThrow();
   });
 
   it("decompresses frames written by real Anki", async () => {
@@ -27,11 +40,25 @@ describe("zstd helpers (ADR-0014 hardening)", () => {
     const raw = new Uint8Array(
       await readFile("tests/fixtures/anki/corpus/artifacts/media-manifest.zst"),
     );
-    const manifest = mediaEntriesCodec.decode(await zstdDecompress(raw));
+    const manifest = mediaEntriesCodec.decode(await impl.zstdDecompress(raw));
     const names = manifest.entries.map((entry) => entry.name).sort();
     expect(names).toEqual(["beep.mp3", "pixel.png"]);
     for (const entry of manifest.entries) {
       expect(entry.sha1).toHaveLength(20);
     }
+  });
+});
+
+describe("zstd cross-implementation compatibility (ADR-0019)", () => {
+  const data = new TextEncoder().encode("frame compatibility ".repeat(500));
+
+  it("wasm decompresses node-compressed frames", async () => {
+    const compressed = await nodePlatform.zstdCompress(data);
+    expect(await browserPlatform.zstdDecompress(compressed)).toEqual(data);
+  });
+
+  it("node decompresses wasm-compressed frames", async () => {
+    const compressed = await browserPlatform.zstdCompress(data);
+    expect(await nodePlatform.zstdDecompress(compressed)).toEqual(data);
   });
 });

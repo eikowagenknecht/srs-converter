@@ -22,14 +22,23 @@
     "noUncheckedIndexedAccess": true,
     "forceConsistentCasingInFileNames": true,
 
+    /* Types */
+    // Explicit: TypeScript 6 no longer auto-includes node_modules/@types;
+    // Node built-in modules (node:fs etc.) need this in test/tooling files.
+    "types": ["node"],
+
     /* Paths */
-    // Resolve @/ to the source root directory
+    // Resolve @/ to the source root directory.
+    // #platform is the build-time platform switch (ADR-0018): tsc checks
+    // against the Node implementation; the browser implementation is
+    // type-checked through normal inclusion and its PlatformAdapter type.
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "#platform": ["./src/platform/node.ts"]
     },
     "noEmit": true
   },
-  "include": ["src/**/*", "docs/**/*"],
+  "include": ["src/**/*", "docs/**/*", "tests/browser/**/*"],
   // Needs to include (=not exclude) test files
   "exclude": ["node_modules", "dist"]
 }

@@ -1,28 +1,28 @@
-import { createReadStream, createWriteStream } from "node:fs";
-import { copyFile, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import type { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
+import { platform } from "#platform";
 
 import type { ConversionIssue } from "./error-handling";
+import type { MediaStorage } from "./storage";
 
 /**
- * File-backed store for a package's media files.
+ * Store for a package's media files.
  *
- * Mirrors the media handling of `AnkiPackage`: each file is written to disk
- * under a sequential numeric id inside a temporary directory owned by the store,
- * and an in-memory mapping from that id to the caller-facing filename is kept.
- * Filenames are used verbatim (arbitrary Unicode is allowed), which is why the
- * on-disk name is a numeric id rather than the filename itself.
+ * Content is kept in a {@link MediaStorage} backend under a sequential
+ * numeric id, and an in-memory mapping from that id to the caller-facing
+ * filename is kept here. Filenames are used verbatim (arbitrary Unicode is
+ * allowed), which is why the storage key is a numeric id rather than the
+ * filename itself.
  *
- * The directory is created lazily on the first {@link addMediaFile} call, so a
- * package that never holds media never touches the filesystem and
- * {@link cleanup} is a no-op.
+ * The default backend is platform-specific (disk-backed temp directory on
+ * Node, in-memory in browsers); see ADR-0018. The store owns its backend:
+ * {@link cleanup} disposes it.
  */
 export class MediaStore {
-  private tempDir: string | undefined;
+  private readonly storage: MediaStorage;
   private mediaFiles: Record<number, string> = {};
+
+  constructor(storage: MediaStorage = platform.createDefaultMediaStorage()) {
+    this.storage = storage;
+  }
 
   /**
    * Lists the filenames of every media file in the store.
@@ -33,17 +33,35 @@ export class MediaStore {
   }
 
   /**
-   * Opens a media file for reading.
-   * @param filename - The media filename to read
-   * @returns A readable stream of the file's bytes
-   * @throws {Error} if no media file with that name exists
+   * Lists every media file as an id/filename pair. Ids are the stable
+   * numeric identifiers used inside Anki packages (zip entry names).
+   * @returns The id/filename pairs
    */
-  public getMediaFile(filename: string): Readable {
+  public getMediaEntries(): [id: number, filename: string][] {
+    return Object.entries(this.mediaFiles).map(([id, filename]) => [
+      Math.trunc(Number(id)),
+      filename,
+    ]);
+  }
+
+  /**
+   * Retrieves the content of a media file.
+   * @param filename - The media filename to read
+   * @returns The media file's bytes
+   * @throws {Error} if no media file with that name exists or it cannot be read
+   */
+  public async getMediaFile(filename: string): Promise<Uint8Array> {
     const mediaId = this.findMediaId(filename);
     if (mediaId === undefined) {
       throw new Error(`Media file '${filename}' not found in package`);
     }
-    return createReadStream(join(this.requireTempDir(), mediaId));
+    try {
+      return await this.storage.read(mediaId);
+    } catch (error) {
+      throw new Error(
+        `Failed to read media file '${filename}': ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**
@@ -58,8 +76,7 @@ export class MediaStore {
       throw new Error(`Media file '${filename}' not found in package`);
     }
     try {
-      const stats = await stat(join(this.requireTempDir(), mediaId));
-      return stats.size;
+      return await this.storage.size(mediaId);
     } catch (error) {
       throw new Error(
         `Failed to get size for media file '${filename}': ${error instanceof Error ? error.message : String(error)}`,
@@ -68,14 +85,14 @@ export class MediaStore {
   }
 
   /**
-   * Adds a media file to the store. The content is copied into the store's
-   * temporary directory, so the caller retains ownership of `source`.
+   * Adds a media file to the store. The content is copied into the backing
+   * storage, so the caller retains ownership of `data`.
    * @param filename - The name to store the media under (used verbatim, may be Unicode)
-   * @param source - The media content as a file path, Buffer, or readable stream
+   * @param data - The content of the media file
    * @throws {Error} if a media file with that name already exists
-   * @throws {Error} if the source cannot be read or written
+   * @throws {Error} if the content cannot be stored
    */
-  public async addMediaFile(filename: string, source: string | Buffer | Readable): Promise<void> {
+  public async addMediaFile(filename: string, data: Uint8Array): Promise<void> {
     if (this.findMediaId(filename) !== undefined) {
       throw new Error(`Media file '${filename}' already exists in package`);
     }
@@ -83,16 +100,8 @@ export class MediaStore {
     const existingIds = Object.keys(this.mediaFiles).map((id) => Math.trunc(Number(id)));
     const nextId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 0;
 
-    const targetPath = join(await this.ensureTempDir(), nextId.toFixed(0));
-
     try {
-      if (typeof source === "string") {
-        await copyFile(source, targetPath);
-      } else if (Buffer.isBuffer(source)) {
-        await writeFile(targetPath, source);
-      } else {
-        await pipeline(source, createWriteStream(targetPath));
-      }
+      await this.storage.write(nextId.toFixed(0), data);
       this.mediaFiles[nextId] = filename;
     } catch (error) {
       throw new Error(
@@ -102,10 +111,30 @@ export class MediaStore {
   }
 
   /**
-   * Removes a media file from the store and deletes its backing file.
+   * Stores a media file under a fixed numeric id, preserving the ids a
+   * package was read with (they may be non-contiguous). Intended for package
+   * readers; regular callers should use {@link addMediaFile}.
+   * @param id - The numeric media id from the package
+   * @param filename - The filename from the package's media mapping
+   * @param data - The content of the media file
+   * @throws {Error} if the id or filename is already present
+   */
+  public async restoreMediaFile(id: number, filename: string, data: Uint8Array): Promise<void> {
+    if (id in this.mediaFiles) {
+      throw new Error(`Media id ${id.toFixed(0)} already exists in package`);
+    }
+    if (this.findMediaId(filename) !== undefined) {
+      throw new Error(`Media file '${filename}' already exists in package`);
+    }
+    await this.storage.write(id.toFixed(0), data);
+    this.mediaFiles[id] = filename;
+  }
+
+  /**
+   * Removes a media file from the store and deletes its backing content.
    * @param filename - The media filename to remove
    * @throws {Error} if no media file with that name exists
-   * @throws {Error} if the backing file cannot be deleted
+   * @throws {Error} if the backing content cannot be deleted
    */
   public async removeMediaFile(filename: string): Promise<void> {
     const mediaId = this.findMediaId(filename);
@@ -115,7 +144,7 @@ export class MediaStore {
 
     const numericId = Math.trunc(Number(mediaId));
     try {
-      await rm(join(this.requireTempDir(), mediaId));
+      await this.storage.delete(mediaId);
       this.mediaFiles = Object.fromEntries(
         Object.entries(this.mediaFiles).filter(([key]) => Math.trunc(Number(key)) !== numericId),
       );
@@ -127,19 +156,14 @@ export class MediaStore {
   }
 
   /**
-   * Removes the temporary directory backing the store. Safe to call when no
-   * media was ever added (a no-op).
-   * @returns Any warnings raised while removing the directory
+   * Disposes the storage backing the store. Safe to call when no media was
+   * ever added.
+   * @returns Any warnings raised while disposing the storage
    */
   public async cleanup(): Promise<ConversionIssue[]> {
-    if (this.tempDir === undefined) {
-      return [];
-    }
-
     const issues: ConversionIssue[] = [];
     try {
-      await rm(this.tempDir, { recursive: true });
-      this.tempDir = undefined;
+      await this.storage.dispose();
       this.mediaFiles = {};
     } catch (error) {
       issues.push({
@@ -153,25 +177,11 @@ export class MediaStore {
   }
 
   /**
-   * Finds the on-disk numeric id (as a string) for a filename.
+   * Finds the storage key (stringified numeric id) for a filename.
    * @param filename - The media filename
-   * @returns The numeric id, or undefined when the filename is not stored
+   * @returns The numeric id as a string, or undefined when not stored
    */
   private findMediaId(filename: string): string | undefined {
     return Object.entries(this.mediaFiles).find(([, name]) => name === filename)?.[0];
-  }
-
-  private async ensureTempDir(): Promise<string> {
-    this.tempDir ??= await mkdtemp(join(tmpdir(), "srsconverter-media-"));
-    return this.tempDir;
-  }
-
-  private requireTempDir(): string {
-    if (this.tempDir === undefined) {
-      // Unreachable in practice: every code path that needs the directory first
-      // resolves a media id, which only exists once addMediaFile created it.
-      throw new Error("No media files have been added to this package");
-    }
-    return this.tempDir;
   }
 }

@@ -1,61 +1,50 @@
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import InitSqlJs from "sql.js";
-import { Open } from "unzipper";
 import { describe, expect, it } from "vitest";
 
+import { platform } from "#platform";
+
 import { AnkiPackage } from "./anki-package";
-import { createZip } from "./anki-package.roundtrip.fixtures";
+import { loadFixture } from "./anki-package.fixtures";
+import { createZipBytes } from "./anki-package.roundtrip.fixtures";
 import { mediaEntriesCodec } from "./anki-proto";
 import { AnkiDatabase } from "./database";
 import type { ColTable, DatabaseDump } from "./types";
-import { zstdCompress, zstdDecompress } from "./zstd";
+import { readZipEntries } from "./zip";
 
-const SOURCE = "tests/fixtures/anki/corpus/corpus-v3-single-deck.apkg";
+const SOURCE = "anki/corpus/corpus-v3-single-deck.apkg";
 
-/** Reads all entries of the source package so tests can re-zip variants. */
-async function sourceEntries(): Promise<Map<string, Buffer>> {
-  const zip = await Open.file(SOURCE);
-  const entries = new Map<string, Buffer>();
-  for (const file of zip.files) {
-    entries.set(file.path, await file.buffer());
-  }
-  return entries;
+/**
+ * Reads all entries of the source package so tests can re-zip variants.
+ * @returns The source package's ZIP entries by name
+ */
+async function sourceEntries(): Promise<Map<string, Uint8Array>> {
+  return readZipEntries(await loadFixture(SOURCE));
 }
 
-async function writeVariant(
-  name: string,
-  mutate: (entries: Map<string, Buffer>) => Promise<void> | void,
-): Promise<string> {
+async function buildVariant(
+  mutate: (entries: Map<string, Uint8Array>) => Promise<void> | void,
+): Promise<Uint8Array> {
   const entries = await sourceEntries();
   await mutate(entries);
-  const dir = await mkdtemp(join(tmpdir(), "modern-errors-"));
-  const path = join(dir, name);
-  await createZip(
-    path,
-    [...entries.entries()].map(([entryName, content]) => ({ name: entryName, content })),
-  );
-  return path;
+  return createZipBytes([...entries.entries()].map(([name, content]) => ({ name, content })));
 }
 
 describe("modern reader error paths (Story 1.3.4/1.3.5 hardening)", () => {
   it("fails with a clear message when the media manifest is corrupt", async () => {
-    const path = await writeVariant("corrupt-manifest.apkg", (entries) => {
-      entries.set("media", Buffer.from("definitely not zstd"));
+    const bytes = await buildVariant((entries) => {
+      entries.set("media", new TextEncoder().encode("definitely not zstd"));
     });
-    const result = await AnkiPackage.fromAnkiExport(path);
+    const result = await AnkiPackage.fromAnkiExport(bytes);
     expect(result.status).toBe("failure");
     expect(result.issues[0]?.message).toMatch(/media manifest.*could not be read/iu);
   });
 
   it("skips media files whose checksum does not match, with a warning", async () => {
-    const path = await writeVariant("tampered-media.apkg", async (entries) => {
+    const bytes = await buildVariant(async (entries) => {
       // Replace media file 0 with validly-compressed WRONG content.
-      entries.set("0", Buffer.from(await zstdCompress(Buffer.from("tampered content"))));
+      entries.set("0", await platform.zstdCompress(new TextEncoder().encode("tampered content")));
     });
-    const result = await AnkiPackage.fromAnkiExport(path);
+    const result = await AnkiPackage.fromAnkiExport(bytes);
     expect(result.data).toBeDefined();
     const warnings = result.issues.filter((issue) => issue.severity === "warning");
     expect(
@@ -67,10 +56,10 @@ describe("modern reader error paths (Story 1.3.4/1.3.5 hardening)", () => {
   });
 
   it("warns when a manifest entry has no backing file", async () => {
-    const path = await writeVariant("missing-media-file.apkg", (entries) => {
+    const bytes = await buildVariant((entries) => {
       entries.delete("0");
     });
-    const result = await AnkiPackage.fromAnkiExport(path);
+    const result = await AnkiPackage.fromAnkiExport(bytes);
     expect(result.data).toBeDefined();
     const warnings = result.issues.filter((issue) => issue.severity === "warning");
     expect(warnings.some((issue) => /could not be read/iu.test(issue.message))).toBe(true);
@@ -78,11 +67,11 @@ describe("modern reader error paths (Story 1.3.4/1.3.5 hardening)", () => {
   });
 
   it("tolerates a missing media manifest entirely (old AnkiDroid packages)", async () => {
-    const path = await writeVariant("no-manifest.apkg", (entries) => {
+    const bytes = await buildVariant((entries) => {
       entries.delete("media");
       entries.delete("0");
     });
-    const result = await AnkiPackage.fromAnkiExport(path);
+    const result = await AnkiPackage.fromAnkiExport(bytes);
     expect(result.data).toBeDefined();
     expect(result.issues.filter((issue) => issue.severity === "critical")).toHaveLength(0);
     expect(result.data?.listMediaFiles()).toEqual([]);
@@ -141,26 +130,22 @@ describe("modern writer edge cases (Story 1.3.8 hardening)", () => {
   });
 
   it("NFC-normalizes media filenames in the manifest on export", async () => {
-    const result = await AnkiPackage.fromAnkiExport(SOURCE);
+    const result = await AnkiPackage.fromAnkiExport(await loadFixture(SOURCE));
     const anki = result.data;
     expect(anki).toBeDefined();
     if (!anki) {
       return;
     }
     try {
-      const dir = await mkdtemp(join(tmpdir(), "modern-nfc-"));
-      const outPath = join(dir, "out.apkg");
-      await anki.toAnkiExport(outPath);
+      const outBytes = await anki.toAnkiExport();
 
-      const zip = await Open.file(outPath);
-      const mediaEntry = zip.files.find((file) => file.path === "media");
+      const outEntries = readZipEntries(outBytes);
+      const mediaEntry = outEntries.get("media");
       expect(mediaEntry).toBeDefined();
       if (!mediaEntry) {
         return;
       }
-      const manifest = mediaEntriesCodec.decode(
-        await zstdDecompress(new Uint8Array(await mediaEntry.buffer())),
-      );
+      const manifest = mediaEntriesCodec.decode(await platform.zstdDecompress(mediaEntry));
       for (const entry of manifest.entries) {
         expect(entry.name).toBe(entry.name.normalize("NFC"));
         expect(entry.sha1).toHaveLength(20);

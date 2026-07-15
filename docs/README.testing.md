@@ -2,7 +2,10 @@
 
 - We use Vitest for unit testing
 - Tests should be co-located with the source files (e.g., `file.test.ts` next to `file.ts`)
-- Testing setup in `vitest.config.ts`
+- Testing setup in `vitest.config.ts`, split into two projects (ADR-0018):
+  - `unit` — Node environment; all `src/**/*.test.ts` and `docs/**/*.test.ts`
+  - `browser` — real Chromium via Playwright (`pnpm exec playwright install chromium` once); the smoke tests in `tests/browser/` run against the browser platform implementation (WASM zstd, in-memory storage)
+- `pnpm test` runs both projects; `pnpm vitest run --project unit` is the fast dev loop
 - Test coverage is determined with `pnpm test:coverage`
 
 ## Quality Gates

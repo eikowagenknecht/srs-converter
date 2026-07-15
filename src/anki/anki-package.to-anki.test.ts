@@ -1,8 +1,4 @@
-import { Buffer } from "node:buffer";
-import { join } from "node:path";
-
 import InitSqlJs from "sql.js";
-import { Open } from "unzipper";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -22,13 +18,11 @@ import {
   createBasicTemplate,
   expectFailure,
   expectSuccess,
-  getTempDir,
-  setupTempDir,
+  loadFixture,
 } from "./anki-package.fixtures";
 import type { Ease } from "./types";
 import { extractTimestampFromUuid } from "./util";
-
-setupTempDir();
+import { readZipEntries } from "./zip";
 
 describe("Conversion SRS → Anki", () => {
   describe("fromSrsPackage()", () => {
@@ -642,18 +636,17 @@ describe("Conversion SRS → Anki", () => {
 });
 
 describe("Direct Anki → Anki models JSON fidelity (WP1)", () => {
-  const FIXTURE = "./tests/fixtures/anki/mixed-legacy-2.apkg";
+  const FIXTURE = "anki/mixed-legacy-2.apkg";
 
-  // Reads the raw `models` column text straight out of an .apkg, bypassing the
-  // library so precision loss is visible in the literal digits.
-  async function readModelsRaw(apkgPath: string): Promise<string> {
-    const zip = await Open.file(apkgPath);
-    const dbEntry = zip.files.find((f) => f.path === "collection.anki21");
+  // Reads the raw `models` column text straight out of an .apkg's bytes,
+  // bypassing the library so precision loss is visible in the literal digits.
+  async function readModelsRaw(apkg: Uint8Array): Promise<string> {
+    const dbEntry = readZipEntries(apkg).get("collection.anki21");
     if (!dbEntry) {
       throw new Error("collection.anki21 missing");
     }
     const SQL = await InitSqlJs();
-    const db = new SQL.Database(Buffer.from(await dbEntry.buffer()));
+    const db = new SQL.Database(dbEntry);
     const result = db.exec("SELECT models FROM col");
     const models = result[0]?.values[0]?.[0];
     db.close();
@@ -664,18 +657,18 @@ describe("Direct Anki → Anki models JSON fidelity (WP1)", () => {
   }
 
   it("preserves the fixture's 64-bit models ids byte-for-byte on re-export", async () => {
-    const readResult = await AnkiPackage.fromAnkiExport(FIXTURE);
+    const fixtureBytes = await loadFixture(FIXTURE);
+    const readResult = await AnkiPackage.fromAnkiExport(fixtureBytes);
     const pkg = expectSuccess(readResult);
-    const outPath = join(getTempDir(), "mixed-direct.apkg");
 
     try {
-      await pkg.toAnkiExport(outPath, { legacy: true });
+      const outBytes = await pkg.toAnkiExport({ legacy: true });
 
       // Compare the raw 16+ digit id literals directly — a JSON.parse-based
       // comparison would silently mask the precision loss (audit F6).
       const bigIntIdPattern = /"id":\s?-?\d{16,}/gu;
-      const beforeModels = await readModelsRaw(FIXTURE);
-      const afterModels = await readModelsRaw(outPath);
+      const beforeModels = await readModelsRaw(fixtureBytes);
+      const afterModels = await readModelsRaw(outBytes);
       const before = beforeModels.match(bigIntIdPattern) ?? [];
       const after = afterModels.match(bigIntIdPattern) ?? [];
 
@@ -688,16 +681,15 @@ describe("Direct Anki → Anki models JSON fidelity (WP1)", () => {
 });
 
 describe("SRS-authored input correctness (WP5)", () => {
-  // Reads the `revlog.id` column straight out of an exported .apkg so we can
-  // confirm both rows survived the SQLite primary-key constraint.
-  async function readRevlogIds(apkgPath: string): Promise<number[]> {
-    const zip = await Open.file(apkgPath);
-    const dbEntry = zip.files.find((f) => f.path === "collection.anki21");
+  // Reads the `revlog.id` column straight out of an exported .apkg's bytes so
+  // we can confirm both rows survived the SQLite primary-key constraint.
+  async function readRevlogIds(apkg: Uint8Array): Promise<number[]> {
+    const dbEntry = readZipEntries(apkg).get("collection.anki21");
     if (!dbEntry) {
       throw new Error("collection.anki21 missing");
     }
     const SQL = await InitSqlJs();
-    const db = new SQL.Database(Buffer.from(await dbEntry.buffer()));
+    const db = new SQL.Database(dbEntry);
     const result = db.exec("SELECT id FROM revlog");
     db.close();
     return (result[0]?.values ?? []).map((row) => Number(row[0]));
@@ -804,9 +796,8 @@ describe("SRS-authored input correctness (WP5)", () => {
 
       // Export must not throw `UNIQUE constraint failed: revlog.id`, and both
       // rows must be present in the exported database.
-      const outPath = join(getTempDir(), "wp5-f16.apkg");
-      await ankiPackage.toAnkiExport(outPath, { legacy: true });
-      const revlogIds = await readRevlogIds(outPath);
+      const outBytes = await ankiPackage.toAnkiExport({ legacy: true });
+      const revlogIds = await readRevlogIds(outBytes);
       expect(revlogIds.sort((a, b) => a - b)).toEqual([timestamp, timestamp + 1]);
     } finally {
       await ankiPackage.cleanup();

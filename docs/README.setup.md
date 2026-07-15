@@ -24,15 +24,19 @@ The following tools need to be installed (and on the PATH variable, where applic
 1. Install the prerequisites listed above
 2. Install pnpm: `corepack enable pnpm`
 3. Install dependencies: `pnpm install`
+4. Install Playwright's Chromium (needed by the browser test project):
+   `pnpm exec playwright install chromium`
+   (on Linux, missing system libraries can be added with
+   `pnpm exec playwright install chromium --with-deps`, which uses sudo)
 
 ## Verify Setup
 
 To check if everything is set up correctly, run the following commands:
 
-- `node --version` - Should be v22+ LTS
+- `node --version` - Should be v22.15+ LTS
 - `pnpm --version` - Should be 10+
 - `pnpm type-check` - Should pass without errors
-- `pnpm test` - Should run all tests successfully
+- `pnpm test` - Should run all tests successfully (includes the Chromium browser tests)
 - `pnpm build` - Should build the package without errors
 
 For detailed development commands and workflows, see [README.commands.md](README.commands.md).

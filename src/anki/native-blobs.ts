@@ -11,7 +11,7 @@
  * it is in this dialect; its absence means the legacy schema-11 JSON dialect.
  */
 
-import { Buffer } from "node:buffer";
+import { base64ToBytes, bytesToBase64 } from "./base64";
 
 /** Marker key holding the source schema of an entity blob. */
 export const ANKI_SCHEMA_KEY = "ankiSchema";
@@ -30,7 +30,7 @@ const BYTES_KEY = "$b64";
  */
 export function toStorable(value: unknown): unknown {
   if (value instanceof Uint8Array) {
-    return { [BYTES_KEY]: Buffer.from(value).toString("base64") };
+    return { [BYTES_KEY]: bytesToBase64(value) };
   }
   if (Array.isArray(value)) {
     return value.map((entry) => toStorable(entry));
@@ -61,7 +61,7 @@ export function fromStorable(value: unknown): unknown {
       entries[0]?.[0] === BYTES_KEY &&
       typeof entries[0][1] === "string"
     ) {
-      return new Uint8Array(Buffer.from(entries[0][1], "base64"));
+      return base64ToBytes(entries[0][1]);
     }
     const result: Record<string, unknown> = {};
     for (const [key, entry] of entries) {

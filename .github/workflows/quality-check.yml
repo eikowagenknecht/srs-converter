@@ -32,6 +32,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The browser test project (vitest browser mode) runs in a real
+      # Chromium via Playwright (ADR-0018).
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install chromium --with-deps
+
       - name: Lint
         run: pnpm run lint
 
@@ -56,3 +61,7 @@ jobs:
 
       - name: Build
         run: pnpm run build
+
+      # The browser bundle must stay free of Node builtins (ADR-0018).
+      - name: Check browser bundle
+        run: pnpm run check:dist:browser

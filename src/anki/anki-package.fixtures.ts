@@ -1,13 +1,8 @@
-import { Buffer } from "node:buffer";
-import { createWriteStream } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { ArchiverError } from "archiver";
-import { ZipArchive } from "archiver";
-import { Open } from "unzipper";
-import { afterEach, beforeEach, expect } from "vitest";
+import { zipSync } from "fflate";
+import { expect } from "vitest";
 
 import type { ConversionResult } from "@/error-handling";
 import type { SrsNoteTemplate, SrsNoteType } from "@/srs-package";
@@ -15,12 +10,13 @@ import { SrsPackage, createCard, createDeck, createNote, createNoteType } from "
 
 import type { CardsTable, Ease, NotesTable, RevlogTable } from "./types";
 import { guid64, joinAnkiFields } from "./util";
+import { readZipEntries } from "./zip";
 
 // #region Helpers - Constants
 
 // Valid meta file for version 2 (Legacy_V2)
 // Protobuf encoding: field 1 (varint) with value 2 = [0x08, 0x02]
-export const validMetaV2 = Buffer.from([0x08, 0x02]);
+export const validMetaV2 = Uint8Array.of(0x08, 0x02);
 
 // #endregion Helpers - Constants
 
@@ -259,42 +255,35 @@ export function createMultiCardPackage(noteCount = 10): SrsPackage {
 
 // #region Helpers - Utilities
 
-// Helper function to create a ZIP file with specific contents for testing
-export function createTestZip(
-  zipPath: string,
-  files: { name: string; content: string | Buffer }[],
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const output = createWriteStream(zipPath);
-    const archive = new ZipArchive();
+// Helper to read a test fixture file as bytes
+export async function loadFixture(relativePath: string): Promise<Uint8Array> {
+  return new Uint8Array(await readFile(join("tests/fixtures", relativePath)));
+}
 
-    output.on("close", () => {
-      resolve();
-    });
-    archive.on("error", (err: ArchiverError) => {
-      reject(err);
-    });
-
-    archive.pipe(output);
-    for (const file of files) {
-      archive.append(file.content, { name: file.name });
-    }
-    void archive.finalize();
-  });
+// Helper function to create ZIP bytes with specific contents for testing
+export function createTestZipBytes(
+  files: { name: string; content: string | Uint8Array }[],
+): Uint8Array {
+  const entries: Record<string, Uint8Array> = {};
+  for (const file of files) {
+    entries[file.name] =
+      typeof file.content === "string" ? new TextEncoder().encode(file.content) : file.content;
+  }
+  return zipSync(entries);
 }
 
 // Helper to get a valid Anki database buffer from the fixture (cached)
-let cachedValidDb: Buffer | null = null;
-export async function getValidAnkiDatabaseBuffer(): Promise<Buffer> {
+let cachedValidDb: Uint8Array | null = null;
+export async function getValidAnkiDatabaseBuffer(): Promise<Uint8Array> {
   if (cachedValidDb) {
     return cachedValidDb;
   }
-  const zip = await Open.file("./tests/fixtures/anki/empty-legacy-2.apkg");
-  const dbEntry = zip.files.find((f) => f.path === "collection.anki21");
+  const zipEntries = readZipEntries(await loadFixture("anki/empty-legacy-2.apkg"));
+  const dbEntry = zipEntries.get("collection.anki21");
   if (!dbEntry) {
     throw new Error("Database not found in fixture");
   }
-  cachedValidDb = await dbEntry.buffer();
+  cachedValidDb = dbEntry;
   return cachedValidDb;
 }
 
@@ -308,27 +297,6 @@ export function createTimestampGenerator() {
 }
 
 // #endregion Helpers - Utilities
-
-// #region Helpers - Test Setup
-
-export let tempDir: string;
-
-export function setupTempDir() {
-  beforeEach(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), "anki-test-"));
-  });
-
-  afterEach(async () => {
-    // Cleanup will be handled by individual tests for AnkiPackage instances
-  });
-}
-
-// Helper function to get tempDir for tests
-export function getTempDir(): string {
-  return tempDir;
-}
-
-// #endregion Helpers - Test Setup
 
 // #region Helpers - Database Creation
 
@@ -351,7 +319,7 @@ export async function createAnkiDatabaseWithData(options: {
     id: number;
     cid: number;
   }[];
-}): Promise<Buffer> {
+}): Promise<Uint8Array> {
   const sqlJsModule = await import("sql.js");
   const InitSqlJs = sqlJsModule.default;
   const SQL = await InitSqlJs();
@@ -667,7 +635,7 @@ export async function createAnkiDatabaseWithData(options: {
     }
   }
 
-  return Buffer.from(db.export());
+  return db.export();
 }
 
 // #endregion Helpers - Database Creation

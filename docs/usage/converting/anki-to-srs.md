@@ -84,10 +84,13 @@ When converting from Anki to SRS format, plugin-specific data stored in the `dat
 Alongside `ankiData`, `toSrsPackage` captures the full original Anki entity JSON into per-entity blobs (`ankiNote`, `ankiCard`, `ankiReview`, `ankiDeck`, `ankiNoteType`) and package-level blobs (`ankiCol`, `ankiDconf`, `ankiGraves`, on `SrsPackage.getApplicationSpecificData()`). These carry the Anki-specific state the universal format does not yet model natively — scheduling, review details, GUIDs, tags, note-type internals, deck options, and collection metadata — so that `fromSrsPackage` can restore them. Any media files in the package are also copied into the `SrsPackage` (this is why `toSrsPackage` is async). See [ADR-0003](../../decisions/0003-use-application-specific-data-for-data-preservation.md) for the full blob-key list.
 
 ```typescript
+import { readFile } from "node:fs/promises";
+
 import { AnkiPackage } from "srs-converter";
 
 // Load an Anki package with plugin data
-const ankiResult = await AnkiPackage.fromAnkiExport("./deck-with-plugins.apkg");
+const data = new Uint8Array(await readFile("./deck-with-plugins.apkg"));
+const ankiResult = await AnkiPackage.fromAnkiExport(data);
 const ankiPackage = ankiResult.data;
 
 // Convert to SRS - plugin data is preserved in applicationSpecificData

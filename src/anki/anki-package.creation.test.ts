@@ -1,12 +1,8 @@
-import { access } from "node:fs/promises";
-
 import { describe, expect, it } from "vitest";
 
 import { AnkiPackage } from "./anki-package";
-import { expectSuccess, setupTempDir } from "./anki-package.fixtures";
+import { expectSuccess } from "./anki-package.fixtures";
 import { defaultConfig, defaultDeck } from "./constants";
-
-setupTempDir();
 
 describe("Creation", () => {
   describe("fromDefault()", () => {
@@ -55,51 +51,33 @@ describe("Creation", () => {
       }
     });
 
-    it("should properly initialize temporary directory", async () => {
+    it("should expose the media mapping and database contents via toString()", async () => {
       const result = await AnkiPackage.fromDefault();
       const ankiPackage = expectSuccess(result);
 
       try {
         const packageString = ankiPackage.toString();
-        expect(packageString).toMatch(/Temp directory: .+/u);
-
-        // Extract the temp directory path from the string
-        const tempDirRegex = /Temp directory: (?<tempDir>.+)$/mu;
-        const tempDirMatch = tempDirRegex.exec(packageString);
-        expect(tempDirMatch).not.toBeNull();
-        const tempDirPath = tempDirMatch?.groups?.["tempDir"];
-        expect(tempDirPath).toMatch(/srsconverter-/u); // Should contain the expected prefix
-
-        // Verify the directory actually exists on the filesystem
-        if (tempDirPath) {
-          await access(tempDirPath); // Will throw if path doesn't exist
-        }
+        expect(packageString).toMatch(/^AnkiPackage\n/u);
+        expect(packageString).toContain("Media file mapping: {}");
+        expect(packageString).toContain("Database contents:");
       } finally {
         await ankiPackage.cleanup();
       }
     });
 
-    it("should clean up temporary directory after cleanup()", async () => {
+    it("should release media storage on cleanup()", async () => {
       const result = await AnkiPackage.fromDefault();
       const ankiPackage = expectSuccess(result);
 
-      const packageString = ankiPackage.toString();
-      const tempDirRegex = /Temp directory: (?<tempDir>.+)$/mu;
-      const tempDirMatch = tempDirRegex.exec(packageString);
-      expect(tempDirMatch).not.toBeNull();
-      const tempDirPath = tempDirMatch?.groups?.["tempDir"];
-      expect(tempDirPath).toBeDefined();
+      await ankiPackage.addMediaFile("note.txt", new TextEncoder().encode("content"));
+      expect(await ankiPackage.getMediaFile("note.txt")).toBeDefined();
 
-      if (tempDirPath) {
-        // Verify the directory exists before cleanup
-        await access(tempDirPath); // Will throw if path doesn't exist
+      const cleanupIssues = await ankiPackage.cleanup();
+      expect(cleanupIssues).toEqual([]);
 
-        // Clean up
-        await ankiPackage.cleanup();
-
-        // Verify the directory no longer exists after cleanup
-        await expect(access(tempDirPath)).rejects.toThrow();
-      }
+      // The backing storage is disposed: the media content is gone.
+      expect(ankiPackage.listMediaFiles()).toEqual([]);
+      await expect(ankiPackage.getMediaFile("note.txt")).rejects.toThrow();
     });
   });
 });

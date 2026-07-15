@@ -29,17 +29,19 @@
     "!dist/docs/"
   ],
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/index.d.mts",
+      "node": "./dist/index.mjs",
+      "default": "./dist/index.browser.mjs"
     }
   },
   "scripts": {
     "dev": "tsc --watch",
-    "build": "tsdown src/index.ts",
+    "build": "tsdown",
+    "check:dist:browser": "node scripts/check-browser-bundle.mjs",
     "format": "oxfmt",
     "lint": "pnpm type-check && pnpm lint:oxlint && pnpm lint:oxfmt",
     "lint:oxlint": "oxlint --fix",
@@ -60,11 +62,11 @@
     "jscpd": "jscpd ./src"
   },
   "dependencies": {
-    "archiver": "8.0.0",
+    "@hpcc-js/wasm-zstd": "1.13.5",
+    "fflate": "0.8.3",
     "kysely": "0.29.3",
     "kysely-wasm": "2.0.0",
     "sql.js": "1.14.1",
-    "unzipper": "0.12.5",
     "uuid": "14.0.1"
   },
   "devDependencies": {
@@ -73,10 +75,9 @@
     "@commitlint/types": "21.2.0",
     "@semantic-release/changelog": "6.0.3",
     "@semantic-release/git": "10.0.1",
-    "@types/archiver": "8.0.0",
     "@types/node": "26.1.1",
     "@types/sql.js": "1.4.11",
-    "@types/unzipper": "0.10.11",
+    "@vitest/browser-playwright": "4.1.10",
     "@vitest/coverage-v8": "4.1.10",
     "globals": "17.7.0",
     "jscpd": "5.0.12",
@@ -84,6 +85,7 @@
     "lefthook": "2.1.10",
     "oxfmt": "0.59.0",
     "oxlint": "1.74.0",
+    "playwright": "1.61.1",
     "semantic-release": "25.0.7",
     "tsdown": "0.22.8",
     "typescript": "6.0.3",

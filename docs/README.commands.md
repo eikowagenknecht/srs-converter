@@ -3,7 +3,7 @@
 ## Package Development
 
 - `pnpm dev` - Start TypeScript compiler in watch mode
-- `pnpm build` - Build the TypeScript package for production
+- `pnpm build` - Build the package for production (two bundles: `dist/index.mjs` for Node, `dist/index.browser.mjs` for browsers; see ADR-0018)
 
 ## Package Management
 
@@ -15,8 +15,10 @@
 
 ## Testing and Quality
 
-- `pnpm test` - Run tests with Vitest
+- `pnpm test` - Run tests with Vitest (both the Node `unit` and Chromium `browser` projects)
 - `pnpm test:coverage` - Run tests with coverage report
+- `pnpm test:dist` - Smoke-test the built package on Node, Bun, and Deno (probes both bundles; requires `pnpm build` first)
+- `pnpm check:dist:browser` - Verify the browser bundle contains no Node builtins (requires `pnpm build` first)
 - `pnpm lint` - Full lint and fix run (type-check + oxlint + oxfmt)
 - `pnpm lint:oxfmt` - Run oxfmt formatter
 - `pnpm type-check` - TypeScript type checking only

@@ -1,17 +1,7 @@
-import { Buffer } from "node:buffer";
-import { createHash } from "node:crypto";
-import { createReadStream, createWriteStream } from "node:fs";
-import { copyFile, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import type { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
-
-import type { CentralDirectory } from "unzipper";
-import { Open } from "unzipper";
-
+import { platform } from "#platform";
 import type { ConversionIssue, ConversionOptions, ConversionResult } from "@/error-handling";
 import { IssueCollector } from "@/error-handling";
+import { MediaStore } from "@/media-store";
 import type {
   SrsCard,
   SrsDeck,
@@ -30,6 +20,7 @@ import {
   createNoteType,
   createReview,
 } from "@/srs-package";
+import type { MediaStorage } from "@/storage";
 
 import { mediaEntriesCodec } from "./anki-proto";
 import { defaultDeck } from "./constants";
@@ -51,6 +42,7 @@ import {
   notetypeProtoToSchema11,
   tagRowsToTagsJson,
 } from "./schema-convert";
+import { sha1Async } from "./sha1";
 import type {
   CardsTable,
   Config,
@@ -64,7 +56,7 @@ import type {
 } from "./types";
 import { DeckDynamicity, Ease, ExportVersion, NoteTypeKind } from "./types";
 import {
-  createSelectiveZip,
+  bytesEqual,
   extractMediaReferences,
   extractTimestampFromUuid,
   fieldChecksum,
@@ -76,7 +68,8 @@ import {
   splitAnkiFields,
   stripHtml,
 } from "./util";
-import { zstdCompress, zstdDecompress } from "./zstd";
+import type { ZipOutEntry } from "./zip";
+import { buildZip, readZipEntries } from "./zip";
 
 /**
  * Validation result for individual items
@@ -1039,17 +1032,37 @@ function restoreAnkiReview(
 
 const EXPORT_VERSION = ExportVersion.Legacy_V2;
 const DB_VERSION = 11;
-const VALID_FILE_EXTENSIONS = [".apkg", ".colpkg"] as const;
+
+/** Options accepted by the AnkiPackage factory methods. */
+export interface AnkiPackageOptions extends Partial<ConversionOptions> {
+  /**
+   * Media storage backend for the package's media staging. Defaults to the
+   * platform default (disk-backed temp directory on Node, in-memory in
+   * browsers). One storage instance must not be shared between packages.
+   */
+  storage?: MediaStorage;
+}
+
+/**
+ * Extracts the error-handling options for the issue collector, which needs
+ * a complete ConversionOptions object or nothing.
+ * @param options - The package options as passed by the caller
+ * @returns The conversion options, or undefined to use collector defaults
+ */
+function collectorOptions(options?: AnkiPackageOptions): ConversionOptions | undefined {
+  return options?.errorHandling === undefined
+    ? undefined
+    : { errorHandling: options.errorHandling };
+}
 
 export class AnkiPackage {
-  private tempDir: string;
+  private readonly media: MediaStore;
   private databaseContents: DatabaseDump | undefined;
-  private mediaFiles: MediaFileMapping = {};
   /** Native decoded entities when the source was a schema-18 package (ADR-0016). */
   private modernData: ModernCollectionData | undefined;
 
-  private constructor(tempDir: string) {
-    this.tempDir = tempDir;
+  private constructor(media: MediaStore) {
+    this.media = media;
   }
 
   private getCardDescription(card: CardsTable, note?: NotesTable, deck?: Deck): string {
@@ -1089,147 +1102,106 @@ export class AnkiPackage {
   }
 
   public static async fromDefault(
-    options?: ConversionOptions,
+    options?: AnkiPackageOptions,
   ): Promise<ConversionResult<AnkiPackage>> {
-    const collector = new IssueCollector(options);
+    const collector = new IssueCollector(collectorOptions(options));
+
+    const instance = new AnkiPackage(new MediaStore(options?.storage));
+    let db: AnkiDatabase | undefined;
 
     try {
-      const instance = new AnkiPackage(await makeTempDir());
-      let db: AnkiDatabase | undefined;
+      db = await AnkiDatabase.fromDefault();
+      const rawDump = await db.toObject();
+      instance.databaseContents = filterValidDatabaseItems(rawDump, collector);
 
-      try {
-        db = await AnkiDatabase.fromDefault();
-        const rawDump = await db.toObject();
-        instance.databaseContents = filterValidDatabaseItems(rawDump, collector);
-
-        return collector.createResult(instance);
-      } catch (error) {
-        collector.addCritical(
-          `Cannot start conversion because the default database could not be created. ${error instanceof Error ? error.message : String(error)}.`,
-        );
-
-        const cleanupIssues = await removeDirectory(instance.tempDir);
-        collector.addIssues(cleanupIssues);
-        return collector.createFailureResult<AnkiPackage>();
-      } finally {
-        await db?.close();
-      }
+      return collector.createResult(instance);
     } catch (error) {
       collector.addCritical(
-        `Cannot proceed with conversion because the temporary working directory could not be created. ${error instanceof Error ? error.message : String(error)}.`,
+        `Cannot start conversion because the default database could not be created. ${error instanceof Error ? error.message : String(error)}.`,
       );
+
+      const cleanupIssues = await instance.media.cleanup();
+      collector.addIssues(cleanupIssues);
       return collector.createFailureResult<AnkiPackage>();
+    } finally {
+      await db?.close();
     }
   }
 
   public static async fromAnkiExport(
-    filepath: string,
-    options?: ConversionOptions,
+    data: Uint8Array,
+    options?: AnkiPackageOptions,
   ): Promise<ConversionResult<AnkiPackage>> {
-    const collector = new IssueCollector(options);
+    const collector = new IssueCollector(collectorOptions(options));
 
     try {
-      const instance = new AnkiPackage(await makeTempDir());
+      const instance = new AnkiPackage(new MediaStore(options?.storage));
       let db: AnkiDatabase | undefined;
 
       try {
-        if (!VALID_FILE_EXTENSIONS.some((ext) => filepath.endsWith(ext))) {
-          collector.addCritical(
-            `Invalid file extension. Expected one of: ${VALID_FILE_EXTENSIONS.join(", ")}.`,
-          );
-          return collector.createFailureResult<AnkiPackage>();
-        }
-
-        // Check file properties before attempting to unzip
-        const fileStats = await stat(filepath);
-        if (fileStats.size === 0) {
+        if (data.length === 0) {
           collector.addCritical(
             "The file is empty (0 bytes). This may indicate a failed download or file transfer. Please re-export your deck from Anki.",
           );
-          const cleanupIssues = await removeDirectory(instance.tempDir);
+          const cleanupIssues = await instance.media.cleanup();
           collector.addIssues(cleanupIssues);
           return collector.createFailureResult<AnkiPackage>();
         }
 
-        // Read first 4 bytes to check for ZIP magic number
-        const fileHandle = await readFile(filepath);
+        // Check the first 4 bytes for the ZIP magic number
         const hasZipMagic =
-          fileHandle.length >= 4 &&
-          fileHandle[0] === 0x50 && // P
-          fileHandle[1] === 0x4b && // K
-          (fileHandle[2] === 0x03 || fileHandle[2] === 0x05) && // 0x03 for local file, 0x05 for empty archive
-          (fileHandle[3] === 0x04 || fileHandle[3] === 0x06); // 0x04 for local file, 0x06 for empty archive
+          data.length >= 4 &&
+          data[0] === 0x50 && // P
+          data[1] === 0x4b && // K
+          (data[2] === 0x03 || data[2] === 0x05) && // 0x03 for local file, 0x05 for empty archive
+          (data[3] === 0x04 || data[3] === 0x06); // 0x04 for local file, 0x06 for empty archive
 
-        // Unzip the Anki export file to the temp dir
-        // TODO: Use zip.js for cross platform compatibility
-        // https://github.com/gildas-lormeau/zip.js
-        let directory: CentralDirectory;
+        // Read the Anki export's ZIP entries into memory
+        let zipEntries: Map<string, Uint8Array>;
         try {
-          directory = await Open.file(filepath);
-        } catch (error) {
-          if (error instanceof Error && error.message.includes("FILE_ENDED")) {
-            if (hasZipMagic) {
-              collector.addCritical(
-                "The ZIP archive is truncated or corrupted. This typically happens when a download was interrupted. Please re-download or re-export your deck from Anki.",
-              );
-            } else {
-              collector.addCritical(
-                "The file is not a valid ZIP archive. Anki packages (.apkg/.colpkg) must be ZIP files. Please ensure you're using a file exported from Anki.",
-              );
-            }
+          zipEntries = readZipEntries(data);
+        } catch {
+          if (hasZipMagic) {
+            collector.addCritical(
+              "The ZIP archive is truncated or corrupted. This typically happens when a download was interrupted. Please re-download or re-export your deck from Anki. Note that archives requiring ZIP64 (over 4 GiB or more than 65535 files) are not supported.",
+            );
           } else {
             collector.addCritical(
-              `Failed to open the ZIP archive: ${error instanceof Error ? error.message : String(error)}. Please ensure the file is a valid Anki export.`,
+              "The file is not a valid ZIP archive. Anki packages (.apkg/.colpkg) must be ZIP files. Please ensure you're using a file exported from Anki.",
             );
           }
-          const cleanupIssues = await removeDirectory(instance.tempDir);
+          const cleanupIssues = await instance.media.cleanup();
           collector.addIssues(cleanupIssues);
           return collector.createFailureResult<AnkiPackage>();
         }
-        await directory.extract({ path: instance.tempDir });
-
-        // Define paths for required files
-        const metaFilePath = join(instance.tempDir, "meta");
-        const mediaFilePath = join(instance.tempDir, "media");
-        const dbFilePath = join(instance.tempDir, "collection.anki21");
 
         // Step 1: Determine the package version (docs/formats/anki.md,
         // §Package v3 container layout): decode the protobuf `meta` file when
         // present, otherwise fall back to Anki's file-presence rules.
-        const metaExists = await stat(metaFilePath)
-          .then(() => true)
-          .catch(() => false);
+        const metaEntry = zipEntries.get("meta");
 
         let version: number;
-        if (metaExists) {
-          try {
-            version = decodePackageMeta(await readFile(metaFilePath)).version;
-          } catch {
-            collector.addCritical(
-              "The 'meta' file in this Anki package could not be parsed as version information. The file may be corrupted. Please re-export your deck from Anki.",
-            );
-            const cleanupIssues = await removeDirectory(instance.tempDir);
-            collector.addIssues(cleanupIssues);
-            return collector.createFailureResult<AnkiPackage>();
-          }
-        } else {
-          const [legacy2Exists, legacy1Exists] = await Promise.all([
-            stat(dbFilePath)
-              .then(() => true)
-              .catch(() => false),
-            stat(join(instance.tempDir, "collection.anki2"))
-              .then(() => true)
-              .catch(() => false),
-          ]);
-          if (legacy2Exists) {
+        if (metaEntry === undefined) {
+          if (zipEntries.has("collection.anki21")) {
             version = ExportVersion.Legacy_V2.valueOf();
-          } else if (legacy1Exists) {
+          } else if (zipEntries.has("collection.anki2")) {
             version = ExportVersion.Legacy_V1.valueOf();
           } else {
             collector.addCritical(
               "The Anki package is missing the 'meta' file and does not contain a collection database ('collection.anki21' or 'collection.anki2'). This does not appear to be a valid Anki export. Please re-export your deck from Anki.",
             );
-            const cleanupIssues = await removeDirectory(instance.tempDir);
+            const cleanupIssues = await instance.media.cleanup();
+            collector.addIssues(cleanupIssues);
+            return collector.createFailureResult<AnkiPackage>();
+          }
+        } else {
+          try {
+            version = decodePackageMeta(metaEntry).version;
+          } catch {
+            collector.addCritical(
+              "The 'meta' file in this Anki package could not be parsed as version information. The file may be corrupted. Please re-export your deck from Anki.",
+            );
+            const cleanupIssues = await instance.media.cleanup();
             collector.addIssues(cleanupIssues);
             return collector.createFailureResult<AnkiPackage>();
           }
@@ -1238,14 +1210,14 @@ export class AnkiPackage {
         // Step 2: Dispatch by version; reject versions this library cannot
         // read, with guidance specific to each format.
         if (version === ExportVersion.Latest.valueOf()) {
-          return await AnkiPackage.readModernPackage(instance, collector);
+          return await AnkiPackage.readModernPackage(instance, collector, zipEntries);
         }
 
         if (version === ExportVersion.Legacy_V1.valueOf()) {
           collector.addCritical(
             "This package is a Legacy 1 Anki export ('collection.anki2', created by Anki 2.0-era clients), which srs-converter does not support. Please import it into a current version of Anki and export it again.",
           );
-          const cleanupIssues = await removeDirectory(instance.tempDir);
+          const cleanupIssues = await instance.media.cleanup();
           collector.addIssues(cleanupIssues);
           return collector.createFailureResult<AnkiPackage>();
         }
@@ -1254,51 +1226,43 @@ export class AnkiPackage {
           collector.addCritical(
             `Unrecognized Anki package version: ${version.toFixed(0)}. This package may have been created by a newer Anki version than this library understands. Please check for an updated version of srs-converter.`,
           );
-          const cleanupIssues = await removeDirectory(instance.tempDir);
+          const cleanupIssues = await instance.media.cleanup();
           collector.addIssues(cleanupIssues);
           return collector.createFailureResult<AnkiPackage>();
         }
 
         // Step 3: Check for remaining required files (version-specific)
-        const [mediaExists, dbExists] = await Promise.all([
-          stat(mediaFilePath)
-            .then(() => true)
-            .catch(() => false),
-          stat(dbFilePath)
-            .then(() => true)
-            .catch(() => false),
-        ]);
+        const mediaEntry = zipEntries.get("media");
+        const dbEntry = zipEntries.get("collection.anki21");
 
         const missingFiles: string[] = [];
 
-        if (!mediaExists) {
+        if (mediaEntry === undefined) {
           missingFiles.push("media");
           collector.addCritical(
             "The Anki package is missing the 'media' file which contains media file mappings. This file is required for all Anki exports. Please re-export your deck from Anki.",
           );
         }
 
-        if (!dbExists) {
+        if (dbEntry === undefined) {
           missingFiles.push("collection.anki21");
           collector.addCritical(
             "The Anki package is missing the 'collection.anki21' database file. This file contains all your cards and decks. Please re-export your deck from Anki.",
           );
         }
 
-        if (missingFiles.length > 0) {
-          const cleanupIssues = await removeDirectory(instance.tempDir);
+        if (missingFiles.length > 0 || mediaEntry === undefined || dbEntry === undefined) {
+          const cleanupIssues = await instance.media.cleanup();
           collector.addIssues(cleanupIssues);
           return collector.createFailureResult<AnkiPackage>();
         }
 
-        // Read and parse the media mapping file with validation
-        const mediaFileContent = await readFile(mediaFilePath);
-        const mediaFileString = mediaFileContent.toString().trim();
+        // Read and parse the media mapping file with validation. An empty
+        // media file is a valid case (no media); the store starts empty.
+        const mediaFileString = new TextDecoder().decode(mediaEntry).trim();
+        let mediaMapping: MediaFileMapping = {};
 
-        // Handle empty media file (valid case - no media)
-        if (mediaFileString === "") {
-          instance.mediaFiles = {};
-        } else {
+        if (mediaFileString !== "") {
           // Parse JSON with error handling
           let parsedMedia: unknown;
           try {
@@ -1308,7 +1272,7 @@ export class AnkiPackage {
             collector.addCritical(
               `The media mapping file contains invalid JSON and cannot be parsed: ${errorMessage}. Please re-export your deck from Anki.`,
             );
-            const cleanupIssues = await removeDirectory(instance.tempDir);
+            const cleanupIssues = await instance.media.cleanup();
             collector.addIssues(cleanupIssues);
             return collector.createFailureResult<AnkiPackage>();
           }
@@ -1327,7 +1291,7 @@ export class AnkiPackage {
             collector.addCritical(
               `The media mapping file has an invalid structure. Expected an object mapping media IDs to filenames, but found ${actualType}. Please re-export your deck from Anki.`,
             );
-            const cleanupIssues = await removeDirectory(instance.tempDir);
+            const cleanupIssues = await instance.media.cleanup();
             collector.addIssues(cleanupIssues);
             return collector.createFailureResult<AnkiPackage>();
           }
@@ -1340,18 +1304,18 @@ export class AnkiPackage {
               collector.addCritical(
                 `The media mapping file contains an invalid entry: key '${key}' has a ${actualType} value instead of a filename string. Please re-export your deck from Anki.`,
               );
-              const cleanupIssues = await removeDirectory(instance.tempDir);
+              const cleanupIssues = await instance.media.cleanup();
               collector.addIssues(cleanupIssues);
               return collector.createFailureResult<AnkiPackage>();
             }
           }
 
-          instance.mediaFiles = parsedMedia as MediaFileMapping;
+          mediaMapping = parsedMedia as MediaFileMapping;
         }
 
-        // Open the collection.anki21 file as the database
+        // Open the collection.anki21 entry as the database
         try {
-          db = await AnkiDatabase.fromBuffer(await readFile(dbFilePath));
+          db = await AnkiDatabase.fromBuffer(dbEntry);
         } catch (error) {
           if (error instanceof AnkiDatabaseError) {
             let userMessage: string;
@@ -1380,7 +1344,7 @@ export class AnkiPackage {
               }
             }
             collector.addCritical(userMessage);
-            const cleanupIssues = await removeDirectory(instance.tempDir);
+            const cleanupIssues = await instance.media.cleanup();
             collector.addIssues(cleanupIssues);
             return collector.createFailureResult<AnkiPackage>();
           }
@@ -1398,7 +1362,7 @@ export class AnkiPackage {
             collector.addCritical(
               `The collection.anki21 database is missing required tables: ${missingTables}. This may indicate a corrupted database or an incompatible Anki version. Please re-export your deck from Anki.`,
             );
-            const cleanupIssues = await removeDirectory(instance.tempDir);
+            const cleanupIssues = await instance.media.cleanup();
             collector.addIssues(cleanupIssues);
             return collector.createFailureResult<AnkiPackage>();
           }
@@ -1413,21 +1377,33 @@ export class AnkiPackage {
           collector.addCritical(
             `This Anki file uses database version ${instance.databaseContents.collection.ver.toFixed(0)}, which is not supported. Please export your deck from a compatible Anki version.`,
           );
-          const cleanupIssues = await removeDirectory(instance.tempDir);
+          const cleanupIssues = await instance.media.cleanup();
           collector.addIssues(cleanupIssues);
           return collector.createFailureResult<AnkiPackage>();
         }
 
-        // Validate media file existence
-        for (const [mediaId, filename] of Object.entries(instance.mediaFiles)) {
-          const mediaPath = join(instance.tempDir, mediaId);
-          const mediaFileExists = await stat(mediaPath)
-            .then(() => true)
-            .catch(() => false);
+        // Stage the media files listed in the mapping into the media store
+        // and warn about entries the archive does not actually contain.
+        for (const [mediaId, filename] of Object.entries(mediaMapping)) {
+          const mediaContent = zipEntries.get(mediaId);
 
-          if (!mediaFileExists) {
+          if (mediaContent === undefined) {
             collector.addWarning(
               `Media file '${filename}' (ID: ${mediaId}) is listed in the media mapping but not found in the package. References to this file may be broken.`,
+              { itemType: "media", originalData: { filename, mediaId } },
+            );
+            continue;
+          }
+
+          try {
+            await instance.media.restoreMediaFile(
+              Math.trunc(Number(mediaId)),
+              filename,
+              mediaContent,
+            );
+          } catch (error) {
+            collector.addWarning(
+              `Media file '${filename}' (ID: ${mediaId}) could not be restored from the package and was skipped: ${error instanceof Error ? error.message : String(error)}`,
               { itemType: "media", originalData: { filename, mediaId } },
             );
           }
@@ -1440,7 +1416,7 @@ export class AnkiPackage {
           `The Anki export file could not be read. ${error instanceof Error ? error.message : String(error)}.`,
         );
 
-        const cleanupIssues = await removeDirectory(instance.tempDir);
+        const cleanupIssues = await instance.media.cleanup();
         collector.addIssues(cleanupIssues);
         return collector.createFailureResult<AnkiPackage>();
       } finally {
@@ -1455,28 +1431,27 @@ export class AnkiPackage {
   }
 
   /**
-   * Reads a modern (package version 3 / schema 18) export whose files are
-   * already extracted into `instance.tempDir`: zstd-decompresses the
-   * collection, decodes the split entity tables into the legacy-shaped dump
-   * (keeping the native form for ADR-0016 blob storage), and restores the
-   * media files from the protobuf manifest.
+   * Reads a modern (package version 3 / schema 18) export from its ZIP
+   * entries: zstd-decompresses the collection, decodes the split entity
+   * tables into the legacy-shaped dump (keeping the native form for
+   * ADR-0016 blob storage), and restores the media files from the protobuf
+   * manifest.
+   * @returns The populated package, or a failure result with issues
    */
   private static async readModernPackage(
     instance: AnkiPackage,
     collector: IssueCollector,
+    zipEntries: Map<string, Uint8Array>,
   ): Promise<ConversionResult<AnkiPackage>> {
     const fail = async (): Promise<ConversionResult<AnkiPackage>> => {
-      const cleanupIssues = await removeDirectory(instance.tempDir);
+      const cleanupIssues = await instance.media.cleanup();
       collector.addIssues(cleanupIssues);
       return collector.createFailureResult<AnkiPackage>();
     };
 
     // Collection database: whole-file zstd around a schema-18 SQLite file.
-    const dbFilePath = join(instance.tempDir, "collection.anki21b");
-    const dbExists = await stat(dbFilePath)
-      .then(() => true)
-      .catch(() => false);
-    if (!dbExists) {
+    const dbEntry = zipEntries.get("collection.anki21b");
+    if (dbEntry === undefined) {
       collector.addCritical(
         "The Anki package declares the modern format but is missing the 'collection.anki21b' database file. This file contains all your cards and decks. Please re-export your deck from Anki.",
       );
@@ -1485,7 +1460,7 @@ export class AnkiPackage {
 
     let dbBuffer: Uint8Array;
     try {
-      dbBuffer = await zstdDecompress(await readFile(dbFilePath));
+      dbBuffer = await platform.zstdDecompress(dbEntry);
     } catch (error) {
       collector.addCritical(
         `The 'collection.anki21b' database could not be decompressed: ${error instanceof Error ? error.message : String(error)}. The package may be corrupted. Please re-export your deck from Anki.`,
@@ -1524,17 +1499,13 @@ export class AnkiPackage {
     // Media: zstd-compressed protobuf manifest; entry position = zip entry
     // name; each media file is individually zstd-compressed. A missing
     // manifest is tolerated (old AnkiDroid wrote packages without one).
-    const mediaFilePath = join(instance.tempDir, "media");
-    const mediaExists = await stat(mediaFilePath)
-      .then(() => true)
-      .catch(() => false);
+    const mediaManifestEntry = zipEntries.get("media");
 
-    instance.mediaFiles = {};
-    if (mediaExists) {
+    if (mediaManifestEntry !== undefined) {
       let entries;
       try {
         entries = mediaEntriesCodec.decode(
-          await zstdDecompress(await readFile(mediaFilePath)),
+          await platform.zstdDecompress(mediaManifestEntry),
         ).entries;
       } catch (error) {
         collector.addCritical(
@@ -1544,10 +1515,13 @@ export class AnkiPackage {
       }
 
       for (const [index, entry] of entries.entries()) {
-        const mediaPath = join(instance.tempDir, index.toFixed(0));
+        const compressed = zipEntries.get(index.toFixed(0));
         let data: Uint8Array;
         try {
-          data = await zstdDecompress(await readFile(mediaPath));
+          if (compressed === undefined) {
+            throw new Error("entry is missing from the archive");
+          }
+          data = await platform.zstdDecompress(compressed);
         } catch (error) {
           collector.addWarning(
             `Media file '${entry.name}' (ID: ${index.toFixed(0)}) is listed in the media manifest but could not be read: ${error instanceof Error ? error.message : String(error)}. References to this file may be broken.`,
@@ -1556,8 +1530,8 @@ export class AnkiPackage {
           continue;
         }
 
-        const sha1 = createHash("sha1").update(data).digest();
-        if (data.length !== entry.size || !sha1.equals(Buffer.from(entry.sha1))) {
+        const sha1 = await sha1Async(data);
+        if (data.length !== entry.size || !bytesEqual(sha1, entry.sha1)) {
           collector.addWarning(
             `Media file '${entry.name}' (ID: ${index.toFixed(0)}) does not match its manifest checksum and was skipped. The package may be corrupted.`,
             { itemType: "media", originalData: { filename: entry.name, mediaId: index } },
@@ -1565,10 +1539,16 @@ export class AnkiPackage {
           continue;
         }
 
-        // Store the decompressed bytes in place so the numeric-id mapping
+        // Stage the decompressed bytes under the numeric id so the mapping
         // works exactly like the legacy path downstream.
-        await writeFile(mediaPath, data);
-        instance.mediaFiles[index] = entry.name;
+        try {
+          await instance.media.restoreMediaFile(index, entry.name, data);
+        } catch (error) {
+          collector.addWarning(
+            `Media file '${entry.name}' (ID: ${index.toFixed(0)}) could not be restored from the package and was skipped: ${error instanceof Error ? error.message : String(error)}`,
+            { itemType: "media", originalData: { filename: entry.name, mediaId: index } },
+          );
+        }
       }
     }
 
@@ -1577,9 +1557,9 @@ export class AnkiPackage {
 
   public static async fromSrsPackage(
     srsPackage: SrsPackage,
-    options?: ConversionOptions,
+    options?: AnkiPackageOptions,
   ): Promise<ConversionResult<AnkiPackage>> {
-    const collector = new IssueCollector(options);
+    const collector = new IssueCollector(collectorOptions(options));
 
     // Start with a new empty AnkiPackage
     const result = await AnkiPackage.fromDefault(options);
@@ -1849,7 +1829,7 @@ export class AnkiPackage {
     // error issue + skip rather than an unhandled exception.
     for (const filename of srsPackage.listMediaFiles()) {
       try {
-        await ankiPackage.addMediaFile(filename, srsPackage.getMediaFile(filename));
+        await ankiPackage.addMediaFile(filename, await srsPackage.getMediaFile(filename));
       } catch (error) {
         collector.addError(
           `Media file '${filename}' could not be added to the Anki package and was skipped: ${error instanceof Error ? error.message : String(error)}`,
@@ -2001,61 +1981,45 @@ export class AnkiPackage {
    * produces. `options.legacy: true` mirrors Anki's "Support older Anki
    * versions" checkbox and writes a Legacy 2 package (`collection.anki21`)
    * instead, which every Anki version can import (ADR-0015).
-   * @param filepath - Where to write the .apkg file
    * @param options - Export format options
+   * @returns The bytes of the .apkg file
    */
-  public async toAnkiExport(filepath: string, options?: { legacy?: boolean }): Promise<void> {
+  public async toAnkiExport(options?: { legacy?: boolean }): Promise<Uint8Array> {
     if (this.databaseContents === undefined) {
       throw new Error("Database contents not available");
     }
 
-    if (!filepath || filepath.trim() === "") {
-      throw new Error("Export filepath cannot be empty");
-    }
-
     if (options?.legacy !== true) {
-      await this.toModernAnkiExport(filepath);
-      return;
+      return await this.toModernAnkiExport();
     }
 
-    // Write the meta file
     const meta = encodePackageMeta({ version: EXPORT_VERSION.valueOf() });
-    await writeFile(join(this.tempDir, "meta"), meta);
+    const mediaEntries = this.media.getMediaEntries();
+    const mediaMapping = Object.fromEntries(
+      mediaEntries.map(([id, filename]) => [id.toFixed(0), filename]),
+    );
+    const media = new TextEncoder().encode(JSON.stringify(mediaMapping, null, 2));
 
-    // Write the media file mapping
-    const media = JSON.stringify(this.mediaFiles, null, 2);
-    await writeFile(join(this.tempDir, "media"), media);
-
-    // Write the database
     const db = await AnkiDatabase.fromDump(this.databaseContents);
     const dbBuffer = db.toBuffer();
-    await writeFile(join(this.tempDir, "collection.anki21"), dbBuffer);
 
-    // Build list of files to include in zip
-    const filesToZip = [
-      {
-        compress: true,
-        path: join(this.tempDir, "collection.anki21"),
-      },
-      {
-        compress: false,
-        path: join(this.tempDir, "media"),
-      },
-      {
-        compress: false,
-        path: join(this.tempDir, "meta"),
-      },
-    ];
-
-    // Add all media files to the zip
-    for (const mediaId of Object.keys(this.mediaFiles)) {
-      filesToZip.push({
-        compress: false,
-        path: join(this.tempDir, mediaId),
-      });
+    // Media entries are read from the media store one at a time while the
+    // archive is assembled, so only a single media file is in memory.
+    const mediaStore = this.media;
+    async function* zipEntries(): AsyncGenerator<ZipOutEntry> {
+      yield { compress: true, data: dbBuffer, name: "collection.anki21" };
+      yield { compress: false, data: media, name: "media" };
+      yield { compress: false, data: meta, name: "meta" };
+      for (const [id, filename] of mediaEntries) {
+        yield {
+          compress: false,
+          data: await mediaStore.getMediaFile(filename),
+          name: id.toFixed(0),
+        };
+      }
     }
 
-    await createSelectiveZip(filepath, filesToZip);
+    return await buildZip(zipEntries());
   }
 
   /**
@@ -2064,22 +2028,21 @@ export class AnkiPackage {
    * `collection.anki21b`, a dummy legacy `collection.anki2` for pre-2.1.50
    * clients, the zstd protobuf media manifest, and individually compressed
    * media files (docs/formats/anki.md §Package v3 container layout).
-   * @param filepath - Where to write the .apkg file
+   * @returns The bytes of the .apkg file
    */
-  private async toModernAnkiExport(filepath: string): Promise<void> {
+  private async toModernAnkiExport(): Promise<Uint8Array> {
     if (this.databaseContents === undefined) {
       throw new Error("Database contents not available");
     }
 
-    // Write the meta file (version 3).
+    // The meta file (version 3).
     const meta = encodePackageMeta({ version: ExportVersion.Latest.valueOf() });
-    await writeFile(join(this.tempDir, "meta"), meta);
 
     // Build and compress the schema-18 database.
     const db = await AnkiDatabase.fromModernDump(this.databaseContents, this.modernData);
     const dbBuffer = db.toBuffer();
     await db.close();
-    await writeFile(join(this.tempDir, "collection.anki21b"), await zstdCompress(dbBuffer));
+    const compressedDb = await platform.zstdCompress(dbBuffer);
 
     // Dummy legacy collection so pre-2.1.50 clients open an (empty) valid
     // database instead of failing. Anki additionally puts an explanatory
@@ -2087,48 +2050,58 @@ export class AnkiPackage {
     const dummyDb = await AnkiDatabase.fromDefault();
     const dummyBuffer = dummyDb.toBuffer();
     await dummyDb.close();
-    await writeFile(join(this.tempDir, "collection.anki2"), dummyBuffer);
 
     // Media: manifest entry order defines the numeric zip entry names;
     // names must be NFC-normalized; sha1 of the uncompressed bytes is
-    // mandatory. The compressed copies live in a subdirectory so the
-    // instance's own media files stay readable.
-    const modernMediaDir = join(this.tempDir, "modern-media");
-    await mkdir(modernMediaDir, { recursive: true });
-    const entries: { name: string; size: number; sha1: Uint8Array }[] = [];
-    const mediaZipFiles: { compress: boolean; path: string }[] = [];
-    for (const [mediaId, filename] of Object.entries(this.mediaFiles)) {
-      const data = await readFile(join(this.tempDir, mediaId));
-      const index = entries.length;
-      entries.push({
-        name: filename.normalize("NFC"),
-        size: data.length,
-        sha1: createHash("sha1").update(data).digest(),
-      });
-      const compressedPath = join(modernMediaDir, index.toFixed(0));
-      await writeFile(compressedPath, await zstdCompress(data));
-      mediaZipFiles.push({ compress: false, path: compressedPath });
-    }
-    const manifest = await zstdCompress(mediaEntriesCodec.encode({ entries }));
-    await writeFile(join(this.tempDir, "media"), manifest);
+    // mandatory. The compressed copies are staged in a scratch storage so
+    // only one media file is held in memory at a time; the instance's own
+    // media files stay readable.
+    const scratch = platform.createDefaultMediaStorage();
+    try {
+      const entries: { name: string; size: number; sha1: Uint8Array }[] = [];
+      for (const [, filename] of this.media.getMediaEntries()) {
+        const data = await this.media.getMediaFile(filename);
+        const index = entries.length;
+        entries.push({
+          name: filename.normalize("NFC"),
+          size: data.length,
+          sha1: await sha1Async(data),
+        });
+        await scratch.write(index.toFixed(0), await platform.zstdCompress(data));
+      }
+      const manifest = await platform.zstdCompress(mediaEntriesCodec.encode({ entries }));
 
-    await createSelectiveZip(filepath, [
-      { compress: false, path: join(this.tempDir, "meta") },
-      { compress: false, path: join(this.tempDir, "collection.anki21b") },
-      { compress: false, path: join(this.tempDir, "collection.anki2") },
-      { compress: false, path: join(this.tempDir, "media") },
-      ...mediaZipFiles,
-    ]);
+      const mediaCount = entries.length;
+      const zipEntries = async function* zipEntries(): AsyncGenerator<ZipOutEntry> {
+        yield { compress: false, data: meta, name: "meta" };
+        yield { compress: false, data: compressedDb, name: "collection.anki21b" };
+        yield { compress: false, data: dummyBuffer, name: "collection.anki2" };
+        yield { compress: false, data: manifest, name: "media" };
+        for (let index = 0; index < mediaCount; index++) {
+          yield {
+            compress: false,
+            data: await scratch.read(index.toFixed(0)),
+            name: index.toFixed(0),
+          };
+        }
+      };
+
+      return await buildZip(zipEntries());
+    } finally {
+      await scratch.dispose();
+    }
   }
 
   public async cleanup(): Promise<ConversionIssue[]> {
-    return await removeDirectory(this.tempDir);
+    return await this.media.cleanup();
   }
 
   toString(): string {
+    const mediaMapping = Object.fromEntries(
+      this.media.getMediaEntries().map(([id, filename]) => [id.toFixed(0), filename]),
+    );
     let res = "AnkiPackage\n";
-    res += `Temp directory: ${this.tempDir}\n`;
-    res += `Media file mapping: ${JSON.stringify(this.mediaFiles, null, 2)}\n`;
+    res += `Media file mapping: ${JSON.stringify(mediaMapping, null, 2)}\n`;
     res += `Database contents: ${serializeWithBigInts(this.databaseContents, 2)}\n`;
     return res;
   }
@@ -2231,7 +2204,7 @@ export class AnkiPackage {
    * @returns Array of media filenames
    */
   public listMediaFiles(): string[] {
-    return Object.values(this.mediaFiles);
+    return this.media.listMediaFiles();
   }
 
   /**
@@ -2241,119 +2214,39 @@ export class AnkiPackage {
    * @throws {Error} if the file is not found in the package
    */
   public async getMediaFileSize(filename: string): Promise<number> {
-    // Find the media file ID from the filename
-    const mediaId = Object.entries(this.mediaFiles).find(([, name]) => name === filename)?.[0];
-
-    if (mediaId === undefined) {
-      throw new Error(`Media file '${filename}' not found in package`);
-    }
-
-    const filePath = join(this.tempDir, mediaId);
-
-    try {
-      const stats = await stat(filePath);
-      return stats.size;
-    } catch (error) {
-      throw new Error(
-        `Failed to get size for media file '${filename}': ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
+    return await this.media.getMediaFileSize(filename);
   }
 
   /**
-   * Retrieves a media file as a ReadableStream for efficient streaming.
+   * Retrieves the content of a media file.
    * @param filename - The name of the media file to retrieve
-   * @returns A ReadableStream for the media file
+   * @returns The media file's bytes
    * @throws {Error} if the file is not found in the package
    */
-  public getMediaFile(filename: string): Readable {
-    // Find the media file ID from the filename
-    const mediaId = Object.entries(this.mediaFiles).find(([, name]) => name === filename)?.[0];
-
-    if (mediaId === undefined) {
-      throw new Error(`Media file '${filename}' not found in package`);
-    }
-
-    const filePath = join(this.tempDir, mediaId);
-
-    // Always return a readable stream for consistency
-    return createReadStream(filePath);
+  public async getMediaFile(filename: string): Promise<Uint8Array> {
+    return await this.media.getMediaFile(filename);
   }
 
   /**
-   * Adds a media file to the package.
+   * Adds a media file to the package. The content is copied, so the caller
+   * retains ownership of `data`.
    * @param filename - The name for the media file (e.g., "image.jpg")
-   * @param source - The source of the media file (file path, Buffer, or Readable stream)
+   * @param data - The content of the media file
    * @throws {Error} if the filename already exists in the package
-   * @throws {Error} if the source file cannot be read or processed
+   * @throws {Error} if the content cannot be stored
    */
-  public async addMediaFile(filename: string, source: string | Buffer | Readable): Promise<void> {
-    // Check if filename already exists
-    const existingFile = Object.values(this.mediaFiles).find((name) => name === filename);
-    if (existingFile !== undefined) {
-      throw new Error(`Media file '${filename}' already exists in package`);
-    }
-
-    // Generate unique media ID (next available number)
-    const existingIds = Object.keys(this.mediaFiles).map((id) => Math.trunc(Number(id)));
-    const nextId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 0;
-    const mediaId = nextId.toFixed(0);
-
-    const targetPath = join(this.tempDir, mediaId);
-
-    try {
-      if (typeof source === "string") {
-        // Source is a file path - copy it
-        await copyFile(source, targetPath);
-      } else if (Buffer.isBuffer(source)) {
-        // Source is a Buffer - write it
-        await writeFile(targetPath, source);
-      } else {
-        // Source is a Readable stream - pipe it
-        const writeStream = createWriteStream(targetPath);
-        await pipeline(source, writeStream);
-      }
-
-      // Update media mapping
-      this.mediaFiles[Math.trunc(Number(mediaId))] = filename;
-    } catch (error) {
-      throw new Error(
-        `Failed to add media file '${filename}': ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
+  public async addMediaFile(filename: string, data: Uint8Array): Promise<void> {
+    await this.media.addMediaFile(filename, data);
   }
 
   /**
    * Removes a media file from the package.
    * @param filename - The name of the media file to remove (e.g., "image.jpg")
    * @throws {Error} if the file does not exist in the package
-   * @throws {Error} if the file cannot be deleted from disk
+   * @throws {Error} if the backing content cannot be deleted
    */
   public async removeMediaFile(filename: string): Promise<void> {
-    // Find the media file ID from the filename
-    const mediaEntry = Object.entries(this.mediaFiles).find(([, name]) => name === filename);
-
-    if (mediaEntry === undefined) {
-      throw new Error(`Media file '${filename}' does not exist in package`);
-    }
-
-    const [mediaId] = mediaEntry;
-    const filePath = join(this.tempDir, mediaId);
-
-    try {
-      // Remove the physical file from disk
-      await rm(filePath);
-
-      // Remove from media mapping by creating new object without the key
-      const numericId = Math.trunc(Number(mediaId));
-      this.mediaFiles = Object.fromEntries(
-        Object.entries(this.mediaFiles).filter(([key]) => Math.trunc(Number(key)) !== numericId),
-      );
-    } catch (error) {
-      throw new Error(
-        `Failed to remove media file '${filename}': ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
+    await this.media.removeMediaFile(filename);
   }
 
   /**
@@ -2380,7 +2273,7 @@ export class AnkiPackage {
     );
 
     // Find unreferenced files
-    const allMediaFiles = Object.values(this.mediaFiles);
+    const allMediaFiles = this.media.listMediaFiles();
     const unreferencedFiles = allMediaFiles.filter((filename) => !referencedFiles.has(filename));
 
     // Remove unreferenced files
@@ -2396,7 +2289,7 @@ export class AnkiPackage {
    * This method transforms Anki data structures into the universal SRS format.
    *
    * Media files are copied into the returned {@link SrsPackage}, which then owns
-   * an independent temporary directory; the caller must eventually call
+   * independent media storage; the caller must eventually call
    * {@link SrsPackage.cleanup} on it. This copying is why the method is async.
    * @param options - Configuration options for the conversion process
    * @returns A new SrsPackage containing the converted data
@@ -2744,7 +2637,7 @@ export class AnkiPackage {
     // about at read time) is skipped with a warning rather than aborting.
     for (const filename of this.listMediaFiles()) {
       try {
-        await srsPackage.addMediaFile(filename, this.getMediaFile(filename));
+        await srsPackage.addMediaFile(filename, await this.getMediaFile(filename));
       } catch (error) {
         collector.addWarning(
           `Media file '${filename}' could not be copied to the SRS package and was skipped: ${error instanceof Error ? error.message : String(error)}`,
@@ -2755,30 +2648,4 @@ export class AnkiPackage {
 
     return collector.createResult(srsPackage);
   }
-}
-
-async function makeTempDir(): Promise<string> {
-  // Use the node.js fs module to create a temporary directory
-  // TODO: Use platform specific temp directory (Browser, Tauri, etc.)
-
-  return await mkdtemp(join(tmpdir(), "srsconverter-"));
-}
-
-async function removeDirectory(dirPath: string): Promise<ConversionIssue[]> {
-  const issues: ConversionIssue[] = [];
-
-  try {
-    await rm(dirPath, { recursive: true });
-  } catch (error) {
-    issues.push({
-      context: {
-        originalData: error,
-      },
-      message:
-        "Could not clean up temporary files after conversion. This does not affect your converted data.",
-      severity: "warning",
-    });
-  }
-
-  return issues;
 }

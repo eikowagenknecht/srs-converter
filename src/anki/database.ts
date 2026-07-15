@@ -1,7 +1,6 @@
 import { CompiledQuery, Kysely } from "kysely";
 import { SqlJsDialect } from "kysely-wasm";
 import type { Database } from "sql.js";
-import InitSqlJs from "sql.js";
 
 import type { ConversionIssue } from "@/error-handling";
 
@@ -34,6 +33,7 @@ import {
   tagRowsToTagsJson,
   tagsJsonToTagRows,
 } from "./schema-convert";
+import { getSqlJs } from "./sqljs";
 import type {
   CardsTable,
   ColTable,
@@ -99,7 +99,7 @@ export class AnkiDatabase {
   }
 
   static async fromDefault(): Promise<AnkiDatabase> {
-    const SQL = await InitSqlJs();
+    const SQL = await getSqlJs();
     const sqlJsInstance = new SQL.Database();
 
     const dialect = new SqlJsDialect({
@@ -161,7 +161,7 @@ export class AnkiDatabase {
     // Try to open the database
     let sqlJsInstance: Database;
     try {
-      const SQL = await InitSqlJs();
+      const SQL = await getSqlJs();
       sqlJsInstance = new SQL.Database(buffer);
 
       // Schema-18 collections use Anki's custom `unicase` collation, which
@@ -254,7 +254,7 @@ export class AnkiDatabase {
   }
 
   static async fromDump(dump: DatabaseDump): Promise<AnkiDatabase> {
-    const SQL = await InitSqlJs();
+    const SQL = await getSqlJs();
     const sqlJsInstance = new SQL.Database();
 
     const dialect = new SqlJsDialect({
@@ -307,7 +307,7 @@ export class AnkiDatabase {
     dump: DatabaseDump,
     modern?: ModernCollectionData,
   ): Promise<AnkiDatabase> {
-    const SQL = await InitSqlJs();
+    const SQL = await getSqlJs();
     const sqlJsInstance = new SQL.Database();
 
     const dialect = new SqlJsDialect({

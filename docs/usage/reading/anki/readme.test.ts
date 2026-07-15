@@ -3,8 +3,7 @@
  * Covers all code samples from README.md
  */
 
-import { createWriteStream } from "node:fs";
-import { access, mkdtemp, rm } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -20,7 +19,7 @@ async function createBasicTestPackage(tempDir: string): Promise<string> {
     throw new Error("Failed to create test package");
   }
   const testPath = join(tempDir, "test.apkg");
-  await result.data.toAnkiExport(testPath);
+  await writeFile(testPath, await result.data.toAnkiExport());
   return testPath;
 }
 
@@ -130,7 +129,7 @@ async function createAnalysisTestPackage(tempDir: string): Promise<string> {
   });
 
   const testPath = join(tempDir, "analysis-test.apkg");
-  await ankiPackage.toAnkiExport(testPath);
+  await writeFile(testPath, await ankiPackage.toAnkiExport());
   return testPath;
 }
 
@@ -151,7 +150,8 @@ describe("Anki Reading Documentation Examples", () => {
     const testPath = await createBasicTestPackage(tempDir);
 
     // Test the documentation example: Load an Anki .apkg/.colpkg file
-    const loadResult = await AnkiPackage.fromAnkiExport(testPath);
+    const data = new Uint8Array(await readFile(testPath));
+    const loadResult = await AnkiPackage.fromAnkiExport(data);
 
     switch (loadResult.status) {
       case "success": {
@@ -175,7 +175,8 @@ describe("Anki Reading Documentation Examples", () => {
 
     // console.log(`Analyzing: ${filePath}`);
 
-    const result = await AnkiPackage.fromAnkiExport(filePath);
+    const data = new Uint8Array(await readFile(filePath));
+    const result = await AnkiPackage.fromAnkiExport(data);
 
     expect(result.status).toBe("success");
     if (result.status === "failure") {
@@ -238,7 +239,8 @@ describe("Anki Reading Documentation Examples", () => {
   // Code Sample: Working with Media Files
   it("should list and retrieve media files from an Anki package", async () => {
     // Use the test package with media
-    const result = await AnkiPackage.fromAnkiExport("tests/fixtures/anki/mixed-legacy-2.apkg");
+    const data = new Uint8Array(await readFile("tests/fixtures/anki/mixed-legacy-2.apkg"));
+    const result = await AnkiPackage.fromAnkiExport(data);
 
     if (result.status === "failure" || !result.data) {
       console.error("Failed to load package");
@@ -254,19 +256,12 @@ describe("Anki Reading Documentation Examples", () => {
       const size = await ankiPackage.getMediaFileSize(filename);
       expect(size).toBeGreaterThan(0);
 
-      const stream = ankiPackage.getMediaFile(filename);
+      // getMediaFile returns the file's bytes.
+      const bytes = await ankiPackage.getMediaFile(filename);
 
       // Example: Save to disk
       const outputPath = join(tempDir, filename);
-      const writeStream = createWriteStream(outputPath);
-      stream.pipe(writeStream);
-
-      await new Promise<void>((resolve, reject) => {
-        writeStream.on("finish", () => {
-          resolve();
-        });
-        writeStream.on("error", reject);
-      });
+      await writeFile(outputPath, bytes);
 
       // Verify file was created
       await access(outputPath); // Will throw if file doesn't exist

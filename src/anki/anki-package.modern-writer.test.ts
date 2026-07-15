@@ -1,43 +1,39 @@
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import InitSqlJs from "sql.js";
-import { Open } from "unzipper";
 import { describe, expect, it } from "vitest";
 
+import { platform } from "#platform";
 import type { SrsPackage } from "@/srs-package";
 
 import { AnkiPackage } from "./anki-package";
+import { loadFixture } from "./anki-package.fixtures";
 import { decodePackageMeta } from "./protobuf-wire";
-import { zstdDecompress } from "./zstd";
+import { readZipEntries } from "./zip";
 
-const CORPUS = "tests/fixtures/anki/corpus";
+const CORPUS = "anki/corpus";
 
-async function toSrs(path: string): Promise<{ anki: AnkiPackage; srs: SrsPackage }> {
-  const ankiResult = await AnkiPackage.fromAnkiExport(path);
+async function toSrs(data: Uint8Array): Promise<{ anki: AnkiPackage; srs: SrsPackage }> {
+  const ankiResult = await AnkiPackage.fromAnkiExport(data);
   expect(
     ankiResult.issues.filter((issue) => issue.severity === "critical"),
-    `critical issues reading ${path}`,
+    "critical issues reading package",
   ).toHaveLength(0);
   if (!ankiResult.data) {
-    throw new Error(`could not read ${path}`);
+    throw new Error("could not read package");
   }
   const srsResult = await ankiResult.data.toSrsPackage();
   if (!srsResult.data) {
-    throw new Error(`could not convert ${path}`);
+    throw new Error("could not convert package");
   }
   return { anki: ankiResult.data, srs: srsResult.data };
 }
 
-async function entityBlobs(apkgPath: string): Promise<Map<string, Uint8Array>> {
-  const zip = await Open.file(apkgPath);
-  const dbEntry = zip.files.find((file) => file.path === "collection.anki21b");
+async function entityBlobs(apkg: Uint8Array): Promise<Map<string, Uint8Array>> {
+  const dbEntry = readZipEntries(apkg).get("collection.anki21b");
   if (!dbEntry) {
-    throw new Error(`collection.anki21b missing from ${apkgPath}`);
+    throw new Error("collection.anki21b missing from package");
   }
   const SQL = await InitSqlJs();
-  const db = new SQL.Database(await zstdDecompress(new Uint8Array(await dbEntry.buffer())));
+  const db = new SQL.Database(await platform.zstdDecompress(dbEntry));
   // Strip unicase so the query planner works in sql.js (source files only;
   // our own output has no unicase clauses).
   db.exec("PRAGMA writable_schema=ON");
@@ -75,19 +71,17 @@ async function entityBlobs(apkgPath: string): Promise<Map<string, Uint8Array>> {
 
 describe("modern (schema 18) package writing", () => {
   it("writes a modern package with the pinned container layout", async () => {
-    const result = await AnkiPackage.fromAnkiExport(`${CORPUS}/corpus-v3.apkg`);
+    const result = await AnkiPackage.fromAnkiExport(await loadFixture(`${CORPUS}/corpus-v3.apkg`));
     const anki = result.data;
     expect(anki).toBeDefined();
     if (!anki) {
       return;
     }
     try {
-      const outDir = await mkdtemp(join(tmpdir(), "modern-writer-"));
-      const outPath = join(outDir, "out.apkg");
-      await anki.toAnkiExport(outPath, { legacy: false });
+      const outBytes = await anki.toAnkiExport({ legacy: false });
 
-      const zip = await Open.file(outPath);
-      const names = zip.files.map((file) => file.path).sort();
+      const entries = readZipEntries(outBytes);
+      const names = [...entries.keys()].sort();
       expect(names).toContain("meta");
       expect(names).toContain("collection.anki21b");
       expect(names).toContain("collection.anki2"); // dummy for old clients
@@ -95,8 +89,7 @@ describe("modern (schema 18) package writing", () => {
       expect(names).toContain("0");
       expect(names).toContain("1");
 
-      const metaEntry = zip.files.find((file) => file.path === "meta");
-      const metaBuffer = metaEntry ? new Uint8Array(await metaEntry.buffer()) : new Uint8Array(0);
+      const metaBuffer = entries.get("meta") ?? new Uint8Array(0);
       expect(decodePackageMeta(metaBuffer)).toEqual({ version: 3 });
     } finally {
       await anki.cleanup();
@@ -104,19 +97,18 @@ describe("modern (schema 18) package writing", () => {
   });
 
   it("passes modern-sourced entity blobs through byte-identically", async () => {
-    const result = await AnkiPackage.fromAnkiExport(`${CORPUS}/corpus-v3.apkg`);
+    const sourceFixture = await loadFixture(`${CORPUS}/corpus-v3.apkg`);
+    const result = await AnkiPackage.fromAnkiExport(sourceFixture);
     const anki = result.data;
     expect(anki).toBeDefined();
     if (!anki) {
       return;
     }
     try {
-      const outDir = await mkdtemp(join(tmpdir(), "modern-writer-passthrough-"));
-      const outPath = join(outDir, "out.apkg");
-      await anki.toAnkiExport(outPath, { legacy: false });
+      const outBytes = await anki.toAnkiExport({ legacy: false });
 
-      const sourceBlobs = await entityBlobs(`${CORPUS}/corpus-v3.apkg`);
-      const outputBlobs = await entityBlobs(outPath);
+      const sourceBlobs = await entityBlobs(sourceFixture);
+      const outputBlobs = await entityBlobs(outBytes);
       expect(outputBlobs.size).toBeGreaterThan(0);
       for (const [key, blob] of outputBlobs) {
         expect(sourceBlobs.get(key), `source blob for ${key}`).toBeDefined();
@@ -128,7 +120,7 @@ describe("modern (schema 18) package writing", () => {
   });
 
   it("round-trips modern → SRS → modern with equivalent content", async () => {
-    const source = await toSrs(`${CORPUS}/corpus-v3-single-deck.apkg`);
+    const source = await toSrs(await loadFixture(`${CORPUS}/corpus-v3-single-deck.apkg`));
     let written: AnkiPackage | undefined;
     let reread: { anki: AnkiPackage; srs: SrsPackage } | undefined;
     try {
@@ -138,11 +130,9 @@ describe("modern (schema 18) package writing", () => {
       if (!written) {
         return;
       }
-      const outDir = await mkdtemp(join(tmpdir(), "modern-writer-roundtrip-"));
-      const outPath = join(outDir, "out.apkg");
-      await written.toAnkiExport(outPath, { legacy: false });
+      const outBytes = await written.toAnkiExport({ legacy: false });
 
-      reread = await toSrs(outPath);
+      reread = await toSrs(outBytes);
       const summarize = (srs: SrsPackage) => ({
         notes: srs
           .getNotes()
@@ -164,36 +154,29 @@ describe("modern (schema 18) package writing", () => {
   });
 
   it("writes the modern format by default and legacy on request", async () => {
-    const result = await AnkiPackage.fromAnkiExport(`${CORPUS}/corpus-v3-single-deck.apkg`);
+    const result = await AnkiPackage.fromAnkiExport(
+      await loadFixture(`${CORPUS}/corpus-v3-single-deck.apkg`),
+    );
     const anki = result.data;
     expect(anki).toBeDefined();
     if (!anki) {
       return;
     }
     try {
-      const outDir = await mkdtemp(join(tmpdir(), "modern-writer-default-"));
-      const outPath = join(outDir, "out.apkg");
       // Default: modern (matches what current Anki itself produces).
-      await anki.toAnkiExport(outPath);
-      const modernZip = await Open.file(outPath);
-      expect(modernZip.files.map((file) => file.path)).toContain("collection.anki21b");
-      const modernMeta = modernZip.files.find((file) => file.path === "meta");
-      const modernMetaBuffer = modernMeta
-        ? new Uint8Array(await modernMeta.buffer())
-        : new Uint8Array(0);
+      const modernBytes = await anki.toAnkiExport();
+      const modernEntries = readZipEntries(modernBytes);
+      expect([...modernEntries.keys()]).toContain("collection.anki21b");
+      const modernMetaBuffer = modernEntries.get("meta") ?? new Uint8Array(0);
       expect(decodePackageMeta(modernMetaBuffer)).toEqual({ version: 3 });
 
       // legacy: true mirrors Anki's "Support older Anki versions" checkbox.
-      const legacyPath = join(outDir, "out-legacy.apkg");
-      await anki.toAnkiExport(legacyPath, { legacy: true });
-      const legacyZip = await Open.file(legacyPath);
-      const legacyNames = legacyZip.files.map((file) => file.path);
+      const legacyBytes = await anki.toAnkiExport({ legacy: true });
+      const legacyEntries = readZipEntries(legacyBytes);
+      const legacyNames = [...legacyEntries.keys()];
       expect(legacyNames).toContain("collection.anki21");
       expect(legacyNames).not.toContain("collection.anki21b");
-      const legacyMeta = legacyZip.files.find((file) => file.path === "meta");
-      const legacyMetaBuffer = legacyMeta
-        ? new Uint8Array(await legacyMeta.buffer())
-        : new Uint8Array(0);
+      const legacyMetaBuffer = legacyEntries.get("meta") ?? new Uint8Array(0);
       expect(decodePackageMeta(legacyMetaBuffer)).toEqual({ version: 2 });
     } finally {
       await anki.cleanup();

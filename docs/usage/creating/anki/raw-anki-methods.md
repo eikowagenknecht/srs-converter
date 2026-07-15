@@ -406,18 +406,17 @@ You can add media files (images, audio, video, etc.) to your Anki packages:
 
 ```typescript
 import { readFile } from "node:fs/promises";
-import { createReadStream } from "node:fs";
 
-// Method 1: Add from file path
-await ankiPackage.addMediaFile("image.png", "./path/to/image.png");
+// Media content is passed as bytes (Uint8Array). In Node, read the source
+// file first; in the browser you might get the bytes from a File or fetch.
+const image = new Uint8Array(await readFile("./image.png"));
+await ankiPackage.addMediaFile("image.png", image);
 
-// Method 2: Add from Buffer
-const buffer = await readFile("./audio.mp3");
-await ankiPackage.addMediaFile("audio.mp3", buffer);
+const audio = new Uint8Array(await readFile("./audio.mp3"));
+await ankiPackage.addMediaFile("audio.mp3", audio);
 
-// Method 3: Add from ReadableStream
-const stream = createReadStream("./video.mp4");
-await ankiPackage.addMediaFile("video.mp4", stream);
+const video = new Uint8Array(await readFile("./video.mp4"));
+await ankiPackage.addMediaFile("video.mp4", video);
 ```
 
 > 📋 **Test:** This example is tested in [`anki/raw-anki-methods.test.ts`](raw-anki-methods.test.ts) - "should add media files to an Anki package"
@@ -430,12 +429,15 @@ Attempting to add a duplicate filename will throw an error.
 You can remove media files from your Anki packages:
 
 ```typescript
+import { readFile } from "node:fs/promises";
+
 // Remove a media file by filename
 await ankiPackage.removeMediaFile("image.png");
 
 // After removing a file, the name can be reused to add a new file
 await ankiPackage.removeMediaFile("old-image.png");
-await ankiPackage.addMediaFile("old-image.png", "./path/to/new-image.png");
+const newImage = new Uint8Array(await readFile("./new-image.png"));
+await ankiPackage.addMediaFile("old-image.png", newImage);
 ```
 
 > 📋 **Test:** This example is tested in [`anki/raw-anki-methods.test.ts`](raw-anki-methods.test.ts) - "should remove media files from an Anki package"

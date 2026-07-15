@@ -1,5 +1,3 @@
-import { join } from "node:path";
-
 import { describe, expect, it } from "vitest";
 
 import {
@@ -15,16 +13,13 @@ import { AnkiPackage } from "./anki-package";
 import {
   createAnkiDatabaseWithData,
   createBasicSrsPackage,
-  createTestZip,
+  createTestZipBytes,
   expectPartial,
   expectSuccess,
-  getTempDir,
-  setupTempDir,
+  loadFixture,
   validMetaV2,
 } from "./anki-package.fixtures";
 import type { Ease } from "./types";
-
-setupTempDir();
 
 describe("Conversion Anki → SRS", () => {
   describe("toSrsPackage()", () => {
@@ -278,7 +273,7 @@ describe("Conversion Anki → SRS", () => {
       // real "Test - Mixed Types" deck. removeUnused() prunes the empty deck;
       // the drop must now be surfaced as a warning without demoting the status.
       const src = expectSuccess(
-        await AnkiPackage.fromAnkiExport("./tests/fixtures/anki/mixed-legacy-2.apkg"),
+        await AnkiPackage.fromAnkiExport(await loadFixture("anki/mixed-legacy-2.apkg")),
       );
 
       try {
@@ -736,8 +731,6 @@ describe("Conversion Anki → SRS", () => {
 });
 
 describe("Digit-only note type name (WP1)", () => {
-  setupTempDir();
-
   function buildNumericNameModel(name: string) {
     const modelId = 1_650_000_001_000;
     return {
@@ -805,7 +798,7 @@ describe("Digit-only note type name (WP1)", () => {
     };
   }
 
-  async function buildApkgWithModelName(name: string): Promise<string> {
+  async function buildApkgWithModelName(name: string): Promise<Uint8Array> {
     const modelId = 1_650_000_001_000;
     const noteId = 1_650_000_010_000;
     const dbBuffer = await createAnkiDatabaseWithData({
@@ -813,18 +806,16 @@ describe("Digit-only note type name (WP1)", () => {
       models: buildNumericNameModel(name),
       notes: [{ flds: "frontback", guid: "someguid01", id: noteId, mid: modelId }],
     });
-    const apkgPath = join(getTempDir(), "numeric-name.apkg");
-    await createTestZip(apkgPath, [
+    return createTestZipBytes([
       { content: dbBuffer, name: "collection.anki21" },
       { content: validMetaV2, name: "meta" },
       { content: "{}", name: "media" },
     ]);
-    return apkgPath;
   }
 
   it("keeps a note type named '007' together with its notes and cards", async () => {
-    const apkgPath = await buildApkgWithModelName("007");
-    const result = await AnkiPackage.fromAnkiExport(apkgPath);
+    const apkgBytes = await buildApkgWithModelName("007");
+    const result = await AnkiPackage.fromAnkiExport(apkgBytes);
     const pkg = expectSuccess(result);
 
     try {

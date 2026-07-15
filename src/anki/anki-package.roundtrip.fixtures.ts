@@ -11,21 +11,14 @@
  * invisible U+001F field separator is produced from an escape rather than a
  * literal byte.
  */
-import { Buffer } from "node:buffer";
-import { createWriteStream } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
-import type { ArchiverError } from "archiver";
-import { ZipArchive } from "archiver";
+import { zipSync } from "fflate";
 import InitSqlJs from "sql.js";
-import { Open } from "unzipper";
 
 import { joinAnkiFields } from "./util";
+import { readZipEntries } from "./zip";
 
 // Protobuf meta for Legacy V2: field 1 (varint) = 2
-export const validMetaV2 = Buffer.from([0x08, 0x02]);
+export const validMetaV2 = Uint8Array.of(0x08, 0x02);
 
 export const SRC = {
   crt: 1_600_000_000,
@@ -348,43 +341,30 @@ CREATE TABLE revlog (id integer PRIMARY KEY, cid integer NOT NULL, usn integer N
   return out;
 }
 
-export function createZip(
-  zipPath: string,
-  files: { name: string; content: string | Buffer }[],
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const output = createWriteStream(zipPath);
-    const archive = new ZipArchive();
-    output.on("close", () => {
-      resolve();
-    });
-    archive.on("error", (err: ArchiverError) => {
-      reject(err);
-    });
-    archive.pipe(output);
-    for (const file of files) {
-      archive.append(file.content, { name: file.name });
-    }
-    void archive.finalize();
-  });
+export function createZipBytes(
+  files: { name: string; content: string | Uint8Array }[],
+): Uint8Array {
+  const entries: Record<string, Uint8Array> = {};
+  for (const file of files) {
+    entries[file.name] =
+      typeof file.content === "string" ? new TextEncoder().encode(file.content) : file.content;
+  }
+  return zipSync(entries);
 }
 
-export const MEDIA_PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
-export const MEDIA_MP3 = Buffer.from([0x49, 0x44, 0x33, 4, 5, 6]);
+export const MEDIA_PNG = Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3);
+export const MEDIA_MP3 = Uint8Array.of(0x49, 0x44, 0x33, 4, 5, 6);
 
-// Builds the adversarial source .apkg and returns its path.
-export async function buildSourceApkg(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "roundtrip-src-"));
-  const apkgPath = join(dir, "source.apkg");
+// Builds the adversarial source .apkg and returns its bytes.
+export async function buildSourceApkg(): Promise<Uint8Array> {
   const dbBuffer = await buildSourceDbBuffer();
-  await createZip(apkgPath, [
-    { name: "collection.anki21", content: Buffer.from(dbBuffer) },
+  return createZipBytes([
+    { name: "collection.anki21", content: dbBuffer },
     { name: "meta", content: validMetaV2 },
     { name: "media", content: JSON.stringify({ "0": "image üñï.png", "1": "sound.mp3" }) },
     { name: "0", content: MEDIA_PNG },
     { name: "1", content: MEDIA_MP3 },
   ]);
-  return apkgPath;
 }
 
 export interface RawDump {
@@ -411,35 +391,34 @@ export interface RawDump {
   zipEntries: string[];
   mediaManifest: Record<string, string>;
   /** Media file bytes keyed by their manifest filename. */
-  mediaByName: Record<string, Buffer>;
+  mediaByName: Record<string, Uint8Array>;
 }
 
-// Ground-truth reader: opens an .apkg with unzipper + sql.js directly.
-export async function readApkgRaw(apkgPath: string): Promise<RawDump> {
-  const zip = await Open.file(apkgPath);
-  const zipEntries = zip.files.map((f) => f.path).sort();
-  const dbEntry = zip.files.find((f) => f.path === "collection.anki21");
+// Ground-truth reader: opens an .apkg with fflate + sql.js directly.
+export async function readApkgRaw(apkgData: Uint8Array): Promise<RawDump> {
+  const zip = readZipEntries(apkgData);
+  const zipEntries = [...zip.keys()].sort();
+  const dbEntry = zip.get("collection.anki21");
   if (!dbEntry) {
     throw new Error("collection.anki21 missing");
   }
-  const mediaEntry = zip.files.find((f) => f.path === "media");
-  const mediaBuffer = mediaEntry ? await mediaEntry.buffer() : undefined;
-  const mediaManifest = mediaBuffer
-    ? (JSON.parse(mediaBuffer.toString() || "{}") as Record<string, string>)
+  const mediaEntry = zip.get("media");
+  const mediaManifest = mediaEntry
+    ? (JSON.parse(new TextDecoder().decode(mediaEntry) || "{}") as Record<string, string>)
     : {};
 
   // Read each numbered media entry back out and key it by its manifest filename
   // so tests can assert byte-for-byte content.
-  const mediaByName: Record<string, Buffer> = {};
+  const mediaByName: Record<string, Uint8Array> = {};
   for (const [mediaId, filename] of Object.entries(mediaManifest)) {
-    const entry = zip.files.find((f) => f.path === mediaId);
+    const entry = zip.get(mediaId);
     if (entry) {
-      mediaByName[filename] = await entry.buffer();
+      mediaByName[filename] = entry;
     }
   }
 
   const SQL = await InitSqlJs();
-  const db = new SQL.Database(await dbEntry.buffer());
+  const db = new SQL.Database(dbEntry);
 
   const rows = (sql: string): Record<string, unknown>[] => {
     const res = db.exec(sql);

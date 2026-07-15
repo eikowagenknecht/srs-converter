@@ -1,5 +1,5 @@
 ---
-status: "accepted"
+status: "accepted, amended by ADR-0019 (browser builds use WASM zstd)"
 date: 2026-07-11
 decision-makers: Eiko Wagenknecht
 consulted: Claude (format research, docs/formats/anki.md)

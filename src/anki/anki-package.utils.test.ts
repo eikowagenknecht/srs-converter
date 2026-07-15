@@ -3,10 +3,8 @@ import { describe, expect, it } from "vitest";
 import { SrsReviewScore, createCompleteDeckStructure, createNoteType } from "@/srs-package";
 
 import { AnkiPackage } from "./anki-package";
-import { expectSuccess, setupTempDir } from "./anki-package.fixtures";
+import { expectSuccess, loadFixture } from "./anki-package.fixtures";
 import { NoteTypeKind } from "./types";
-
-setupTempDir();
 
 describe("Utilities and Helper Functions", () => {
   describe("createCompleteDeckStructure()", () => {
@@ -112,7 +110,9 @@ describe("Utilities and Helper Functions", () => {
 
   describe("Mixed Note Type Support", () => {
     it("should detect multiple note types including cloze types", async () => {
-      const result = await AnkiPackage.fromAnkiExport("./tests/fixtures/anki/mixed-legacy-2.apkg");
+      const result = await AnkiPackage.fromAnkiExport(
+        await loadFixture("anki/mixed-legacy-2.apkg"),
+      );
       const ankiPackage = expectSuccess(result);
 
       try {
@@ -147,7 +147,9 @@ describe("Utilities and Helper Functions", () => {
     });
 
     it("should preserve cloze content in field values during SRS conversion", async () => {
-      const result = await AnkiPackage.fromAnkiExport("./tests/fixtures/anki/mixed-legacy-2.apkg");
+      const result = await AnkiPackage.fromAnkiExport(
+        await loadFixture("anki/mixed-legacy-2.apkg"),
+      );
       const ankiPackage = expectSuccess(result);
 
       try {
@@ -181,7 +183,7 @@ describe("Utilities and Helper Functions", () => {
     it("should round-trip cloze cards successfully", async () => {
       // Load original cloze package
       const loadResult = await AnkiPackage.fromAnkiExport(
-        "./tests/fixtures/anki/mixed-legacy-2.apkg",
+        await loadFixture("anki/mixed-legacy-2.apkg"),
       );
       const originalAnki = expectSuccess(loadResult);
 
@@ -221,7 +223,9 @@ describe("Utilities and Helper Functions", () => {
     });
 
     it("should generate correct number of cloze cards", async () => {
-      const result = await AnkiPackage.fromAnkiExport("./tests/fixtures/anki/mixed-legacy-2.apkg");
+      const result = await AnkiPackage.fromAnkiExport(
+        await loadFixture("anki/mixed-legacy-2.apkg"),
+      );
       const ankiPackage = expectSuccess(result);
 
       try {
@@ -324,7 +328,7 @@ describe("Utilities and Helper Functions", () => {
     it("should preserve all entity IDs in multi-cycle round-trip: Anki -> SRS -> Anki -> SRS -> Anki", async () => {
       // Load an Anki package
       const loadResult = await AnkiPackage.fromAnkiExport(
-        "./tests/fixtures/anki/mixed-legacy-2.apkg",
+        await loadFixture("anki/mixed-legacy-2.apkg"),
       );
       const originalAnki = expectSuccess(loadResult);
 

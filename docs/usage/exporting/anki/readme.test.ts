@@ -4,7 +4,7 @@
  */
 
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -87,7 +87,7 @@ describe("Anki Export Documentation Examples", () => {
     // Test the documentation example: Basic Anki Export
     // Assume ankiPackage is already loaded (see Reading Guide)
     const exportPath = join(tempDir, "my-custom-deck.apkg");
-    await ankiPackage.toAnkiExport(exportPath);
+    await writeFile(exportPath, await ankiPackage.toAnkiExport());
     // console.log(`✅ Created Anki package: ${exportPath}`);
 
     // Verify the export generated a file

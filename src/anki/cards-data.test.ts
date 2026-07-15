@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import { AnkiPackage } from "./anki-package";
+import { loadFixture } from "./anki-package.fixtures";
 import { isValidCustomData, parseCardData, serializeCardData } from "./cards-data";
 
 describe("cards.data FSRS state (Story 1.3.11)", () => {
   it("parses the FSRS state from the fixture corpus", async () => {
-    const result = await AnkiPackage.fromAnkiExport("tests/fixtures/anki/corpus/corpus-v3.apkg");
+    const result = await AnkiPackage.fromAnkiExport(
+      await loadFixture("anki/corpus/corpus-v3.apkg"),
+    );
     const anki = result.data;
     expect(anki).toBeDefined();
     if (!anki) {
@@ -55,7 +58,8 @@ describe("cards.data FSRS state (Story 1.3.11)", () => {
     expect(isValidCustomData("")).toBe(true);
     expect(isValidCustomData(JSON.stringify({ k: 1 }))).toBe(true);
     expect(isValidCustomData(JSON.stringify({ tooLongKey123: 1 }))).toBe(false);
-    expect(isValidCustomData(JSON.stringify({ k: "x".repeat(200) }))).toBe(false);
+    const longValue = "x".repeat(200);
+    expect(isValidCustomData(JSON.stringify({ k: longValue }))).toBe(false);
     expect(isValidCustomData("not json")).toBe(false);
     expect(isValidCustomData("[1]")).toBe(false);
   });

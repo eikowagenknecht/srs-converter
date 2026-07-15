@@ -111,5 +111,15 @@
       }
     ]
   },
+  "overrides": [
+    {
+      // SHA-1 requires modular 32-bit wrapping; Math.trunc does not wrap
+      // overflowing high bits, so the rule's suggestion would be incorrect.
+      "files": ["src/anki/sha1.ts"],
+      "rules": {
+        "unicorn/prefer-math-trunc": "off"
+      }
+    }
+  ],
   "ignorePatterns": []
 }

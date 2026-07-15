@@ -1,11 +1,6 @@
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
-  createSelectiveZip,
   extractTimestampFromUuid,
   fieldChecksum,
   generateUniqueIdFromUuid,
@@ -168,83 +163,6 @@ describe("generateUniqueIdFromUuid", () => {
     const id = generateUniqueIdFromUuid(uuid);
     expect(id).toBeLessThanOrEqual(2_147_483_647); // Max 32-bit signed int
     expect(id).toBeGreaterThanOrEqual(0);
-  });
-});
-
-describe("createSelectiveZip archiver warning handling", () => {
-  let tempDir: string;
-  let testFile: string;
-
-  beforeEach(async () => {
-    tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "zip-test-"));
-    testFile = path.join(tempDir, "test.txt");
-    await fs.promises.writeFile(testFile, "test content");
-  });
-
-  afterEach(async () => {
-    await fs.promises.rm(tempDir, { force: true, recursive: true });
-  });
-
-  it("should handle archiver ENOENT warning", async () => {
-    const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {
-      // Mock implementation to capture warning calls
-    });
-
-    const outputPath = path.join(tempDir, "test.zip");
-    const nonExistentFile = path.join(tempDir, "nonexistent.txt");
-
-    try {
-      await createSelectiveZip(outputPath, [{ compress: true, path: nonExistentFile }]);
-    } catch {
-      // Expected to fail, but we want to test the warning handling
-    }
-
-    consoleSpy.mockRestore();
-  });
-
-  it("should cleanup output stream on error", async () => {
-    // Create an invalid output path to trigger stream error
-    // Use a Windows-compatible invalid path
-    const invalidOutputPath =
-      process.platform === "win32"
-        ? String.raw`Z:\nonexistent\path\test.zip` // Invalid drive on Windows
-        : "/root/cannot-write-here/test.zip"; // Invalid path on Unix
-
-    // Verify error is thrown - this tests the error cleanup path
-    await expect(
-      createSelectiveZip(invalidOutputPath, [{ compress: true, path: testFile }]),
-    ).rejects.toBeDefined();
-  });
-
-  it("should cleanup output stream when archive finalize fails", async () => {
-    // Create a directory with the same name as our intended output file
-    // This will cause createWriteStream to fail immediately
-    const outputPath = path.join(tempDir, "conflict.zip");
-    await fs.promises.mkdir(outputPath); // Create directory with same name as output file
-
-    // WARNING: The archiver library creates internal promises during cleanup
-    // that become unhandled rejections after our code properly catches the main error.
-    // We need to catch these internal archiver cleanup rejections to prevent test failures.
-    // This is a timing issue where archiver's internal lstat() fails during cleanup after
-    // our error handling has already completed successfully.
-    // Implementation taken from https://github.com/vitest-dev/vitest/pull/6016
-    const fn = vi.fn();
-
-    const promise = new Promise<void>((resolve) => {
-      process.on("unhandledRejection", () => {
-        fn();
-        resolve();
-      });
-    });
-
-    // Expect the function to reject due to file/directory conflict
-    await expect(
-      createSelectiveZip(outputPath, [{ compress: true, path: testFile }]),
-    ).rejects.toThrow();
-
-    // This tests the cleanup in the catch block
-    await promise;
-    expect(fn).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -3,7 +3,6 @@
  * Covers all code samples from raw-anki-methods.md
  */
 
-import { createReadStream } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -625,16 +624,16 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
     const ankiPackage = result.data;
 
     // Test the documentation example: Adding Media Files
-    // Method 1: Add from file path
-    await ankiPackage.addMediaFile("image.png", "tests/fixtures/media/image.png");
+    // Media content is passed as bytes (Uint8Array). In Node, read the source
+    // file first; in the browser you might get the bytes from a File or fetch.
+    const image = new Uint8Array(await readFile("tests/fixtures/media/image.png"));
+    await ankiPackage.addMediaFile("image.png", image);
 
-    // Method 2: Add from Buffer
-    const buffer = await readFile("tests/fixtures/media/audio.mp3");
-    await ankiPackage.addMediaFile("audio.mp3", buffer);
+    const audio = new Uint8Array(await readFile("tests/fixtures/media/audio.mp3"));
+    await ankiPackage.addMediaFile("audio.mp3", audio);
 
-    // Method 3: Add from ReadableStream
-    const stream = createReadStream("tests/fixtures/media/video.mp4");
-    await ankiPackage.addMediaFile("video.mp4", stream);
+    const video = new Uint8Array(await readFile("tests/fixtures/media/video.mp4"));
+    await ankiPackage.addMediaFile("video.mp4", video);
 
     // Verify media files are added
     const mediaFiles = ankiPackage.listMediaFiles();
@@ -655,8 +654,9 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
 
     // Test the documentation example: Removing Media Files
     // First, add a media file
-    await ankiPackage.addMediaFile("image.png", "tests/fixtures/media/image.png");
-    await ankiPackage.addMediaFile("old-image.png", "tests/fixtures/media/image.png");
+    const imageBytes = new Uint8Array(await readFile("tests/fixtures/media/image.png"));
+    await ankiPackage.addMediaFile("image.png", imageBytes);
+    await ankiPackage.addMediaFile("old-image.png", imageBytes);
 
     // Verify files are added
     let mediaFiles = ankiPackage.listMediaFiles();
@@ -675,7 +675,7 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
 
     // You can also remove and then re-add a file with the same name
     await ankiPackage.removeMediaFile("old-image.png");
-    await ankiPackage.addMediaFile("old-image.png", "tests/fixtures/media/image.png");
+    await ankiPackage.addMediaFile("old-image.png", imageBytes);
 
     // Verify the file is back
     mediaFiles = ankiPackage.listMediaFiles();
@@ -696,9 +696,11 @@ describe("Raw Anki Methods Creation Documentation Examples", () => {
     ankiPackage.addNoteType(basicModel);
 
     // Add some media files
-    await ankiPackage.addMediaFile("referenced-image.png", "tests/fixtures/media/image.png");
-    await ankiPackage.addMediaFile("unreferenced.png", "tests/fixtures/media/image.png");
-    await ankiPackage.addMediaFile("referenced-sound.mp3", "tests/fixtures/media/audio.mp3");
+    const imageBytes = new Uint8Array(await readFile("tests/fixtures/media/image.png"));
+    const audioBytes = new Uint8Array(await readFile("tests/fixtures/media/audio.mp3"));
+    await ankiPackage.addMediaFile("referenced-image.png", imageBytes);
+    await ankiPackage.addMediaFile("unreferenced.png", imageBytes);
+    await ankiPackage.addMediaFile("referenced-sound.mp3", audioBytes);
 
     // Add a note that references some media
     const note: NotesTable = {

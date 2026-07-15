@@ -3,14 +3,14 @@ import { describe, expect, it } from "vitest";
 import type { SrsPackage } from "@/srs-package";
 
 import { AnkiPackage } from "./anki-package";
-import { expectSuccess } from "./anki-package.fixtures";
+import { expectSuccess, loadFixture } from "./anki-package.fixtures";
 import { ANKI_SCHEMA_KEY, ANKI_SCHEMA_MODERN } from "./native-blobs";
 import { parseJsonWithBigInts } from "./util";
 
-const CORPUS = "tests/fixtures/anki/corpus";
+const CORPUS = "anki/corpus";
 
 async function readToSrs(path: string): Promise<{ anki: AnkiPackage; srs: SrsPackage }> {
-  const ankiResult = await AnkiPackage.fromAnkiExport(path);
+  const ankiResult = await AnkiPackage.fromAnkiExport(await loadFixture(path));
   expect(
     ankiResult.issues.filter((issue) => issue.severity === "critical"),
     `critical issues reading ${path}`,

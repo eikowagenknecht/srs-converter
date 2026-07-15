@@ -15,6 +15,8 @@ The workflow is usually as follows:
 ### Basic Conversion
 
 ```typescript
+import { writeFile } from "node:fs/promises";
+
 import { AnkiPackage } from "srs-converter";
 
 // Assume srsPackage is already created (see Writing Guide)
@@ -23,7 +25,7 @@ const ankiResult = await AnkiPackage.fromSrsPackage(srsPackage);
 switch (ankiResult.status) {
   case "success":
     console.log("✅ Conversion successful!");
-    await ankiResult.data.toAnkiExport("./output.apkg");
+    await writeFile("./output.apkg", await ankiResult.data.toAnkiExport());
     break;
 
   case "partial":
@@ -32,7 +34,7 @@ switch (ankiResult.status) {
       console.warn(`${issue.severity}: ${issue.message}`);
     });
     // Still usable, but might miss some data
-    await ankiResult.data.toAnkiExport("./output-partial.apkg");
+    await writeFile("./output-partial.apkg", await ankiResult.data.toAnkiExport());
     break;
 
   case "failure":
@@ -49,6 +51,8 @@ switch (ankiResult.status) {
 ### Strict Mode
 
 ```typescript
+import { writeFile } from "node:fs/promises";
+
 import { AnkiPackage } from "srs-converter";
 
 // When using strict mode, the conversion will fail on any issues.
@@ -60,7 +64,7 @@ const ankiResult = await AnkiPackage.fromSrsPackage(srsPackage, {
 switch (ankiResult.status) {
   case "success":
     console.log("✅ Conversion successful!");
-    await ankiResult.data.toAnkiExport("./output.apkg");
+    await writeFile("./output.apkg", await ankiResult.data.toAnkiExport());
     break;
 
   case "failure":
