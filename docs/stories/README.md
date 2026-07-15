@@ -113,8 +113,8 @@ Implement cross-format conversion capabilities.
 Make the library usable in browsers, Tauri, and Capacitor while keeping full Node support (ADR-0018, ADR-0019).
 
 - **Phase 7.0**: Browser-Portable Core
-  - Progress: 0/4 completed, 4/4 implemented (🧪 awaiting maintainer verification)
-  - Status: Implemented 2026-07-15 on the `worktree-browser-portability` branch. Bytes-only API (breaking, stays 0.x), pluggable media storage, per-platform zstd, two published bundles, real-browser CI smoke test.
+  - Progress: 4/4 stories completed (100%) ✅
+  - Status: Complete! Merged to main 2026-07-15. Bytes-only API (breaking, stays 0.x), pluggable media storage, per-platform zstd, two published bundles, real-browser CI smoke test.
 
 **[→ View Phase 7 Stories](phase-7.md)**
 
@@ -153,4 +153,4 @@ Make the library usable in browsers, Tauri, and Capacitor while keeping full Nod
 - [Phase 4: SuperMemo Format I/O](phase-4.md) ⏳
 - [Phase 5: Universal Format Design](phase-5.md) 🔄
 - [Phase 6: Conversion Layer Implementation](phase-6.md) ⏳
-- [Phase 7: Browser Portability](phase-7.md) 🧪
+- [Phase 7: Browser Portability](phase-7.md) ✅

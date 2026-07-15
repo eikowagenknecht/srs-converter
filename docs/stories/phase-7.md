@@ -8,7 +8,7 @@ Make the library usable in browsers and browser-based app shells (Tauri, Capacit
 
 ### Story 7.0.1: Bytes-Only Core on Portable Primitives
 
-**Status:** 🧪 Testing
+**Status:** ✅ Completed
 
 **Story:** As a developer, I want the public API to work on bytes (`Uint8Array`) instead of file paths and Node streams so the same code runs in any JavaScript environment.
 
@@ -29,13 +29,13 @@ Make the library usable in browsers and browser-based app shells (Tauri, Capacit
 **Testing:**
 
 - ✅ Automated: full suite migrated and green; SHA-1 RFC vectors + WebCrypto parity; base64 round-trips
-- ⏳ Manual: maintainer verification pending
+- ✅ Manual: maintainer verified (merged 2026-07-15)
 
 ---
 
 ### Story 7.0.2: Media Storage Interface and Platform Modules
 
-**Status:** 🧪 Testing
+**Status:** ✅ Completed
 
 **Story:** As a developer, I want per-platform defaults (disk staging and native zstd on Node, in-memory staging and WASM zstd in browsers) behind one portable API so no environment pays for another's constraints.
 
@@ -56,13 +56,13 @@ Make the library usable in browsers and browser-based app shells (Tauri, Capacit
 **Testing:**
 
 - ✅ Automated: storage contract tests over both implementations; zstd tested over both implementations including cross-implementation frames; browser bundle probed under Node in the dist smoke test
-- ⏳ Manual: maintainer verification pending
+- ✅ Manual: maintainer verified (merged 2026-07-15)
 
 ---
 
 ### Story 7.0.3: Browser Test Harness and CI
 
-**Status:** 🧪 Testing
+**Status:** ✅ Completed
 
 **Story:** As a maintainer, I want browser compatibility verified continuously so it cannot silently regress.
 
@@ -79,13 +79,13 @@ Make the library usable in browsers and browser-based app shells (Tauri, Capacit
 **Testing:**
 
 - ✅ Automated: Chromium round-trip green locally; CI wiring in place
-- ⏳ Manual: maintainer verification pending (CI run on the merged branch)
+- ✅ Manual: maintainer verified (merged 2026-07-15; CI green on main)
 
 ---
 
 ### Story 7.0.4: Documentation and Release Preparation
 
-**Status:** 🧪 Testing
+**Status:** ✅ Completed
 
 **Story:** As a user, I want accurate documentation for the bytes API and browser usage so I can adopt the library in any environment.
 
@@ -103,4 +103,4 @@ Make the library usable in browsers and browser-based app shells (Tauri, Capacit
 **Testing:**
 
 - ✅ Automated: doc example tests pass; quality gates green
-- ⏳ Manual: maintainer verification pending
+- ✅ Manual: maintainer verified (merged 2026-07-15)
