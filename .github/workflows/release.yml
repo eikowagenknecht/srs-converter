@@ -31,7 +31,9 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          # Node 24 ships npm >= 11.5.1, required for npm trusted publishing
+          # (OIDC); Node 22's npm 10 fails `npm publish` with ENEEDAUTH.
+          node-version: "24"
           cache: "pnpm"
 
       - name: Install dependencies

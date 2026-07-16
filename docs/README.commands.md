@@ -30,3 +30,10 @@
 - `pnpm clean:npm` - Clean node_modules
 - `pnpm upgrade:npm` - Upgrade local npm dependencies and package-lock.json file
 - `pnpm outdated` - Show outdated npm dependencies
+
+## Releasing
+
+- Releases are cut manually via the `release` GitHub Actions workflow (`gh workflow run release.yml`, optionally with `-f dry-run=true`)
+- Versioning is automated with semantic-release from conventional commits
+- **0.x policy**: `.releaserc.json` maps breaking changes to a minor bump so the library stays pre-1.0 while APIs are still settling. Remove the `releaseRules` override when the project is ready to commit to 1.0 semver.
+- npm publishing uses trusted publishing (OIDC) bound to `release.yml`; the workflow needs Node 24+ for npm's OIDC support
