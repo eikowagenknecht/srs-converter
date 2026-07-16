@@ -1,3 +1,42 @@
+# [0.4.0](https://github.com/eikowagenknecht/srs-converter/compare/v0.3.0...v0.4.0) (2026-07-16)
+
+
+* feat(anki)!: read and write Anki's modern package format (schema 18), modern by default ([4f4ac10](https://github.com/eikowagenknecht/srs-converter/commit/4f4ac10f7e78ca80f6196ce0e592d0ebbbcfd9c7))
+
+
+### Bug Fixes
+
+* **anki:** match Anki cloze semantics when generating cards (WP3) ([f23b3f4](https://github.com/eikowagenknecht/srs-converter/commit/f23b3f46bd9fe5c9831283529ffd54bdbe8171c5))
+* **anki:** preserve 64-bit ids and digit-only strings in models JSON (WP1) ([7b7d236](https://github.com/eikowagenknecht/srs-converter/commit/7b7d236e4265432d6c62ecb47b2edec1eb179e6f))
+* **anki:** restore full Anki fidelity in SRS round-trips via blob capture (WP2) ([447d8eb](https://github.com/eikowagenknecht/srs-converter/commit/447d8ebdfe17a7769d10c1cc62d6112a899700f6))
+* **lint:** disable import/no-nodejs-modules rule ([b26b1fd](https://github.com/eikowagenknecht/srs-converter/commit/b26b1fdf961f441a4e1d6060db24a5eefb1c1d06))
+* **srs:** correct field ordering, reverse template, review id collisions (WP5) ([33d3493](https://github.com/eikowagenknecht/srs-converter/commit/33d34938e263250d6bb42dd9b0a1fa03f4e83ace))
+* **srs:** warn when removeUnused prunes decks, note types, or notes (WP6) ([7255428](https://github.com/eikowagenknecht/srs-converter/commit/7255428150db1c35df802f45d4717a11fe89b590))
+
+
+### Features
+
+* **anki:** add removeMediaFile() API for media file removal ([6953962](https://github.com/eikowagenknecht/srs-converter/commit/695396285335ca5d363302cae2380db40512e485))
+* **anki:** add removeUnreferencedMediaFiles() API for media cleanup ([7e924cf](https://github.com/eikowagenknecht/srs-converter/commit/7e924cf4fda7514002accd512a560e1efdc24d0d))
+* **anki:** add specific error messages for corrupted ZIP archives ([af01635](https://github.com/eikowagenknecht/srs-converter/commit/af01635e7ae3e13d812147d03bc6e02f54e04600))
+* **anki:** detect corrupted SQLite databases with specific error messages ([814c224](https://github.com/eikowagenknecht/srs-converter/commit/814c22447d0a4285ad07006e256b74077d47d236))
+* **anki:** detect missing required files in Anki packages ([46c8e65](https://github.com/eikowagenknecht/srs-converter/commit/46c8e6526063eae56eefef1b78a001f14a7fbc21))
+* **anki:** preserve plugin data in SRS round-trip conversions ([e2949db](https://github.com/eikowagenknecht/srs-converter/commit/e2949db95efbfd493a0271eb3a7026b843c0e296))
+* **anki:** validate JSON in media mapping file with specific error messages ([df0b0a6](https://github.com/eikowagenknecht/srs-converter/commit/df0b0a63ba35d83f8791e124f3c4ae38d20ac618))
+* run in browsers, Tauri, and Capacitor via a bytes-based API ([ddaea20](https://github.com/eikowagenknecht/srs-converter/commit/ddaea20397c661cd8f61ad884adb3e1a1c76a16e))
+* **srs:** add first-class media support and carry it through conversions (WP4) ([dbcd282](https://github.com/eikowagenknecht/srs-converter/commit/dbcd282603ffd18f04b40739e226593ca7af72d5))
+
+
+### BREAKING CHANGES
+
+* toAnkiExport writes the modern package format by default;
+pass { legacy: true } for Legacy 2 output. Node >= 22.15 is now required.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+* **srs:** toSrsPackage() is now async and returns a Promise.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
 # [0.3.0](https://github.com/eikowagenknecht/srs-converter/compare/v0.2.4...v0.3.0) (2025-10-19)
 
 ### Features
