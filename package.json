@@ -64,7 +64,7 @@
   "dependencies": {
     "@hpcc-js/wasm-zstd": "1.13.5",
     "fflate": "0.8.3",
-    "kysely": "0.29.3",
+    "kysely": "0.29.4",
     "kysely-wasm": "2.0.0",
     "sql.js": "1.14.1",
     "uuid": "14.0.1"
@@ -81,13 +81,13 @@
     "@vitest/coverage-v8": "4.1.10",
     "globals": "17.7.0",
     "jscpd": "5.0.12",
-    "knip": "6.26.0",
+    "knip": "6.27.0",
     "lefthook": "2.1.10",
     "oxfmt": "0.59.0",
     "oxlint": "1.74.0",
     "playwright": "1.61.1",
-    "semantic-release": "25.0.7",
-    "tsdown": "0.22.8",
+    "semantic-release": "25.0.8",
+    "tsdown": "0.22.12",
     "typescript": "6.0.3",
     "vitest": "4.1.10"
   },
