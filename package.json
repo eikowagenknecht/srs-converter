@@ -62,12 +62,12 @@
     "jscpd": "jscpd ./src"
   },
   "dependencies": {
-    "@hpcc-js/wasm-zstd": "1.16.1",
+    "@hpcc-js/wasm-zstd": "1.16.2",
     "fflate": "0.8.3",
     "kysely": "0.29.6",
     "kysely-wasm": "2.0.1",
-    "sql.js": "1.14.2",
-    "uuid": "14.0.2"
+    "sql.js": "1.15.0",
+    "uuid": "14.0.3"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.3",
@@ -79,15 +79,15 @@
     "@types/sql.js": "1.4.11",
     "@vitest/browser-playwright": "4.1.10",
     "@vitest/coverage-v8": "4.1.10",
-    "globals": "17.12.0",
-    "jscpd": "5.3.2",
-    "knip": "6.38.0",
-    "lefthook": "2.1.14",
-    "oxfmt": "0.70.0",
-    "oxlint": "1.85.0",
-    "playwright": "1.63.0",
+    "globals": "17.13.0",
+    "jscpd": "5.4.1",
+    "knip": "6.41.0",
+    "lefthook": "2.2.2",
+    "oxfmt": "0.73.0",
+    "oxlint": "1.88.0",
+    "playwright": "1.64.1",
     "semantic-release": "25.0.9",
-    "tsdown": "0.23.0",
+    "tsdown": "0.23.1",
     "typescript": "6.0.3",
     "vitest": "4.1.10"
   },
